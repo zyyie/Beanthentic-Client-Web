@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Report | Beanthentic</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <header class="top-header top-header--history">
+      <div class="container nav-wrapper nav-wrapper--history">
+        <a class="nav-back" href="{{ url_for('home') }}" aria-label="Back to homepage">
+          <svg
+            class="nav-back-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </a>
+        <div class="nav-title">Report</div>
+      </div>
+    </header>
+
+    <main class="profiles-page">
+      <section class="container report-page-shell">
+        <section class="report-sheet" aria-label="Report Beauthentic Transaction">
+          <header class="report-sheet-header">
+            <h2>Report Beauthentic Transaction</h2>
+          </header>
+
+          <div class="report-reasons" role="list">
+            <button class="report-reason" type="button" role="listitem" data-reason="Overcharged or unfair pricing">
+              <div class="report-reason-text">
+                <div class="report-reason-title">Overcharged or unfair pricing</div>
+                <div class="report-reason-sub">I was charged more than the quoted or fair price.</div>
+              </div>
+              <span class="report-reason-chevron" aria-hidden="true">›</span>
+            </button>
+            <button class="report-reason" type="button" role="listitem" data-reason="Poor quality coffee beans">
+              <div class="report-reason-text">
+                <div class="report-reason-title">Poor quality coffee beans</div>
+                <div class="report-reason-sub">The beans are stale, spoiled, or not as described.</div>
+              </div>
+              <span class="report-reason-chevron" aria-hidden="true">›</span>
+            </button>
+            <button class="report-reason" type="button" role="listitem" data-reason="Incomplete or incorrect amount">
+              <div class="report-reason-text">
+                <div class="report-reason-title">Incomplete or incorrect amount</div>
+                <div class="report-reason-sub">I received less or a different type/weight of beans.</div>
+              </div>
+              <span class="report-reason-chevron" aria-hidden="true">›</span>
+            </button>
+            <button class="report-reason" type="button" role="listitem" data-reason="Fake or not authentic product">
+              <div class="report-reason-text">
+                <div class="report-reason-title">Fake or not authentic product</div>
+                <div class="report-reason-sub">I believe the beans sold are fake or not from the claimed origin.</div>
+              </div>
+              <span class="report-reason-chevron" aria-hidden="true">›</span>
+            </button>
+            <button class="report-reason" type="button" role="listitem" data-reason="Rude or unprofessional behavior">
+              <div class="report-reason-text">
+                <div class="report-reason-title">Rude or unprofessional behavior</div>
+                <div class="report-reason-sub">The staff or seller was rude, disrespectful, or unhelpful.</div>
+              </div>
+              <span class="report-reason-chevron" aria-hidden="true">›</span>
+            </button>
+            <button class="report-reason" type="button" role="listitem" data-reason="Refused refund or exchange">
+              <div class="report-reason-text">
+                <div class="report-reason-title">Refused refund or exchange</div>
+                <div class="report-reason-sub">The seller refused to refund or replace a defective product.</div>
+              </div>
+              <span class="report-reason-chevron" aria-hidden="true">›</span>
+            </button>
+            <button class="report-reason" type="button" role="listitem" data-reason="Something else" data-something-else="true">
+              <div class="report-reason-text">
+                <div class="report-reason-title">Something else</div>
+                <div class="report-reason-sub">My concern isn’t listed above.</div>
+              </div>
+              <span class="report-reason-chevron" aria-hidden="true">›</span>
+            </button>
+          </div>
+
+          <section class="report-details" id="report-details" hidden aria-label="Report details">
+            <div class="report-details-header">
+              <div class="report-details-title" id="report-details-title">Report details</div>
+              <button class="report-details-reset" type="button" id="report-details-reset">Change reason</button>
+            </div>
+
+            <section class="report-chat report-chat--embed" aria-label="Report messages">
+              <div class="report-chat-body" id="report-chat-body" aria-live="polite"></div>
+              <div class="report-quick-options report-quick-options--in-chat" id="report-quick-options" aria-label="Quick options"></div>
+              <form class="report-chat-form" id="report-chat-form">
+                <input
+                  class="report-chat-input"
+                  id="report-chat-input"
+                  type="text"
+                  placeholder="Type details…"
+                  autocomplete="off"
+                />
+                <button class="report-chat-send" type="submit">Send</button>
+              </form>
+            </section>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/report_page_chat.js') }}"></script>
+  </body>
+</html>
+

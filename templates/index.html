@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Province of Guimaras Style</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <header class="top-header">
+      <div class="container nav-wrapper">
+        <div class="brand">
+          <img
+            class="brand-logo-image"
+            src="{{ url_for('static', filename='images/beanthentic-logo.png') }}"
+            alt="Beanthentic logo"
+          />
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="overlay"></div>
+        <div class="container hero-content">
+          <h2>Beanthentic</h2>
+          <p class="tagline">Authenticity in Every Bean</p>
+        </div>
+      </section>
+
+      <section class="quick-cards container">
+        <a class="card news-card" href="{{ url_for('news_updates') }}" aria-label="Open News and Updates">
+          <img
+            class="card-icon"
+            src="{{ url_for('static', filename='images/icon-farmer-line.svg') }}"
+            alt="News icon"
+          />
+          <h3>NEWS &amp; UPDATES</h3>
+        </a>
+        <a class="card report-card" href="{{ url_for('report') }}" aria-label="Open Report chat">
+          <img
+            class="card-icon"
+            src="{{ url_for('static', filename='images/icon-report-navbar.svg') }}"
+            alt="Report icon"
+          />
+          <h3>REPORT</h3>
+        </a>
+        <a class="card history-card-tile" href="{{ url_for('history') }}">
+          <img
+            class="card-icon"
+            src="{{ url_for('static', filename='images/icon-history-line.svg') }}"
+            alt="History icon"
+          />
+          <h3>HISTORY</h3>
+        </a>
+      </section>
+
+      <section class="container home-history">
+        <div class="home-history-card">
+          <h2 class="home-history-title">HISTORY</h2>
+
+          <div class="home-history-flow">
+            <div class="home-history-media" aria-label="History images">
+              <img
+                class="home-history-image"
+                src="{{ url_for('static', filename='history/coffee_history_cherries.png') }}"
+                alt="Coffee cherries"
+              />
+              <img
+                class="home-history-image"
+                src="{{ url_for('static', filename='history/coffee_arabica_vs_robusta.png') }}"
+                alt="Arabica vs. Robusta comparison"
+              />
+            </div>
+
+            <p>During the early 20th century, particularly during the 1950s and 1960s, the coffee industry bounced back, and the Philippine government, in collaboration with various international aid initiatives, actively promoted the replanting of coffee. They introduced Robusta to facilitate diversification within the nation's coffee production.</p>
+            <p>For a faster recovery in the coffee industry, aficionados expanded coffee cultivation to diverse regions throughout the Philippines. These regions included Benguet in the northern Cordillera (region), parts of Mindanao and the island of Mindoro. These areas offered favourable climatic and altitudinal conditions for cultivating Arabica and Robusta; thus, the industry gradually regained its footing. However, challenges remained because the market dynamics were constantly shifting. Although the efforts were significant, the farmers knew they had not attained the full potential of the coffee industry.</p>
+            <p>The coffee industry thrives globally, illustrated by the <em>Coffea arabica</em>, often regarded as the first variety cultivated in Lipa, and <em>Coffea canephora</em>, known as Robusta.</p>
+            <p>However, another coffee variety debuted in 1843 within the tropical forests of West and Central Africa, specifically Liberia, designated as <em>Coffea liberica</em>. This particular variety flourished naturally in Sierra Leone, Cote d'Ivoire, and Ghana (Spring, 2024).</p>
+            <p>Although Arabica and Robusta had gained widespread acclaim worldwide, Liberica was not readily accepted by coffee enthusiasts, except those seeking unique and diverse flavour profiles. This scenario unfolded against an increasing global demand for coffee, which the current supply could not sufficiently satisfy. The dependence on Robusta alone proved inadequate due to the declining Arabica stocks further strained by coffee rust. At this pivotal moment, <em>Coffea liberica</em> was introduced into the international coffee market, acting as a solution to the challenges faced by other coffee varieties.</p>
+            <p>European colonial powers (including the Dutch and the British) embarked on the cultivation of Liberica coffee in their colonies, particularly in Southeast Asia, like the Philippines, Indonesia, and Malaysia, and also in the Caribbean. However, because Liberica shows greater resilience to diseases and pests, it became a viable crop in areas where Arabica faced challenges. Because it thrives in lowland tropical climates marked by high humidity, this distinct adaptability makes it a valuable alternative to other coffee species.</p>
+            <p class="home-history-bottom-text"><em>Coffea liberica</em> was introduced to the Philippines by American colonizers between 1890 and 1894, just before the onset of the Filipino-American Revolution. This specific variety of coffee found an optimal environment in Batangas; however, Manuel Genato (Agoncillo) was the first to bring the <em>Coffea liberica</em> variety to Batangas from Manila in 1891. He cultivated three hectares of land in sitio Abra in Banay-banay, San Jose, and Lipa. Furthermore, he distributed coffee seeds to the towns of Rosario in Batangas, San Pablo in Laguna, and Tiaong and Sariaya in Quezon (Morada, 1925).</p>
+          </div>
+          <img
+            class="home-history-wide-image"
+            src="{{ url_for('static', filename='history/arabica_liberica_robusta.png') }}"
+            alt="Arabica vs Liberica vs Robusta comparison"
+          />
+        </div>
+      </section>
+
+      <section class="governor-section governor-section--center container">
+        <aside class="governor-panel">
+          <div class="avatar-wrap">
+            <img
+              src="{{ url_for('static', filename='images/sections-reference.png') }}"
+              alt="Governor profile"
+            />
+          </div>
+          <p class="label">OUR GOVERNOR</p>
+          <h3>HON. MA. LUCILLE L. NAVA, MD</h3>
+
+          <div class="home-farmer-circles" aria-label="Farmer profile circles">
+            <div class="farmer-circles-grid">
+              {% for i in range(1, 46) %}
+              <div class="home-circle">
+                <img
+                  src="{{ url_for('static', filename='images/farmer-profile-photo.png') }}"
+                  alt="Farmer profile circle {{ i }}"
+                />
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <section class="connect-with-us" aria-label="Beanthentic Facebook feed">
+            <h3>CONNECT WITH US</h3>
+            <div class="fb-embed-wrap">
+              <iframe
+                class="fb-embed-frame"
+                title="Beanthentic Coffee Facebook page"
+                loading="lazy"
+                src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2Fprofile.php%3Fid%3D61588902651094&tabs=timeline&width=460&height=620&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true"
+                referrerpolicy="strict-origin-when-cross-origin"
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+              ></iframe>
+            </div>
+          </section>
+        </aside>
+
+        <!-- feature grid removed temporarily -->
+      </section>
+
+    </main>
+  </body>
+</html>

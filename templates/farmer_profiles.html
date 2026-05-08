@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Farmer Profiles | Beanthentic</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <header class="top-header">
+      <div class="container nav-wrapper">
+        <div class="brand">
+          <img
+            class="brand-logo-image"
+            src="{{ url_for('static', filename='images/beanthentic-logo.png') }}"
+            alt="Beanthentic logo"
+          />
+        </div>
+        <a class="report-link" href="#">
+          <img
+            class="report-icon"
+            src="{{ url_for('static', filename='images/icon-report-navbar.svg') }}"
+            alt="Report icon"
+          />
+          <span>Report</span>
+        </a>
+      </div>
+    </header>
+
+    <main class="profiles-page">
+      <section class="container">
+        <div class="quick-icon-buttons">
+          <a class="mini-icon-item active" href="{{ url_for('farmer_profiles') }}">
+            <img
+              class="mini-icon"
+              src="{{ url_for('static', filename='images/icon-farmer-line.svg') }}"
+              alt="Farmer Profiles icon"
+            />
+            <span>Farmer Profiles</span>
+          </a>
+          <a class="mini-icon-item" href="{{ url_for('home') }}">
+            <img
+              class="mini-icon"
+              src="{{ url_for('static', filename='images/icon-history-line.svg') }}"
+              alt="Back to home icon"
+            />
+            <span>Back Home</span>
+          </a>
+        </div>
+
+        <div class="info-panels">
+          <div class="info-panel active">
+            <div class="farmers-grid">
+              <article class="farmer-card">
+                <div class="farmer-image-ring">
+                  <img src="{{ url_for('static', filename='images/farmer-profile-photo.png') }}" alt="Farmer profile Ana Morales" />
+                </div>
+                <h4>Ana Morales</h4>
+                <p>San Lorenzo, Guimaras</p>
+              </article>
+              <article class="farmer-card">
+                <div class="farmer-image-ring">
+                  <img src="{{ url_for('static', filename='images/farmer-profile-photo.png') }}" alt="Farmer profile Lito Reyes" />
+                </div>
+                <h4>Lito Reyes</h4>
+                <p>Sibunag, Guimaras</p>
+              </article>
+              <article class="farmer-card">
+                <div class="farmer-image-ring">
+                  <img src="{{ url_for('static', filename='images/farmer-profile-photo.png') }}" alt="Farmer profile Rosa Dela Cruz" />
+                </div>
+                <h4>Rosa Dela Cruz</h4>
+                <p>Nueva Valencia, Guimaras</p>
+              </article>
+              <article class="farmer-card">
+                <div class="farmer-image-ring">
+                  <img src="{{ url_for('static', filename='images/farmer-profile-photo.png') }}" alt="Farmer profile Noel Garcia" />
+                </div>
+                <h4>Noel Garcia</h4>
+                <p>Buenavista, Guimaras</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

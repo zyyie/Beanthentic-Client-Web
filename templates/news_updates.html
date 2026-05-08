@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>News & Updates | Beanthentic</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <header class="top-header top-header--history">
+      <div class="container nav-wrapper nav-wrapper--history">
+        <a class="nav-back" href="{{ url_for('home') }}" aria-label="Back to homepage">
+          <svg
+            class="nav-back-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </a>
+        <div class="nav-title">News &amp; Updates</div>
+      </div>
+    </header>
+
+    <main class="profiles-page">
+      <section class="container">
+        <article class="history-topic" style="text-align: center;">
+          <h2>NEWS &amp; UPDATES</h2>
+          <p style="font-size: 20px; font-weight: 700; margin-top: 12px;">Current no updates</p>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+
