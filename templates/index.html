@@ -31,14 +31,14 @@
         </div>
       </section>
 
-      <section class="quick-cards container">
-        <a class="card news-card" href="{{ url_for('news_updates') }}" aria-label="Open News and Updates">
+      <section class="quick-cards-grid container">
+        <a class="card news-card" href="{{ url_for('news_updates') }}" aria-label="Open Socials">
           <img
             class="card-icon"
             src="{{ url_for('static', filename='images/icon-farmer-line.svg') }}"
-            alt="News icon"
+            alt="Socials icon"
           />
-          <h3>NEWS &amp; UPDATES</h3>
+          <h3>SOCIALS</h3>
         </a>
         <a class="card report-card" href="{{ url_for('report') }}" aria-label="Open Report chat">
           <img
@@ -48,6 +48,12 @@
           />
           <h3>REPORT</h3>
         </a>
+        <a class="card profiles-card" href="{{ url_for('farmer_profiles') }}" aria-label="Open Farmer Registered Profiles">
+          <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <h3>FARMER REGISTERED PROFILES</h3>
+        </a>
         <a class="card history-card-tile" href="{{ url_for('history') }}">
           <img
             class="card-icon"
@@ -55,6 +61,12 @@
             alt="History icon"
           />
           <h3>HISTORY</h3>
+        </a>
+        <a class="card transaction-card" href="{{ url_for('transaction') }}">
+          <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h0M2 9.5h20"/>
+          </svg>
+          <h3>TRANSACTION</h3>
         </a>
       </section>
 
@@ -90,48 +102,6 @@
             alt="Arabica vs Liberica vs Robusta comparison"
           />
         </div>
-      </section>
-
-      <section class="governor-section governor-section--center container">
-        <aside class="governor-panel">
-          <div class="avatar-wrap">
-            <img
-              src="{{ url_for('static', filename='images/sections-reference.png') }}"
-              alt="Governor profile"
-            />
-          </div>
-          <p class="label">OUR GOVERNOR</p>
-          <h3>HON. MA. LUCILLE L. NAVA, MD</h3>
-
-          <div class="home-farmer-circles" aria-label="Farmer profile circles">
-            <div class="farmer-circles-grid">
-              {% for i in range(1, 46) %}
-              <div class="home-circle">
-                <img
-                  src="{{ url_for('static', filename='images/farmer-profile-photo.png') }}"
-                  alt="Farmer profile circle {{ i }}"
-                />
-              </div>
-              {% endfor %}
-            </div>
-          </div>
-
-          <section class="connect-with-us" aria-label="Beanthentic Facebook feed">
-            <h3>CONNECT WITH US</h3>
-            <div class="fb-embed-wrap">
-              <iframe
-                class="fb-embed-frame"
-                title="Beanthentic Coffee Facebook page"
-                loading="lazy"
-                src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2Fprofile.php%3Fid%3D61588902651094&tabs=timeline&width=460&height=620&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true"
-                referrerpolicy="strict-origin-when-cross-origin"
-                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-              ></iframe>
-            </div>
-          </section>
-        </aside>
-
-        <!-- feature grid removed temporarily -->
       </section>
 
     </main>

@@ -1,0 +1,26 @@
+{
+  "connection": {
+    "app_db_host": "192.168.18.77",
+    "app_db_port": 3306,
+    "app_db_user": "beanthentic_remote",
+    "app_db_pass": "StrongPass123!",
+    "app_db_name": "beanthentic_app",
+    "app_server_base": "http://192.168.18.77:8080"
+  },
+  "notifications": {
+    "email_system_events": true,
+    "email_user_registrations": true,
+    "email_security_breaches": true,
+    "sms_system_events": false,
+    "sms_user_registrations": false,
+    "sms_security_breaches": true,
+    "in_app_system_events": true,
+    "in_app_user_registrations": true,
+    "in_app_security_breaches": true
+  },
+  "security": {
+    "two_factor_enabled": false,
+    "two_factor_secret": null,
+    "backup_codes": []
+  }
+}

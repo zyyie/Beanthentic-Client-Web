@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Client Transaction Process | Beanthentic</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body class="transaction-page">
+  <header class="top-header top-header--history">
+    <div class="container nav-wrapper nav-wrapper--history">
+      <a href="{{ url_for('home') }}" class="nav-back" aria-label="Back to homepage">
+        <svg class="nav-back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <div class="nav-title">Transaction Process</div>
+    </div>
+  </header>
+
+  <main class="container transaction-main">
+    <form class="transaction-form" action="#" method="POST" enctype="multipart/form-data">
+      <div class="form-section">
+        <div class="pickup-details-card">
+          <div class="pickup-header">
+            <div class="payment-icon-brand pickup">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l2-1.14M16.5 9.4L7.55 4.24"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/></svg>
+            </div>
+            <span class="pickup-title">Pick up</span>
+          </div>
+          
+          <div class="pickup-fields">
+            <div class="form-group full-width">
+              <label for="client-name">Name</label>
+              <input type="text" id="client-name" name="client_name" placeholder="Enter your full name" required />
+            </div>
+
+            <div class="form-group full-width">
+              <label for="valid-id">Valid ID</label>
+              <div class="file-input-wrapper">
+                <input type="file" id="valid-id" name="valid_id" accept="image/*" required />
+                <button type="button" id="view-id-btn" class="view-id-btn" style="display: none;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  View ID
+                </button>
+              </div>
+              <p class="form-help">Please upload a clear copy of your valid ID.</p>
+            </div>
+
+            <div class="form-group">
+              <label for="pickup-date">Pick-up Schedule/Date</label>
+              <div class="custom-date-wrapper">
+                <input type="text" id="pickup-date" name="pickup_date" placeholder="Select date" readonly required />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="product-type">Product</label>
+              <select id="product-type" name="product_type" class="custom-select" required>
+                <option value="" disabled selected>Select a product</option>
+                <option value="Liberica">Liberica</option>
+                <option value="Excelsa">Excelsa</option>
+                <option value="Robusta">Robusta</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="quantity-kg">Quantity (KG)</label>
+              <input type="number" id="quantity-kg" name="quantity_kg" min="1" step="0.1" placeholder="0.0" required />
+            </div>
+
+            <div class="form-group">
+              <label>Payment Method</label>
+              <div class="payment-method-wrapper">
+                <div class="clickable-payment-method" id="cash-payment-option">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+                  <span>Cash only</span>
+                </div>
+                
+                <!-- This now appears directly below the button -->
+                <div id="amount-input-group" class="payment-dropdown-field" style="display: none;">
+                  <label for="payment-amount">Amount to Pay (₱)</label>
+                  <input type="number" id="payment-amount" name="payment_amount" min="1" step="0.01" placeholder="Enter amount" required />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-footer">
+        <p class="form-info">After submission, the farmer must approve the transaction.</p>
+        <div id="status-container">
+          <button type="submit" class="submit-btn" id="submit-btn">Submit Transaction</button>
+          
+          <button type="button" id="approved-check-btn" class="approved-circle-btn" style="display: none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Receipt Pop-up Modal -->
+    <div id="receipt-modal" class="receipt-modal-overlay" style="display: none;">
+      <div class="receipt-modal-container">
+        <button type="button" class="close-receipt-modal" id="close-receipt">&times;</button>
+        <div class="receipt-card official-receipt">
+          <div class="receipt-header">
+            <img src="{{ url_for('static', filename='images/beanthentic-logo.png') }}" alt="Logo" class="receipt-logo" />
+            <h2>Beanthentic Coffee</h2>
+            <p class="receipt-subtitle">Official Transaction Receipt</p>
+          </div>
+          
+          <div class="receipt-body">
+            <div class="receipt-row-main">
+              <span>Name</span>
+              <strong id="receipt-buyer-name">---</strong>
+            </div>
+            <div class="receipt-row-main">
+              <span>Sched</span>
+              <strong id="receipt-sched">---</strong>
+            </div>
+            <div class="receipt-row-main">
+              <span>Product</span>
+              <strong id="receipt-product">---</strong>
+            </div>
+            <div class="receipt-row-main">
+              <span>Quantity</span>
+              <strong id="receipt-quantity">--- kg</strong>
+            </div>
+            <div class="receipt-row-main">
+              <span>Amount</span>
+              <strong id="receipt-amount">₱ 0.00</strong>
+            </div>
+            
+            <div class="receipt-footer-note">
+              Thank you for using Beanthentic!
+            </div>
+          </div>
+          
+          <div class="receipt-actions">
+            <button class="print-receipt-btn" onclick="window.print()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="print-icon"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+              Print Receipt
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div id="image-preview-modal" class="receipt-modal-overlay" style="display: none;">
+      <div class="image-preview-container">
+        <button type="button" class="close-receipt-modal" id="close-preview">&times;</button>
+        <img id="id-preview-img" src="" alt="Valid ID Preview" class="full-id-preview" />
+      </div>
+    </div>
+  <!-- Custom Calendar Modal -->
+    <div id="calendar-modal" class="receipt-modal-overlay" style="display: none;">
+      <div class="calendar-container">
+        <div class="calendar-header">
+          <h3>Select pick-up date</h3>
+          <button type="button" class="calendar-close" id="close-calendar">&times;</button>
+        </div>
+        
+        <div class="calendar-nav">
+          <button type="button" class="nav-arrow" id="prev-month">&lsaquo;</button>
+          <div class="calendar-selectors">
+            <select id="calendar-month"></select>
+            <select id="calendar-year"></select>
+          </div>
+          <button type="button" class="nav-arrow" id="next-month">&rsaquo;</button>
+        </div>
+        
+        <div class="calendar-grid-wrapper">
+          <div class="calendar-weekdays">
+            <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+          </div>
+          <div id="calendar-days" class="calendar-days"></div>
+        </div>
+        
+        <div class="calendar-footer">
+          <button type="button" class="calendar-ok-btn" id="confirm-date">OK</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const form = document.querySelector('.transaction-form');
+      const btn = document.getElementById('submit-btn');
+      const checkBtn = document.getElementById('approved-check-btn');
+      const receiptModal = document.getElementById('receipt-modal');
+      const closeReceipt = document.getElementById('close-receipt');
+      const cashOption = document.getElementById('cash-payment-option');
+      const amountGroup = document.getElementById('amount-input-group');
+      const amountInput = document.getElementById('payment-amount');
+
+      // ID Preview Logic
+      const validIdInput = document.getElementById('valid-id');
+      const viewIdBtn = document.getElementById('view-id-btn');
+      const previewModal = document.getElementById('image-preview-modal');
+      const previewImg = document.getElementById('id-preview-img');
+      const closePreview = document.getElementById('close-preview');
+
+      validIdInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            viewIdBtn.style.display = 'flex';
+          };
+          reader.readAsDataURL(this.files[0]);
+        } else {
+          viewIdBtn.style.display = 'none';
+        }
+      });
+
+      viewIdBtn.addEventListener('click', () => {
+        previewModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      });
+
+      closePreview.addEventListener('click', () => {
+        previewModal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      });
+
+      previewModal.addEventListener('click', (e) => {
+        if (e.target === previewModal) {
+          previewModal.style.display = 'none';
+          document.body.style.overflow = 'auto';
+        }
+      });
+
+      // Clickable Payment Method Logic
+      cashOption.addEventListener('click', function() {
+        this.classList.toggle('selected');
+        if (this.classList.contains('selected')) {
+          amountGroup.style.display = 'block';
+          amountInput.focus();
+        } else {
+          amountGroup.style.display = 'none';
+        }
+      });
+      
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Capture data for receipt
+        const buyerName = document.getElementById('client-name').value;
+        const sched = document.getElementById('pickup-date').value;
+        const product = document.getElementById('product-type').value;
+        const quantity = document.getElementById('quantity-kg').value;
+        const amount = amountInput.value;
+        
+        document.getElementById('receipt-buyer-name').innerText = buyerName;
+        document.getElementById('receipt-sched').innerText = sched;
+        document.getElementById('receipt-product').innerText = product;
+        document.getElementById('receipt-quantity').innerText = quantity + ' kg';
+        document.getElementById('receipt-amount').innerText = '₱ ' + parseFloat(amount).toLocaleString(undefined, {minimumFractionDigits: 2});
+
+        // Change button to "Waiting for approval" state
+        btn.innerHTML = `
+          <svg class="status-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 6v6l4 2"></path>
+          </svg>
+          Waiting for approval
+        `;
+        btn.classList.add('status-waiting');
+        btn.disabled = true;
+
+        // Disable all form inputs
+        const controls = form.querySelectorAll('input, select, button');
+        controls.forEach(control => {
+          if (control !== checkBtn) {
+            control.disabled = true;
+            control.style.cursor = 'not-allowed';
+          }
+        });
+        
+        const statusContainer = document.getElementById('status-container');
+        const sign = document.createElement('div');
+        sign.className = 'approval-sign';
+        sign.innerHTML = '<span>●</span> Processing submission...';
+        statusContainer.appendChild(sign);
+
+        // SIMULATE FARMER APPROVAL after 3 seconds
+        setTimeout(() => {
+          btn.style.display = 'none';
+          sign.style.display = 'none';
+          
+          // Show the circular check button with animation
+          checkBtn.style.display = 'flex';
+          
+          // Add approval notification
+          const approvedSign = document.createElement('div');
+          approvedSign.className = 'approval-sign approved';
+          approvedSign.innerHTML = `
+            <svg style="width:18px;height:18px;margin-right:5px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            Transaction Approved! Tap the check to see receipt.
+          `;
+          statusContainer.appendChild(approvedSign);
+        }, 3000);
+      });
+
+      // Show Pop-up Receipt Logic
+      checkBtn.addEventListener('click', () => {
+        receiptModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden'; // Prevent scrolling
+      });
+
+      // Close Modal Logic
+      closeReceipt.addEventListener('click', () => {
+        receiptModal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      });
+
+      // Close if clicking outside
+      receiptModal.addEventListener('click', (e) => {
+        if (e.target === receiptModal) {
+          receiptModal.style.display = 'none';
+          document.body.style.overflow = 'auto';
+        }
+      });
+
+      // Calendar Logic
+      const calendarModal = document.getElementById('calendar-modal');
+      const pickupDateInput = document.getElementById('pickup-date');
+      const closeCalendar = document.getElementById('close-calendar');
+      const confirmDateBtn = document.getElementById('confirm-date');
+      const monthSelect = document.getElementById('calendar-month');
+      const yearSelect = document.getElementById('calendar-year');
+      const daysContainer = document.getElementById('calendar-days');
+      const prevMonthBtn = document.getElementById('prev-month');
+      const nextMonthBtn = document.getElementById('next-month');
+
+      let selectedDate = null;
+
+      const months = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+
+      function initCalendar() {
+        // Populate months
+        months.forEach((month, index) => {
+          const option = document.createElement('option');
+          option.value = index;
+          option.textContent = month;
+          monthSelect.appendChild(option);
+        });
+
+        // Populate years (current year - 10 to +10 years)
+        const currentYear = new Date().getFullYear();
+        for (let i = currentYear - 5; i <= currentYear + 10; i++) {
+          const option = document.createElement('option');
+          option.value = i;
+          option.textContent = i;
+          yearSelect.appendChild(option);
+        }
+
+        updateCalendar();
+      }
+
+      function updateCalendar() {
+        const year = parseInt(yearSelect.value);
+        const month = parseInt(monthSelect.value);
+        
+        daysContainer.innerHTML = '';
+        
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        // Add empty slots for previous month
+        for (let i = 0; i < firstDay; i++) {
+          const emptyDiv = document.createElement('div');
+          emptyDiv.className = 'calendar-day empty';
+          daysContainer.appendChild(emptyDiv);
+        }
+
+        // Add days of the month
+        for (let i = 1; i <= daysInMonth; i++) {
+          const dayBtn = document.createElement('button');
+          dayBtn.type = 'button';
+          dayBtn.className = 'calendar-day';
+          dayBtn.textContent = i;
+          
+          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+          
+          if (selectedDate === dateStr) {
+            dayBtn.classList.add('selected');
+          }
+
+          const today = new Date();
+          if (year === today.getFullYear() && month === today.getMonth() && i === today.getDate()) {
+            dayBtn.classList.add('today');
+          }
+
+          dayBtn.addEventListener('click', () => {
+            document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
+            dayBtn.classList.add('selected');
+            selectedDate = dateStr;
+          });
+
+          daysContainer.appendChild(dayBtn);
+        }
+      }
+
+      pickupDateInput.addEventListener('click', () => {
+        calendarModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        
+        // Reset to current date or selected date
+        const dateToShow = selectedDate ? new Date(selectedDate) : new Date();
+        monthSelect.value = dateToShow.getMonth();
+        yearSelect.value = dateToShow.getFullYear();
+        updateCalendar();
+      });
+
+      closeCalendar.addEventListener('click', () => {
+        calendarModal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      });
+
+      calendarModal.addEventListener('click', (e) => {
+        if (e.target === calendarModal) {
+          calendarModal.style.display = 'none';
+          document.body.style.overflow = 'auto';
+        }
+      });
+
+      monthSelect.addEventListener('change', updateCalendar);
+      yearSelect.addEventListener('change', updateCalendar);
+
+      prevMonthBtn.addEventListener('click', () => {
+        let month = parseInt(monthSelect.value);
+        let year = parseInt(yearSelect.value);
+        month--;
+        if (month < 0) {
+          month = 11;
+          year--;
+        }
+        if (year >= parseInt(yearSelect.options[0].value)) {
+          monthSelect.value = month;
+          yearSelect.value = year;
+          updateCalendar();
+        }
+      });
+
+      nextMonthBtn.addEventListener('click', () => {
+        let month = parseInt(monthSelect.value);
+        let year = parseInt(yearSelect.value);
+        month++;
+        if (month > 11) {
+          month = 0;
+          year++;
+        }
+        if (year <= parseInt(yearSelect.options[yearSelect.options.length - 1].value)) {
+          monthSelect.value = month;
+          yearSelect.value = year;
+          updateCalendar();
+        }
+      });
+
+      confirmDateBtn.addEventListener('click', () => {
+        if (selectedDate) {
+          const [y, m, d] = selectedDate.split('-');
+          pickupDateInput.value = `${d}/${m}/${y}`;
+          calendarModal.style.display = 'none';
+          document.body.style.overflow = 'auto';
+        } else {
+          alert('Please select a date first.');
+        }
+      });
+
+      initCalendar();
+    });
+  </script>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

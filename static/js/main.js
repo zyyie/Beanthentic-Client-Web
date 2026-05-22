@@ -1,6 +1,7 @@
 const iconButtons = document.querySelectorAll(".mini-icon-item[data-target]");
 const infoPanels = document.querySelectorAll(".info-panel");
 
+// Panel switching logic
 iconButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const targetId = button.dataset.target;

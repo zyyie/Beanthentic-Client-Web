@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>News & Updates | Beanthentic</title>
+    <title>Socials | Beanthentic</title>
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/style.css') }}"
@@ -27,16 +27,25 @@
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </a>
-        <div class="nav-title">News &amp; Updates</div>
+        <div class="nav-title">Socials</div>
       </div>
     </header>
 
     <main class="profiles-page">
       <section class="container">
-        <article class="history-topic" style="text-align: center;">
-          <h2>NEWS &amp; UPDATES</h2>
-          <p style="font-size: 20px; font-weight: 700; margin-top: 12px;">Current no updates</p>
-        </article>
+        <div class="connect-with-us" aria-label="Beanthentic Facebook feed">
+          <h3>CONNECT WITH US</h3>
+          <div class="fb-embed-wrap">
+            <iframe
+              class="fb-embed-frame"
+              title="Beanthentic Coffee Facebook page"
+              loading="lazy"
+              src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2Fprofile.php%3Fid%3D61588902651094&tabs=timeline&width=460&height=620&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true"
+              referrerpolicy="strict-origin-when-cross-origin"
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+            ></iframe>
+          </div>
+        </div>
       </section>
     </main>
   </body>

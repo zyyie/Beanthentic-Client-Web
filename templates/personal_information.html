@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal Information | Beanthentic</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body class="pi-page">
+  <header class="pi-header top-header top-header--history">
+    <div class="container nav-wrapper nav-wrapper--history">
+      <a href="{{ url_for('farmer_profiles') }}" class="nav-back" aria-label="Back to farmer profiles">
+        <svg class="nav-back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <div class="nav-title">Personal Information</div>
+    </div>
+  </header>
+
+  <main class="pi-main container">
+    <div class="pi-card">
+      <div class="pi-avatar-wrap">
+        <div class="pi-avatar">
+          <img src="{{ farmer.photo_url }}" alt="Profile Photo">
+        </div>
+      </div>
+
+      <div class="pi-row">
+        <p class="pi-label">FULL NAME</p>
+        <p class="pi-value">{{ farmer.first_name }} {{ farmer.last_name }}</p>
+      </div>
+
+      <div class="pi-row">
+        <p class="pi-label">DATE OF BIRTH</p>
+        <p class="pi-value">{{ farmer.birthday or 'N/A' }}</p>
+      </div>
+
+      <div class="pi-row">
+        <p class="pi-label">CURRENT ADDRESS</p>
+        <p class="pi-value">{{ farmer.barangay }}</p>
+      </div>
+
+      <div class="pi-row">
+        <p class="pi-label">OWNERSHIP</p>
+        <p class="pi-value" style="text-transform: capitalize;">{{ farmer.ownership_status or 'N/A' }}</p>
+      </div>
+
+      <div class="pi-row pi-section-label">
+        <p class="pi-label" style="color: #2b7f1f; font-weight: 800;">AFFILIATION</p>
+      </div>
+
+      <div class="pi-row">
+        <p class="pi-label">ASSOCIATION</p>
+        <p class="pi-value">{{ farmer.federation_assoc or 'None' }}</p>
+      </div>
+
+      <div class="pi-row">
+        <p class="pi-label">RSBSA REGISTERED</p>
+        <p class="pi-value">{{ 'Yes' if farmer.rsbsa_registered else 'No' }}</p>
+      </div>
+
+      {% if farmer.rsbsa_number %}
+      <div class="pi-row">
+        <p class="pi-label">RSBSA NUMBER</p>
+        <p class="pi-value">{{ farmer.rsbsa_number }}</p>
+      </div>
+      {% endif %}
+    </div>
+  </main>
+</body>
+</html>

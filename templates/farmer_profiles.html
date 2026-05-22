@@ -10,82 +10,78 @@
     />
   </head>
   <body>
-    <header class="top-header">
-      <div class="container nav-wrapper">
-        <div class="brand">
-          <img
-            class="brand-logo-image"
-            src="{{ url_for('static', filename='images/beanthentic-logo.png') }}"
-            alt="Beanthentic logo"
-          />
-        </div>
-        <a class="report-link" href="#">
-          <img
-            class="report-icon"
-            src="{{ url_for('static', filename='images/icon-report-navbar.svg') }}"
-            alt="Report icon"
-          />
-          <span>Report</span>
+    <header class="top-header top-header--history">
+      <div class="container nav-wrapper nav-wrapper--history">
+        <a class="nav-back" href="{{ url_for('home') }}" aria-label="Back to homepage">
+          <svg
+            class="nav-back-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
         </a>
+        <div class="nav-title">Farmer Registered Profiles</div>
       </div>
     </header>
 
     <main class="profiles-page">
-      <section class="container">
-        <div class="quick-icon-buttons">
-          <a class="mini-icon-item active" href="{{ url_for('farmer_profiles') }}">
-            <img
-              class="mini-icon"
-              src="{{ url_for('static', filename='images/icon-farmer-line.svg') }}"
-              alt="Farmer Profiles icon"
-            />
-            <span>Farmer Profiles</span>
-          </a>
-          <a class="mini-icon-item" href="{{ url_for('home') }}">
-            <img
-              class="mini-icon"
-              src="{{ url_for('static', filename='images/icon-history-line.svg') }}"
-              alt="Back to home icon"
-            />
-            <span>Back Home</span>
-          </a>
-        </div>
-
-        <div class="info-panels">
-          <div class="info-panel active">
-            <div class="farmers-grid">
-              <article class="farmer-card">
-                <div class="farmer-image-ring">
-                  <img src="{{ url_for('static', filename='images/farmer-profile-photo.png') }}" alt="Farmer profile Ana Morales" />
-                </div>
-                <h4>Ana Morales</h4>
-                <p>San Lorenzo, Guimaras</p>
-              </article>
-              <article class="farmer-card">
-                <div class="farmer-image-ring">
-                  <img src="{{ url_for('static', filename='images/farmer-profile-photo.png') }}" alt="Farmer profile Lito Reyes" />
-                </div>
-                <h4>Lito Reyes</h4>
-                <p>Sibunag, Guimaras</p>
-              </article>
-              <article class="farmer-card">
-                <div class="farmer-image-ring">
-                  <img src="{{ url_for('static', filename='images/farmer-profile-photo.png') }}" alt="Farmer profile Rosa Dela Cruz" />
-                </div>
-                <h4>Rosa Dela Cruz</h4>
-                <p>Nueva Valencia, Guimaras</p>
-              </article>
-              <article class="farmer-card">
-                <div class="farmer-image-ring">
-                  <img src="{{ url_for('static', filename='images/farmer-profile-photo.png') }}" alt="Farmer profile Noel Garcia" />
-                </div>
-                <h4>Noel Garcia</h4>
-                <p>Buenavista, Guimaras</p>
-              </article>
+      <div class="container">
+        <div class="farmer-profiles-card">
+          <section class="governor-section">
+            <div class="governor-circle">
+              <img src="{{ url_for('static', filename='images/farmer-profile-photo.png') }}" alt="Governor Profile" />
             </div>
-          </div>
+            <div class="governor-info">
+              <h2 class="governor-name">ARNOLD MALBATAAN</h2>
+              <h3 class="governor-label">CHAIRMAN OF SAMAHAN NG MAGKAKAPE</h3>
+            </div>
+          </section>
+
+          <section class="farmer-grid-section">
+            <h2 class="farmer-grid-title">OUR FARMERS</h2>
+            <div class="farmer-circles-grid">
+              {% if farmers %}
+                {% for farmer in farmers %}
+                <a href="{{ url_for('farmer_detail', farmer_id=farmer.farmer_id) }}" class="farmer-profile-item">
+                  <div class="home-circle">
+                    <svg class="default-user-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                  </div>
+                  <div class="farmer-info-bottom">
+                    <span class="farmer-name">Name</span>
+                  </div>
+                </a>
+                {% endfor %}
+              {% else %}
+                {% for i in range(1, 16) %}
+                <a href="{{ url_for('farmer_detail', farmer_id=1) }}" class="farmer-profile-item">
+                  <div class="home-circle">
+                    <svg class="default-user-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                  </div>
+                  <div class="farmer-info-bottom">
+                    <span class="farmer-name">Name</span>
+                  </div>
+                </a>
+                {% endfor %}
+{% endif %}
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
     </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   </body>
 </html>
