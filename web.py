@@ -138,16 +138,34 @@ def _get_photo_url(photo_path: str) -> str:
         
     return "/static/images/farmer-profile-photo.png"
 
+def _default_farmer_profile(farmer_id: int = 0) -> dict:
+    return {
+        "farmer_id": farmer_id,
+        "first_name": "Juan",
+        "last_name": "Dela Cruz",
+        "birthday": "March 15, 1985",
+        "barangay": "San Miguel, Jordan, Guimaras",
+        "ownership_status": "owned",
+        "federation_assoc": "SAMAHAN NG MAGKAKAPE",
+        "rsbsa_registered": 1,
+        "rsbsa_number": "RSBSA-GUIM-2024-001",
+        "profile_photo": None,
+        "photo_url": url_for("static", filename="images/farmer-profile-photo.png"),
+        "is_default": True,
+    }
+
 @app.route("/")
 def home():
     return render_template("index.html")
 
 @app.route("/farmer/<int:farmer_id>")
 def farmer_detail(farmer_id):
-    farmer = _app_fetch_farmer_details(farmer_id)
+    farmer = None if farmer_id == 0 else _app_fetch_farmer_details(farmer_id)
     if not farmer:
-        return "Farmer not found", 404
-    farmer['photo_url'] = _get_photo_url(farmer.get('profile_photo'))
+        farmer = _default_farmer_profile(farmer_id)
+    else:
+        farmer["photo_url"] = _get_photo_url(farmer.get("profile_photo"))
+        farmer["is_default"] = False
     return render_template("personal_information.html", farmer=farmer)
 
 @app.route("/farmer-profiles")

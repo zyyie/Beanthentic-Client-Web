@@ -17,6 +17,9 @@
   </header>
 
   <main class="pi-main container">
+    {% if farmer.is_default %}
+    <p class="pi-demo-notice">Sample profile — preview design (no database record).</p>
+    {% endif %}
     <div class="pi-card">
       <div class="pi-avatar-wrap">
         <div class="pi-avatar">
@@ -64,6 +67,15 @@
         <p class="pi-value">{{ farmer.rsbsa_number }}</p>
       </div>
       {% endif %}
+
+      <div class="pi-transaction-wrap">
+        <a class="pi-transaction-link" href="{{ url_for('transaction') }}">
+          Go to Transaction
+          <svg class="pi-transaction-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+          </svg>
+        </a>
+      </div>
     </div>
   </main>
 </body>
