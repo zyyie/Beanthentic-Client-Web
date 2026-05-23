@@ -96,6 +96,35 @@
               <button class="report-details-reset" type="button" id="report-details-reset">Change reason</button>
             </div>
 
+            <div class="report-reporter-fields" aria-label="Your contact information">
+              <input
+                class="report-reporter-input"
+                id="report-reporter-name"
+                type="text"
+                placeholder="Your full name (required)"
+                autocomplete="name"
+              />
+              <input
+                class="report-reporter-input"
+                id="report-reporter-contact"
+                type="text"
+                placeholder="Phone or email (optional)"
+                autocomplete="tel"
+              />
+              <label class="report-farmer-label" for="report-farmer-select">Farmer you transacted with</label>
+              <select
+                class="report-reporter-input report-farmer-select"
+                id="report-farmer-select"
+                disabled
+                aria-describedby="report-farmer-hint"
+              >
+                <option value="">Enter your name above to load farmers…</option>
+              </select>
+              <p class="report-farmer-hint" id="report-farmer-hint">
+                Only farmers you have a transaction with (same name as on your order) appear here.
+              </p>
+            </div>
+
             <section class="report-chat report-chat--embed" aria-label="Report messages">
               <div class="report-chat-body" id="report-chat-body" aria-live="polite"></div>
               <div class="report-quick-options report-quick-options--in-chat" id="report-quick-options" aria-label="Quick options"></div>
@@ -115,7 +144,12 @@
       </section>
     </main>
 
-    <script src="{{ url_for('static', filename='js/report_page_chat.js') }}"></script>
+    <script>
+      window.BEANTHENTIC_REPORT_SUBMIT_URL = "{{ url_for('client_report_submit_proxy') }}";
+      window.BEANTHENTIC_REPORT_FARMERS_URL = "{{ url_for('client_report_transaction_farmers_proxy') }}";
+      window.BEANTHENTIC_APP_SERVER_BASE = {{ (app_server_base or '')|tojson }};
+    </script>
+    <script src="{{ url_for('static', filename='js/report_page_chat.js') }}?v=20260523-report-farmer"></script>
   </body>
 </html>
 

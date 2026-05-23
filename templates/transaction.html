@@ -17,7 +17,13 @@
   </header>
 
   <main class="container transaction-main">
-    <form class="transaction-form" action="#" method="POST" enctype="multipart/form-data">
+    <form class="transaction-form" id="client-transaction-form" action="{{ url_for('client_transaction_submit_proxy') }}" method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="transaction_type" value="pickup" />
+      <input type="hidden" name="quantity_unit" value="KG" />
+      <input type="hidden" name="payment_method" value="Cash" />
+      <input type="hidden" name="farmer_id" id="farmer-id" value="{{ farmer_id or '' }}" />
+      <input type="hidden" name="farmer_name" id="farmer-name-hidden" value="{{ farmer_name or '' }}" />
+
       <div class="form-section">
         <div class="pickup-details-card">
           <div class="pickup-header">
@@ -28,8 +34,21 @@
           </div>
           
           <div class="pickup-fields">
+            <div class="form-group full-width txn-farmer-field" id="txn-farmer-field-wrap" {% if not farmer_name %}hidden{% endif %}>
+              <label for="txn-farmer-name-display">Farmer</label>
+              <input
+                type="text"
+                id="txn-farmer-name-display"
+                class="txn-farmer-name-input"
+                value="{{ farmer_name }}"
+                readonly
+                tabindex="-1"
+                aria-readonly="true"
+              />
+            </div>
+
             <div class="form-group full-width">
-              <label for="client-name">Name</label>
+              <label for="client-name" id="client-name-label">Name</label>
               <input type="text" id="client-name" name="client_name" placeholder="Enter your full name" required />
             </div>
 
@@ -86,61 +105,116 @@
         </div>
       </div>
 
+      <div id="txn-status-panel" class="txn-status-panel" hidden aria-live="polite">
+        <div class="txn-status-panel__badge" id="txn-status-badge">Waiting for approval</div>
+        <p class="txn-status-panel__ref">Reference: <strong id="txn-status-ref">—</strong></p>
+        <p class="txn-status-panel__hint" id="txn-status-hint">
+          Your request was sent. Please wait while the farmer reviews it.
+        </p>
+      </div>
+
       <div class="form-footer">
         <div id="status-container">
           <button type="submit" class="submit-btn" id="submit-btn">Submit</button>
-          
-          <button type="button" id="approved-check-btn" class="approved-circle-btn" style="display: none;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <button type="button" id="approved-check-btn" class="view-receipt-btn" style="display: none;" aria-label="View official receipt">
+            <svg class="view-receipt-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            <span class="view-receipt-btn__label">View Receipt</span>
           </button>
+        </div>
+        <div class="order-again-wrap" id="order-again-wrap" hidden>
+          <button type="button" id="order-again-btn" class="order-again-btn">Order again</button>
         </div>
       </div>
     </form>
 
-    <!-- Receipt Pop-up Modal -->
+    <!-- Receipt Pop-up Modal (same layout as app Transaction History) -->
     <div id="receipt-modal" class="receipt-modal-overlay" style="display: none;">
       <div class="receipt-modal-container">
-        <button type="button" class="close-receipt-modal" id="close-receipt">&times;</button>
-        <div class="receipt-card official-receipt">
-          <div class="receipt-header">
-            <img src="{{ url_for('static', filename='images/beanthentic-logo.png') }}" alt="Logo" class="receipt-logo" />
-            <h2>Beanthentic Coffee</h2>
-            <p class="receipt-subtitle">Official Transaction Receipt</p>
+        <button type="button" class="close-receipt-modal" id="close-receipt" aria-label="Close receipt">&times;</button>
+        <div class="txn-receipt-card" id="client-receipt-print-area">
+          <div class="txn-rcpt-brand">
+            <img class="txn-rcpt-logo" src="{{ url_for('static', filename='images/beanthentic-logo.png') }}" alt="Beanthentic" width="128" height="128" />
+            <h1 class="txn-rcpt-brand-title">Beanthentic Coffee</h1>
+            <p class="txn-rcpt-brand-sub">Official Transaction Receipt</p>
           </div>
-          
-          <div class="receipt-body">
-            <div class="receipt-row-main">
-              <span>Name</span>
-              <strong id="receipt-buyer-name">---</strong>
+          <hr class="txn-rcpt-rule txn-rcpt-rule--solid" aria-hidden="true" />
+
+          <div class="txn-rcpt-rows" aria-label="Transaction summary">
+            <div class="txn-rcpt-row">
+              <span class="txn-rcpt-label">Ref. No.</span>
+              <span id="client-receipt-ref" class="txn-rcpt-value">-</span>
             </div>
-            <div class="receipt-row-main">
-              <span>Sched</span>
-              <strong id="receipt-sched">---</strong>
+            <div class="txn-rcpt-row">
+              <span class="txn-rcpt-label">Date</span>
+              <span id="client-receipt-date" class="txn-rcpt-value">-</span>
             </div>
-            <div class="receipt-row-main">
-              <span>Product</span>
-              <strong id="receipt-product">---</strong>
-            </div>
-            <div class="receipt-row-main">
-              <span>Quantity</span>
-              <strong id="receipt-quantity">--- kg</strong>
-            </div>
-            <div class="receipt-row-main">
-              <span>Amount</span>
-              <strong id="receipt-amount">₱ 0.00</strong>
-            </div>
-            
-            <div class="receipt-footer-note">
-              Thank you for using Beanthentic!
+            <div class="txn-rcpt-row">
+              <span class="txn-rcpt-label">Time</span>
+              <span id="client-receipt-time" class="txn-rcpt-value">-</span>
             </div>
           </div>
-          
-          <div class="receipt-actions">
-            <button class="print-receipt-btn" onclick="window.print()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="print-icon"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-              Print Receipt
-            </button>
+
+          <hr class="txn-rcpt-rule txn-rcpt-rule--dash" aria-hidden="true" />
+
+          <div class="txn-rcpt-section">
+            <p class="txn-rcpt-section-title">Buyer Details</p>
+            <div class="txn-rcpt-rows">
+              <div class="txn-rcpt-row">
+                <span class="txn-rcpt-label">Buyer Name</span>
+                <span id="client-receipt-buyer" class="txn-rcpt-value">-</span>
+              </div>
+            </div>
           </div>
+
+          <hr class="txn-rcpt-rule txn-rcpt-rule--dash" aria-hidden="true" />
+
+          <div class="txn-rcpt-section">
+            <p class="txn-rcpt-section-title">Product Info</p>
+            <div class="txn-rcpt-product-line">
+              <span id="client-receipt-product" class="txn-rcpt-product-name">-</span>
+              <span id="client-receipt-qty" class="txn-rcpt-product-qty">-</span>
+            </div>
+          </div>
+
+          <hr class="txn-rcpt-rule txn-rcpt-rule--dash" aria-hidden="true" />
+
+          <div class="txn-rcpt-section">
+            <p class="txn-rcpt-section-title">Payment Details</p>
+            <div class="txn-rcpt-rows">
+              <div class="txn-rcpt-row">
+                <span class="txn-rcpt-label">Amount</span>
+                <span id="client-receipt-amount" class="txn-rcpt-value">-</span>
+              </div>
+              <div class="txn-rcpt-row">
+                <span class="txn-rcpt-label">Payment</span>
+                <span id="client-receipt-payment" class="txn-rcpt-value">-</span>
+              </div>
+              <div class="txn-rcpt-row">
+                <span class="txn-rcpt-label">Payment Amt</span>
+                <span id="client-receipt-payment-amount" class="txn-rcpt-value">-</span>
+              </div>
+              <div class="txn-rcpt-row">
+                <span class="txn-rcpt-label">Total</span>
+                <span id="client-receipt-total" class="txn-rcpt-value">-</span>
+              </div>
+              <div class="txn-rcpt-row">
+                <span class="txn-rcpt-label">Change</span>
+                <span id="client-receipt-change" class="txn-rcpt-value">-</span>
+              </div>
+            </div>
+          </div>
+
+          <p class="txn-rcpt-thanks">Thank you for using Beanthentic!</p>
+        </div>
+
+        <div class="txn-receipt-actions client-receipt-actions">
+          <button type="button" id="client-receipt-sent-btn" class="txn-receipt-send-btn" disabled>Receipt Sent</button>
         </div>
       </div>
     </div>
@@ -184,10 +258,19 @@
   </main>
 
   <script>
+    window.__BEANTHENTIC_APP_SERVER_BASE__ = {{ app_server_base|tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+  <script>
     document.addEventListener('DOMContentLoaded', function() {
-      const form = document.querySelector('.transaction-form');
+      const form = document.getElementById('client-transaction-form') || document.querySelector('.transaction-form');
+      const submitUrl = form.getAttribute('action') || '/api/client-transaction/submit';
+      const appApiBase = String(window.__BEANTHENTIC_APP_SERVER_BASE__ || '').replace(/\/+$/, '');
       const btn = document.getElementById('submit-btn');
+      const statusContainer = document.getElementById('status-container');
       const checkBtn = document.getElementById('approved-check-btn');
+      const orderAgainWrap = document.getElementById('order-again-wrap');
+      const orderAgainBtn = document.getElementById('order-again-btn');
       const receiptModal = document.getElementById('receipt-modal');
       const closeReceipt = document.getElementById('close-receipt');
       const cashOption = document.getElementById('cash-payment-option');
@@ -200,19 +283,6 @@
       const previewModal = document.getElementById('image-preview-modal');
       const previewImg = document.getElementById('id-preview-img');
       const closePreview = document.getElementById('close-preview');
-
-      validIdInput.addEventListener('change', function() {
-        if (this.files && this.files[0]) {
-          const reader = new FileReader();
-          reader.onload = function(e) {
-            previewImg.src = e.target.result;
-            viewIdBtn.style.display = 'flex';
-          };
-          reader.readAsDataURL(this.files[0]);
-        } else {
-          viewIdBtn.style.display = 'none';
-        }
-      });
 
       viewIdBtn.addEventListener('click', () => {
         previewModal.style.display = 'flex';
@@ -231,6 +301,555 @@
         }
       });
 
+      const STORAGE_KEY = 'beanthentic_client_pending_tx';
+      const statusPanel = document.getElementById('txn-status-panel');
+      const statusBadge = document.getElementById('txn-status-badge');
+      const statusRef = document.getElementById('txn-status-ref');
+      const statusHint = document.getElementById('txn-status-hint');
+
+      var submittedRef = '';
+      var pollTimer = null;
+
+      function savePendingState(state) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (_e) {}
+      }
+
+      function loadPendingState() {
+        try {
+          var raw = sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY);
+          if (!raw) return null;
+          var s = JSON.parse(raw);
+          return s && typeof s === 'object' ? s : null;
+        } catch (_e2) {
+          return null;
+        }
+      }
+
+      function stopPoll() {
+        if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+      }
+
+      function lockFormControls() {
+        form.querySelectorAll('input, select, button').forEach(function (control) {
+          if (
+            control !== checkBtn &&
+            control !== orderAgainBtn &&
+            control.id !== 'view-id-btn' &&
+            control.id !== 'close-receipt'
+          ) {
+            control.disabled = true;
+            control.style.cursor = 'not-allowed';
+          }
+        });
+      }
+
+      function unlockFormControls() {
+        form.querySelectorAll('input, select, button').forEach(function (control) {
+          control.disabled = false;
+          control.style.cursor = '';
+        });
+        btn.disabled = false;
+        btn.textContent = 'Submit';
+        btn.classList.remove('status-waiting', 'status-approved');
+        btn.style.display = '';
+        if (statusContainer) statusContainer.classList.remove('status-receipt-ready');
+        checkBtn.style.display = 'none';
+        if (orderAgainWrap) orderAgainWrap.hidden = true;
+      }
+
+      function moneyLike(v) {
+        var n = Number(v);
+        if (!isFinite(n)) return '0.00';
+        return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
+      function firstNumber(obj, keys) {
+        for (var i = 0; i < keys.length; i++) {
+          var v = obj ? obj[keys[i]] : null;
+          var n = Number(v);
+          if (isFinite(n)) return n;
+        }
+        return null;
+      }
+
+      function firstText(obj, keys) {
+        for (var j = 0; j < keys.length; j++) {
+          var t = obj ? obj[keys[j]] : '';
+          if (t != null && String(t).trim() !== '') return String(t).trim();
+        }
+        return '';
+      }
+
+      function formatReceiptDateTime(iso) {
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) {
+          return { date: '-', time: '-' };
+        }
+        return {
+          date: d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }),
+          time: d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+        };
+      }
+
+      function stateToReceiptRecord(state) {
+        var s = state || {};
+        var rc = s.receipt || {};
+        var merged = Object.assign({}, rc, s);
+        var amountNum = firstNumber(merged, ['amount', 'total', 'totalAmount']);
+        var paymentAmtNum = firstNumber(merged, ['paymentAmount', 'payment_amount', 'paidAmount']);
+        var totalNum = firstNumber(merged, ['total', 'amount']);
+        var changeNum = firstNumber(merged, ['change', 'changeAmount']);
+        if (changeNum == null && paymentAmtNum != null && totalNum != null) {
+          changeNum = Math.max(0, paymentAmtNum - totalNum);
+        }
+        if (amountNum == null && totalNum != null) amountNum = totalNum;
+        if (totalNum == null && amountNum != null) totalNum = amountNum;
+        if (paymentAmtNum == null && amountNum != null) paymentAmtNum = amountNum;
+        var qtyVal = merged.qty != null ? merged.qty : merged.quantity_kg != null ? merged.quantity_kg : merged.quantity;
+        return {
+          ref: merged.ref || merged.reference_no || submittedRef || '',
+          buyer: merged.buyer || merged.buyer_name || merged.client_name || '',
+          product: merged.product || merged.product_type || '',
+          qty: qtyVal,
+          unit: merged.unit || merged.quantity_unit || 'KG',
+          amount: amountNum,
+          payment: firstText(merged, ['payment', 'payment_method', 'paymentMethod']) || 'Cash',
+          paymentAmount: paymentAmtNum,
+          total: totalNum,
+          change: changeNum,
+          at: merged.at || merged.transaction_at || merged.submitted_at || ''
+        };
+      }
+
+      function mergeStatusFromApi(body, saved) {
+        var s = saved || buildStateFromForm();
+        var rc = body.receipt || {};
+        s.reference_no = body.reference_no || rc.reference_no || rc.ref || s.reference_no || submittedRef;
+        s.client_name = body.buyer_name || rc.buyer || rc.buyer_name || s.client_name;
+        s.pickup_date = body.pickup_date || rc.pickup_date || s.pickup_date;
+        s.product_type = body.product || rc.product || s.product_type;
+        s.quantity_kg = String(
+          body.quantity_kg != null
+            ? body.quantity_kg
+            : body.quantity != null
+              ? body.quantity
+              : rc.quantity_kg != null
+                ? rc.quantity_kg
+                : rc.qty != null
+                  ? rc.qty
+                  : s.quantity_kg
+        );
+        s.quantity_unit = body.quantity_unit || rc.unit || s.quantity_unit || 'KG';
+        s.payment_method = body.payment_method || rc.payment || rc.payment_method || s.payment_method || 'Cash';
+        s.payment_amount = body.payment_amount != null ? body.payment_amount : rc.payment_amount != null ? rc.payment_amount : rc.paymentAmount != null ? rc.paymentAmount : s.payment_amount;
+        s.amount = body.amount != null ? body.amount : rc.amount != null ? rc.amount : rc.total != null ? rc.total : s.amount;
+        s.total = body.total != null ? body.total : rc.total != null ? rc.total : s.total;
+        s.change = body.change != null ? body.change : rc.change != null ? rc.change : s.change;
+        s.transaction_at = body.transaction_at || rc.at || s.transaction_at || s.submitted_at;
+        s.receipt = rc;
+        return s;
+      }
+
+      function fillReceiptModal(state) {
+        if (!state) return;
+        var r = stateToReceiptRecord(state);
+        var dt = formatReceiptDateTime(r.at);
+        var qtyStr =
+          r.qty != null && String(r.qty) !== '' ? String(r.qty) : '-';
+        qtyStr += r.unit ? String(r.unit).toUpperCase() : '';
+
+        document.getElementById('client-receipt-buyer').textContent = r.buyer || '-';
+        document.getElementById('client-receipt-product').textContent = r.product || '-';
+        document.getElementById('client-receipt-qty').textContent = qtyStr;
+        document.getElementById('client-receipt-amount').textContent =
+          r.amount == null ? '0.00' : moneyLike(r.amount);
+        document.getElementById('client-receipt-payment').textContent = r.payment || 'Cash';
+        document.getElementById('client-receipt-payment-amount').textContent =
+          r.paymentAmount == null ? '0.00' : moneyLike(r.paymentAmount);
+        document.getElementById('client-receipt-total').textContent =
+          r.total == null ? '0.00' : moneyLike(r.total);
+        document.getElementById('client-receipt-change').textContent =
+          r.change == null ? '0.00' : moneyLike(r.change);
+        document.getElementById('client-receipt-ref').textContent = r.ref ? '#' + r.ref : '-';
+        document.getElementById('client-receipt-date').textContent = dt.date;
+        document.getElementById('client-receipt-time').textContent = dt.time;
+      }
+
+      function applyWaitingUI(ref) {
+        checkBtn.style.display = 'none';
+        btn.classList.remove('status-approved');
+        btn.innerHTML =
+          '<svg class="status-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
+          '<circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg> Waiting for approval';
+        btn.classList.add('status-waiting');
+        btn.disabled = true;
+        lockFormControls();
+        showStatusPanel(
+          'waiting',
+          ref,
+          'Your request was sent. Please wait while the farmer reviews and approves or dismisses it.'
+        );
+      }
+
+      function notifyTransactionApproved(ref) {
+        if (window.BeanthenticNotifs && window.BeanthenticNotifs.pushTransactionApproved) {
+          window.BeanthenticNotifs.pushTransactionApproved(ref);
+        }
+      }
+
+      function applyApprovedUI(ref) {
+        if (statusContainer) statusContainer.classList.remove('status-receipt-ready');
+        checkBtn.style.display = 'none';
+        btn.style.display = '';
+        btn.classList.remove('status-waiting');
+        btn.classList.add('status-approved');
+        btn.innerHTML = '✓ Transaction approved';
+        btn.disabled = true;
+        if (orderAgainWrap) orderAgainWrap.hidden = true;
+        lockFormControls();
+        showStatusPanel(
+          'approved',
+          ref,
+          'The farmer approved your request. Meet on your scheduled pickup date to complete your purchase in person. Your official receipt will be given there.'
+        );
+        notifyTransactionApproved(ref);
+      }
+
+      function applyReceiptSentUI(ref, state) {
+        stopPoll();
+        var s = state || loadPendingState() || buildStateFromForm();
+        fillReceiptModal(s);
+        if (statusContainer) statusContainer.classList.add('status-receipt-ready');
+        checkBtn.style.display = 'inline-flex';
+        btn.style.display = 'none';
+        btn.classList.remove('status-waiting', 'status-approved');
+        btn.disabled = true;
+        if (orderAgainWrap) orderAgainWrap.hidden = false;
+        lockFormControls();
+        showStatusPanel(
+          'receipt',
+          ref,
+          'Your official receipt has been sent. Tap <strong>View Receipt</strong> below to open it. When you are ready for a new order, tap <strong>Order again</strong>.'
+        );
+      }
+
+      function resetForOrderAgain() {
+        stopPoll();
+        submittedRef = '';
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+          sessionStorage.removeItem(STORAGE_KEY);
+        } catch (_clr) {}
+        if (statusPanel) statusPanel.hidden = true;
+        unlockFormControls();
+        form.reset();
+        cashOption.classList.remove('selected');
+        amountGroup.style.display = 'none';
+        amountInput.value = '';
+        viewIdBtn.style.display = 'none';
+        if (previewImg) previewImg.src = '';
+        validIdInput.value = '';
+        pickupDateInput.value = '';
+        selectedDate = null;
+      }
+
+      function applyDismissedUI(ref) {
+        stopPoll();
+        checkBtn.style.display = 'none';
+        btn.classList.remove('status-waiting', 'status-approved');
+        btn.innerHTML = 'Dismissed';
+        btn.disabled = true;
+        lockFormControls();
+        showStatusPanel(
+          'dismissed',
+          ref,
+          'This transaction was dismissed by the farmer. You may submit a new request when ready.'
+        );
+      }
+
+      function showStatusPanel(mode, ref, hintText) {
+        if (!statusPanel) return;
+        statusPanel.hidden = false;
+        statusPanel.classList.remove(
+          'txn-status-panel--approved',
+          'txn-status-panel--dismissed',
+          'txn-status-panel--receipt'
+        );
+        if (mode === 'approved') statusPanel.classList.add('txn-status-panel--approved');
+        if (mode === 'dismissed') statusPanel.classList.add('txn-status-panel--dismissed');
+        if (mode === 'receipt') statusPanel.classList.add('txn-status-panel--receipt');
+        if (statusRef) statusRef.textContent = ref || '—';
+        if (statusBadge) {
+          if (mode === 'approved') statusBadge.textContent = 'Approved';
+          else if (mode === 'dismissed') statusBadge.textContent = 'Dismissed';
+          else if (mode === 'receipt') statusBadge.textContent = 'Receipt ready';
+          else statusBadge.textContent = 'Waiting for approval';
+        }
+        if (statusHint && hintText) statusHint.innerHTML = hintText;
+      }
+
+      var FARMER_CTX_KEY = 'beanthentic_tx_farmer_context';
+      var farmerFieldWrap = document.getElementById('txn-farmer-field-wrap');
+      var farmerNameDisplay = document.getElementById('txn-farmer-name-display');
+      var farmerIdInput = document.getElementById('farmer-id');
+      var farmerNameHidden = document.getElementById('farmer-name-hidden');
+
+      function persistFarmerContext(s) {
+        if (!s || !s.farmer_name) return;
+        try {
+          sessionStorage.setItem(
+            FARMER_CTX_KEY,
+            JSON.stringify({
+              farmer_id: s.farmer_id != null ? String(s.farmer_id) : '',
+              farmer_name: String(s.farmer_name).trim()
+            })
+          );
+        } catch (_e) {}
+      }
+
+      function applyFarmerContext(s) {
+        var name = s && s.farmer_name ? String(s.farmer_name).trim() : '';
+        var fid = s && s.farmer_id != null && s.farmer_id !== '' ? String(s.farmer_id) : '';
+        if (!name) {
+          if (farmerFieldWrap) farmerFieldWrap.hidden = true;
+          return;
+        }
+        if (farmerFieldWrap) farmerFieldWrap.hidden = false;
+        if (farmerNameDisplay) farmerNameDisplay.value = name;
+        if (farmerIdInput) farmerIdInput.value = fid;
+        if (farmerNameHidden) farmerNameHidden.value = name;
+        persistFarmerContext(s);
+      }
+
+      function farmerFromUrlParams() {
+        var params = new URLSearchParams(window.location.search);
+        var name = params.get('farmer_name');
+        if (name) {
+          try {
+            name = decodeURIComponent(String(name).replace(/\+/g, ' ')).trim();
+          } catch (_d) {
+            name = String(name).trim();
+          }
+        } else {
+          name = '';
+        }
+        var fid = (params.get('farmer_id') || '').trim();
+        if (name || fid) {
+          return { farmer_id: fid, farmer_name: name };
+        }
+        try {
+          var raw = sessionStorage.getItem(FARMER_CTX_KEY);
+          if (!raw) return null;
+          var parsed = JSON.parse(raw);
+          if (parsed && parsed.farmer_name) return parsed;
+        } catch (_s) {}
+        return null;
+      }
+
+      function applyFormFromState(s) {
+        if (!s) return;
+        document.getElementById('client-name').value = s.client_name || '';
+        document.getElementById('pickup-date').value = s.pickup_date || '';
+        document.getElementById('product-type').value = s.product_type || '';
+        document.getElementById('quantity-kg').value = s.quantity_kg || '';
+        amountInput.value = s.payment_amount || '';
+        applyFarmerContext(s);
+        if (s.payment_amount) {
+          cashOption.classList.add('selected');
+          amountGroup.style.display = 'block';
+        }
+        if (s.valid_id_preview) {
+          previewImg.src = s.valid_id_preview;
+          viewIdBtn.style.display = 'flex';
+        }
+      }
+
+      function buildStateFromForm(extra) {
+        var idPreview = '';
+        try {
+          if (previewImg && previewImg.src && previewImg.src.indexOf('data:image') === 0) {
+            idPreview = previewImg.src;
+          }
+        } catch (_p) {}
+        return Object.assign(
+          {
+            client_name: document.getElementById('client-name').value.trim(),
+            farmer_id: farmerIdInput ? farmerIdInput.value : '',
+            farmer_name: farmerNameDisplay
+              ? farmerNameDisplay.value.trim()
+              : farmerNameHidden
+                ? farmerNameHidden.value.trim()
+                : '',
+            pickup_date: document.getElementById('pickup-date').value,
+            product_type: document.getElementById('product-type').value,
+            quantity_kg: document.getElementById('quantity-kg').value,
+            payment_amount: amountInput.value,
+            payment_method: 'Cash',
+            transaction_type: 'pickup',
+            valid_id_preview: idPreview,
+            status: 'pending',
+            reference_no: '',
+            submitted_at: new Date().toISOString()
+          },
+          extra || {}
+        );
+      }
+
+      function pollApprovalStatus() {
+        if (!submittedRef || !appApiBase) return;
+        var url =
+          appApiBase +
+          '/api/client_transaction_status.php?reference_no=' +
+          encodeURIComponent(submittedRef);
+        fetch(url, { method: 'GET', headers: { Accept: 'application/json' } })
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (body) {
+            if (!body || body.ok !== true) return;
+            var saved = mergeStatusFromApi(body, loadPendingState() || buildStateFromForm());
+            saved.reference_no = submittedRef || body.reference_no || saved.reference_no;
+            if (body.is_sent_to_client) {
+              saved.status = 'sent_to_client';
+              savePendingState(saved);
+              applyReceiptSentUI(submittedRef, saved);
+            } else if (body.is_approved) {
+              saved.status = 'approved';
+              savePendingState(saved);
+              applyApprovedUI(submittedRef);
+            } else if (body.is_dismissed) {
+              saved.status = 'dismissed';
+              savePendingState(saved);
+              applyDismissedUI(submittedRef);
+            }
+          })
+          .catch(function () {});
+      }
+
+      function startWaitingFlow(ref, state) {
+        submittedRef = ref;
+        applyFormFromState(state);
+        applyWaitingUI(ref);
+        stopPoll();
+        pollApprovalStatus();
+        pollTimer = setInterval(pollApprovalStatus, 5000);
+      }
+
+      function restorePendingOnLoad() {
+        var saved = loadPendingState();
+        if (!saved || !saved.reference_no) return;
+        submittedRef = String(saved.reference_no);
+        applyFormFromState(saved);
+        if (saved.status === 'sent_to_client') {
+          applyReceiptSentUI(submittedRef, saved);
+          pollApprovalStatus();
+          return;
+        }
+        if (saved.status === 'approved') {
+          applyApprovedUI(submittedRef);
+          stopPoll();
+          pollApprovalStatus();
+          pollTimer = setInterval(pollApprovalStatus, 5000);
+          return;
+        }
+        if (saved.status === 'dismissed') {
+          applyDismissedUI(submittedRef);
+          return;
+        }
+        startWaitingFlow(submittedRef, saved);
+      }
+
+      function mergeFarmerFromUrlIntoState(saved) {
+        var urlFarmer = farmerFromUrlParams();
+        if (!urlFarmer) return saved;
+        var next = saved ? Object.assign({}, saved) : buildStateFromForm();
+        if (urlFarmer.farmer_name) next.farmer_name = urlFarmer.farmer_name;
+        if (urlFarmer.farmer_id) next.farmer_id = urlFarmer.farmer_id;
+        return next;
+      }
+
+      function initTransactionFromLinkOrStorage() {
+        var params = new URLSearchParams(window.location.search);
+        var urlRef = params.get('ref');
+        urlRef = urlRef ? String(urlRef).trim() : '';
+        if (!urlRef) {
+          restorePendingOnLoad();
+          var savedLocal = mergeFarmerFromUrlIntoState(loadPendingState());
+          if (savedLocal) {
+            savePendingState(savedLocal);
+            applyFormFromState(savedLocal);
+          } else {
+            var urlOnly = farmerFromUrlParams();
+            if (urlOnly) applyFarmerContext(urlOnly);
+          }
+          return;
+        }
+
+        var saved = loadPendingState();
+        if (!saved || String(saved.reference_no) !== urlRef) {
+          saved = buildStateFromForm({
+            reference_no: urlRef,
+            status: 'pending'
+          });
+        }
+        saved = mergeFarmerFromUrlIntoState(saved);
+        savePendingState(saved);
+
+        submittedRef = urlRef;
+        applyFormFromState(saved);
+
+        if (saved.status === 'sent_to_client') {
+          applyReceiptSentUI(submittedRef, saved);
+          pollApprovalStatus();
+          pollTimer = setInterval(pollApprovalStatus, 5000);
+          return;
+        }
+        if (saved.status === 'approved') {
+          applyApprovedUI(submittedRef);
+          stopPoll();
+          pollApprovalStatus();
+          pollTimer = setInterval(pollApprovalStatus, 5000);
+          return;
+        }
+        if (saved.status === 'dismissed') {
+          applyDismissedUI(submittedRef);
+          pollApprovalStatus();
+          return;
+        }
+
+        startWaitingFlow(submittedRef, saved);
+      }
+
+      if (orderAgainBtn) {
+        orderAgainBtn.addEventListener('click', function () {
+          resetForOrderAgain();
+        });
+      }
+
+      validIdInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            viewIdBtn.style.display = 'flex';
+            var pending = loadPendingState();
+            if (pending && pending.reference_no) {
+              pending.valid_id_preview = e.target.result;
+              savePendingState(pending);
+            }
+          };
+          reader.readAsDataURL(this.files[0]);
+        } else {
+          viewIdBtn.style.display = 'none';
+        }
+      });
+
       // Clickable Payment Method Logic
       cashOption.addEventListener('click', function() {
         this.classList.toggle('selected');
@@ -241,69 +860,67 @@
           amountGroup.style.display = 'none';
         }
       });
-      
+
       form.addEventListener('submit', function(e) {
         e.preventDefault();
-        
-        // Capture data for receipt
-        const buyerName = document.getElementById('client-name').value;
+
+        if (!cashOption.classList.contains('selected')) {
+          alert('Please select Cash payment and enter the amount.');
+          return;
+        }
+
+        const buyerName = document.getElementById('client-name').value.trim();
         const sched = document.getElementById('pickup-date').value;
         const product = document.getElementById('product-type').value;
         const quantity = document.getElementById('quantity-kg').value;
         const amount = amountInput.value;
-        
-        document.getElementById('receipt-buyer-name').innerText = buyerName;
-        document.getElementById('receipt-sched').innerText = sched;
-        document.getElementById('receipt-product').innerText = product;
-        document.getElementById('receipt-quantity').innerText = quantity + ' kg';
-        document.getElementById('receipt-amount').innerText = '₱ ' + parseFloat(amount).toLocaleString(undefined, {minimumFractionDigits: 2});
 
-        // Change button to "Waiting for approval" state
-        btn.innerHTML = `
-          <svg class="status-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M12 6v6l4 2"></path>
-          </svg>
-          Waiting for approval
-        `;
-        btn.classList.add('status-waiting');
+        const fd = new FormData(form);
+        fd.set('payment_method', 'Cash');
+
         btn.disabled = true;
+        btn.textContent = 'Submitting...';
 
-        // Disable all form inputs
-        const controls = form.querySelectorAll('input, select, button');
-        controls.forEach(control => {
-          if (control !== checkBtn) {
-            control.disabled = true;
-            control.style.cursor = 'not-allowed';
-          }
-        });
-        
-        const statusContainer = document.getElementById('status-container');
-        const sign = document.createElement('div');
-        sign.className = 'approval-sign';
-        sign.innerHTML = '<span>●</span> Processing submission...';
-        statusContainer.appendChild(sign);
+        const postUrl = submitUrl.indexOf('http') === 0 ? submitUrl : submitUrl;
+        const directApi = appApiBase ? (appApiBase + '/api/client_transaction_submit.php') : '';
 
-        // SIMULATE FARMER APPROVAL after 3 seconds
-        setTimeout(() => {
-          btn.style.display = 'none';
-          sign.style.display = 'none';
-          
-          // Show the circular check button with animation
-          checkBtn.style.display = 'flex';
-          
-          // Add approval notification
-          const approvedSign = document.createElement('div');
-          approvedSign.className = 'approval-sign approved';
-          approvedSign.innerHTML = `
-            <svg style="width:18px;height:18px;margin-right:5px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-            Transaction Approved! Tap the check to see receipt.
-          `;
-          statusContainer.appendChild(approvedSign);
-        }, 3000);
+        function onSubmitOk(data) {
+          submittedRef = (data && data.reference_no) ? String(data.reference_no) : '';
+          var state = buildStateFromForm({
+            reference_no: submittedRef,
+            status: 'pending',
+            client_name: buyerName,
+            pickup_date: sched,
+            product_type: product,
+            quantity_kg: quantity,
+            payment_amount: amount
+          });
+          savePendingState(state);
+          startWaitingFlow(submittedRef, state);
+        }
+
+        function tryProxy() {
+          return fetch(postUrl, { method: 'POST', body: fd }).then(function (r) { return r.json(); });
+        }
+
+        function tryDirect() {
+          if (!directApi) return Promise.reject(new Error('no direct api'));
+          return fetch(directApi, { method: 'POST', body: fd }).then(function (r) { return r.json(); });
+        }
+
+        tryProxy()
+          .catch(function () { return tryDirect(); })
+          .then(function (data) {
+            if (!data || data.ok !== true) {
+              throw new Error((data && data.error) || 'Submit failed');
+            }
+            onSubmitOk(data);
+          })
+          .catch(function (err) {
+            btn.disabled = false;
+            btn.textContent = 'Submit';
+            alert('Could not save transaction: ' + (err.message || err));
+          });
       });
 
       // Show Pop-up Receipt Logic
@@ -477,6 +1094,18 @@
       });
 
       initCalendar();
+
+      var farmerCtxOnLoad = farmerFromUrlParams();
+      if (farmerCtxOnLoad && farmerCtxOnLoad.farmer_name) {
+        applyFarmerContext(farmerCtxOnLoad);
+      } else if (farmerNameDisplay && farmerNameDisplay.value.trim()) {
+        applyFarmerContext({
+          farmer_id: farmerIdInput ? farmerIdInput.value : '',
+          farmer_name: farmerNameDisplay.value.trim()
+        });
+      }
+
+      initTransactionFromLinkOrStorage();
     });
   </script>
 

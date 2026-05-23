@@ -21,8 +21,9 @@
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
     </svg>
-    <span class="header-notif-badge" data-notif-badge>3</span>
+    <span class="header-notif-badge" data-notif-badge hidden>0</span>
   </button>
+
   <div
     class="header-notif-panel"
     id="notif-panel"
@@ -31,28 +32,12 @@
     hidden
   >
     <div class="header-notif-panel-head">
-      <h3>Notifications</h3>
+      <h3>Messages</h3>
       <button type="button" class="header-notif-mark-read" data-notif-mark-read>
         Mark all read
       </button>
     </div>
-    <ul class="header-notif-list" data-notif-list>
-      <li class="header-notif-item is-unread">
-        <p class="header-notif-item-title">Welcome to Beanthentic</p>
-        <p class="header-notif-item-text">Explore farmer profiles, history, and transactions from your dashboard.</p>
-        <time class="header-notif-item-time" datetime="2026-05-22">Just now</time>
-      </li>
-      <li class="header-notif-item is-unread">
-        <p class="header-notif-item-title">New farmer registered</p>
-        <p class="header-notif-item-text">A new farmer profile has been added to the system.</p>
-        <time class="header-notif-item-time" datetime="2026-05-21">1 day ago</time>
-      </li>
-      <li class="header-notif-item is-unread">
-        <p class="header-notif-item-title">System update</p>
-        <p class="header-notif-item-text">Coffee history and report features are now available.</p>
-        <time class="header-notif-item-time" datetime="2026-05-20">2 days ago</time>
-      </li>
-    </ul>
-    <p class="header-notif-empty" data-notif-empty hidden>No new notifications</p>
+    <ul class="header-notif-list" data-notif-list></ul>
+    <p class="header-notif-empty" data-notif-empty hidden>No new messages</p>
   </div>
 </div>

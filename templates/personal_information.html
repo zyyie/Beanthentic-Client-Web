@@ -17,13 +17,26 @@
   </header>
 
   <main class="pi-main container">
-    {% if farmer.is_default %}
+    {% if farmer.load_error %}
+    <p class="pi-error-notice">{{ farmer.load_error }}</p>
+    {% elif farmer.is_default %}
     <p class="pi-demo-notice">Sample profile — preview design (no database record).</p>
     {% endif %}
-    <div class="pi-card">
+    <div class="pi-card"{% if farmer.profile_not_found %} hidden{% endif %}>
       <div class="pi-avatar-wrap">
         <div class="pi-avatar">
-          <img src="{{ farmer.photo_url }}" alt="Profile Photo">
+          {% if farmer.has_photo %}
+          <img src="{{ farmer.photo_url }}" alt="Profile Photo" onerror="this.remove();var el=this.parentElement.querySelector('.default-user-icon');if(el)el.removeAttribute('hidden');">
+          <svg class="default-user-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" hidden aria-hidden="true">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          {% else %}
+          <svg class="default-user-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          {% endif %}
         </div>
       </div>
 
@@ -58,7 +71,7 @@
 
       <div class="pi-row">
         <p class="pi-label">RSBSA REGISTERED</p>
-        <p class="pi-value">{{ 'Yes' if farmer.rsbsa_registered else 'No' }}</p>
+        <p class="pi-value">{% if farmer.rsbsa_registered == 1 or farmer.rsbsa_registered == '1' %}Yes{% elif farmer.rsbsa_registered == 2 or farmer.rsbsa_registered == '2' %}Pending{% else %}No{% endif %}</p>
       </div>
 
       {% if farmer.rsbsa_number %}
@@ -69,7 +82,12 @@
       {% endif %}
 
       <div class="pi-transaction-wrap">
-        <a class="pi-transaction-link" href="{{ url_for('transaction') }}">
+        <a
+          class="pi-transaction-link"
+          href="{{ url_for('transaction') }}?farmer_id={{ farmer.farmer_id }}&amp;farmer_name={{ ((farmer.first_name ~ ' ' ~ farmer.last_name)|trim)|urlencode }}"
+          data-farmer-id="{{ farmer.farmer_id }}"
+          data-farmer-name="{{ (farmer.first_name ~ ' ' ~ farmer.last_name)|trim }}"
+        >
           Go to Transaction
           <svg class="pi-transaction-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
             <path d="M5 12h14M13 6l6 6-6 6"/>
@@ -78,5 +96,22 @@
       </div>
     </div>
   </main>
+  <script>
+    (function () {
+      var link = document.querySelector(".pi-transaction-link[data-farmer-name]");
+      if (!link) return;
+      link.addEventListener("click", function () {
+        try {
+          sessionStorage.setItem(
+            "beanthentic_tx_farmer_context",
+            JSON.stringify({
+              farmer_id: link.getAttribute("data-farmer-id") || "",
+              farmer_name: link.getAttribute("data-farmer-name") || ""
+            })
+          );
+        } catch (_e) {}
+      });
+    })();
+  </script>
 </body>
 </html>

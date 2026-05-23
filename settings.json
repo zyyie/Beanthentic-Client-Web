@@ -1,11 +1,12 @@
 {
   "connection": {
-    "app_db_host": "192.168.18.77",
+    "use_demo_data": true,
+    "app_db_host": "192.168.0.106",
     "app_db_port": 3306,
     "app_db_user": "beanthentic_remote",
     "app_db_pass": "StrongPass123!",
     "app_db_name": "beanthentic_app",
-    "app_server_base": "http://192.168.18.77:8080"
+    "app_server_base": "http://192.168.0.106:8080"
   },
   "notifications": {
     "email_system_events": true,
