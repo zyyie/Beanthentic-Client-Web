@@ -13,6 +13,7 @@
         <svg class="nav-back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </a>
       <div class="nav-title">Transaction Process</div>
+      {% include 'partials/header_notif.html' %}
     </div>
   </header>
 
@@ -255,12 +256,27 @@
         </div>
       </div>
     </div>
+
+    <!-- Success pop-up after submit -->
+    <div id="txn-success-modal" class="txn-success-modal" hidden aria-hidden="true" role="dialog" aria-labelledby="txn-success-title" aria-modal="true">
+      <div class="txn-success-modal__backdrop" data-txn-success-close></div>
+      <div class="txn-success-modal__card">
+        <div class="txn-success-modal__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <h2 id="txn-success-title" class="txn-success-modal__title">Transaction submitted</h2>
+        <p class="txn-success-modal__text">Your request was sent successfully. Please wait for the farmer to approve it.</p>
+        <p class="txn-success-modal__ref">Reference: <strong id="txn-success-ref">—</strong></p>
+        <button type="button" class="txn-success-modal__btn" id="txn-success-ok">OK</button>
+      </div>
+    </div>
   </main>
+
+  <div id="beanthentic-toast-host" class="beanthentic-toast-host" aria-live="polite" aria-atomic="true"></div>
 
   <script>
     window.__BEANTHENTIC_APP_SERVER_BASE__ = {{ app_server_base|tojson }};
   </script>
-  <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       const form = document.getElementById('client-transaction-form') || document.querySelector('.transaction-form');
@@ -308,6 +324,8 @@
       const statusHint = document.getElementById('txn-status-hint');
 
       var submittedRef = '';
+      var approvedNotifiedForRef = '';
+      var receiptNotifiedForRef = '';
       var pollTimer = null;
 
       function savePendingState(state) {
@@ -351,6 +369,13 @@
 
       function unlockFormControls() {
         form.querySelectorAll('input, select, button').forEach(function (control) {
+          if (
+            control.id === 'txn-farmer-name-display' ||
+            control.id === 'farmer-id' ||
+            control.id === 'farmer-name-hidden'
+          ) {
+            return;
+          }
           control.disabled = false;
           control.style.cursor = '';
         });
@@ -361,6 +386,36 @@
         if (statusContainer) statusContainer.classList.remove('status-receipt-ready');
         checkBtn.style.display = 'none';
         if (orderAgainWrap) orderAgainWrap.hidden = true;
+      }
+
+      function clearTransactionFormFields() {
+        document.getElementById('client-name').value = '';
+        document.getElementById('pickup-date').value = '';
+        var productEl = document.getElementById('product-type');
+        if (productEl) productEl.selectedIndex = 0;
+        document.getElementById('quantity-kg').value = '';
+        amountInput.value = '';
+        cashOption.classList.remove('selected');
+        amountGroup.style.display = 'none';
+        validIdInput.value = '';
+        viewIdBtn.style.display = 'none';
+        if (previewImg) previewImg.src = '';
+        selectedDate = null;
+      }
+
+      function buildTrackMeta(extra) {
+        var base = {
+          farmer_id: farmerIdInput ? farmerIdInput.value : '',
+          farmer_name: farmerNameDisplay
+            ? farmerNameDisplay.value.trim()
+            : farmerNameHidden
+              ? farmerNameHidden.value.trim()
+              : '',
+          reference_no: '',
+          status: 'pending',
+          submitted_at: new Date().toISOString()
+        };
+        return Object.assign(base, extra || {});
       }
 
       function moneyLike(v) {
@@ -483,94 +538,138 @@
 
       function applyWaitingUI(ref) {
         checkBtn.style.display = 'none';
-        btn.classList.remove('status-approved');
-        btn.innerHTML =
-          '<svg class="status-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
-          '<circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg> Waiting for approval';
-        btn.classList.add('status-waiting');
-        btn.disabled = true;
-        lockFormControls();
-        showStatusPanel(
-          'waiting',
-          ref,
-          'Your request was sent. Please wait while the farmer reviews and approves or dismisses it.'
-        );
+        unlockFormControls();
+        if (statusPanel) {
+          statusPanel.hidden = false;
+          statusPanel.classList.remove(
+            'txn-status-panel--approved',
+            'txn-status-panel--dismissed',
+            'txn-status-panel--receipt'
+          );
+          if (statusRef) statusRef.textContent = ref || '—';
+          if (statusBadge) statusBadge.textContent = 'Waiting for approval';
+          if (statusHint) {
+            statusHint.textContent =
+              'Your request was sent. You will get a notification when the farmer approves it.';
+          }
+        }
+      }
+
+      var txnSuccessModal = document.getElementById('txn-success-modal');
+      var txnSuccessRef = document.getElementById('txn-success-ref');
+      var txnSuccessOk = document.getElementById('txn-success-ok');
+
+      function showTxnSuccessPopup(ref) {
+        if (txnSuccessRef) txnSuccessRef.textContent = ref || '—';
+        if (txnSuccessModal) {
+          txnSuccessModal.hidden = false;
+          txnSuccessModal.setAttribute('aria-hidden', 'false');
+          document.body.style.overflow = 'hidden';
+        }
+      }
+
+      function hideTxnSuccessPopup() {
+        if (!txnSuccessModal) return;
+        txnSuccessModal.hidden = true;
+        txnSuccessModal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+      }
+
+      if (txnSuccessOk) {
+        txnSuccessOk.addEventListener('click', hideTxnSuccessPopup);
+      }
+      if (txnSuccessModal) {
+        txnSuccessModal.querySelectorAll('[data-txn-success-close]').forEach(function (el) {
+          el.addEventListener('click', hideTxnSuccessPopup);
+        });
+      }
+
+      function notifyTransactionSubmitted(ref) {
+        if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
+          window.BeanthenticNotifs.notifyTransactionEvent('submitted', ref);
+        }
+        showTxnSuccessPopup(ref);
       }
 
       function notifyTransactionApproved(ref) {
-        if (window.BeanthenticNotifs && window.BeanthenticNotifs.pushTransactionApproved) {
-          window.BeanthenticNotifs.pushTransactionApproved(ref);
+        if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
+          window.BeanthenticNotifs.notifyTransactionEvent('approved', ref);
         }
+        showStatusPanel(
+          'approved',
+          ref,
+          'The farmer approved your transaction. You will be notified when the receipt is sent.'
+        );
+      }
+
+      function notifyTransactionReceiptSent(ref) {
+        if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
+          window.BeanthenticNotifs.notifyTransactionEvent('receipt', ref);
+        }
+        showStatusPanel(
+          'receipt',
+          ref,
+          'The farmer sent your official receipt. Tap <strong>View Receipt</strong> below.'
+        );
       }
 
       function applyApprovedUI(ref) {
         if (statusContainer) statusContainer.classList.remove('status-receipt-ready');
         checkBtn.style.display = 'none';
-        btn.style.display = '';
-        btn.classList.remove('status-waiting');
-        btn.classList.add('status-approved');
-        btn.innerHTML = '✓ Transaction approved';
-        btn.disabled = true;
-        if (orderAgainWrap) orderAgainWrap.hidden = true;
-        lockFormControls();
-        showStatusPanel(
-          'approved',
-          ref,
-          'The farmer approved your request. Meet on your scheduled pickup date to complete your purchase in person. Your official receipt will be given there.'
-        );
-        notifyTransactionApproved(ref);
+        unlockFormControls();
+        clearTransactionFormFields();
+        if (approvedNotifiedForRef !== ref) {
+          approvedNotifiedForRef = ref;
+          notifyTransactionApproved(ref);
+        }
       }
 
       function applyReceiptSentUI(ref, state) {
         stopPoll();
         var s = state || loadPendingState() || buildStateFromForm();
         fillReceiptModal(s);
+        applyFarmerContext(s);
+        clearTransactionFormFields();
         if (statusContainer) statusContainer.classList.add('status-receipt-ready');
         checkBtn.style.display = 'inline-flex';
         btn.style.display = 'none';
         btn.classList.remove('status-waiting', 'status-approved');
-        btn.disabled = true;
         if (orderAgainWrap) orderAgainWrap.hidden = false;
-        lockFormControls();
-        showStatusPanel(
-          'receipt',
-          ref,
-          'Your official receipt has been sent. Tap <strong>View Receipt</strong> below to open it. When you are ready for a new order, tap <strong>Order again</strong>.'
-        );
+        if (receiptNotifiedForRef !== ref) {
+          receiptNotifiedForRef = ref;
+          notifyTransactionReceiptSent(ref);
+        } else if (statusPanel) {
+          statusPanel.hidden = true;
+        }
       }
 
       function resetForOrderAgain() {
         stopPoll();
         submittedRef = '';
+        var farmerKeep = {
+          farmer_id: farmerIdInput ? farmerIdInput.value : '',
+          farmer_name: farmerNameDisplay
+            ? farmerNameDisplay.value.trim()
+            : farmerNameHidden
+              ? farmerNameHidden.value.trim()
+              : ''
+        };
         try {
           localStorage.removeItem(STORAGE_KEY);
           sessionStorage.removeItem(STORAGE_KEY);
         } catch (_clr) {}
         if (statusPanel) statusPanel.hidden = true;
         unlockFormControls();
-        form.reset();
-        cashOption.classList.remove('selected');
-        amountGroup.style.display = 'none';
-        amountInput.value = '';
-        viewIdBtn.style.display = 'none';
-        if (previewImg) previewImg.src = '';
-        validIdInput.value = '';
-        pickupDateInput.value = '';
-        selectedDate = null;
+        clearTransactionFormFields();
+        applyFarmerContext(farmerKeep);
       }
 
       function applyDismissedUI(ref) {
         stopPoll();
         checkBtn.style.display = 'none';
-        btn.classList.remove('status-waiting', 'status-approved');
-        btn.innerHTML = 'Dismissed';
-        btn.disabled = true;
-        lockFormControls();
-        showStatusPanel(
-          'dismissed',
-          ref,
-          'This transaction was dismissed by the farmer. You may submit a new request when ready.'
-        );
+        unlockFormControls();
+        clearTransactionFormFields();
+        if (statusPanel) statusPanel.hidden = true;
       }
 
       function showStatusPanel(mode, ref, hintText) {
@@ -601,30 +700,47 @@
       var farmerNameHidden = document.getElementById('farmer-name-hidden');
 
       function persistFarmerContext(s) {
-        if (!s || !s.farmer_name) return;
+        if (!s) return;
+        var fid = s.farmer_id != null ? String(s.farmer_id).trim() : '';
+        var name = s.farmer_name ? String(s.farmer_name).trim() : '';
+        if (!fid && !name) return;
         try {
           sessionStorage.setItem(
             FARMER_CTX_KEY,
-            JSON.stringify({
-              farmer_id: s.farmer_id != null ? String(s.farmer_id) : '',
-              farmer_name: String(s.farmer_name).trim()
-            })
+            JSON.stringify({ farmer_id: fid, farmer_name: name })
           );
         } catch (_e) {}
       }
 
+      function getActiveFarmerContext() {
+        var urlFarmer = farmerFromUrlParams();
+        if (urlFarmer && (urlFarmer.farmer_id || urlFarmer.farmer_name)) {
+          return urlFarmer;
+        }
+        var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+        var name = farmerNameDisplay
+          ? String(farmerNameDisplay.value || '').trim()
+          : farmerNameHidden
+            ? String(farmerNameHidden.value || '').trim()
+            : '';
+        if (fid || name) {
+          return { farmer_id: fid, farmer_name: name };
+        }
+        return null;
+      }
+
       function applyFarmerContext(s) {
         var name = s && s.farmer_name ? String(s.farmer_name).trim() : '';
-        var fid = s && s.farmer_id != null && s.farmer_id !== '' ? String(s.farmer_id) : '';
-        if (!name) {
+        var fid = s && s.farmer_id != null && s.farmer_id !== '' ? String(s.farmer_id).trim() : '';
+        if (!name && !fid) {
           if (farmerFieldWrap) farmerFieldWrap.hidden = true;
           return;
         }
-        if (farmerFieldWrap) farmerFieldWrap.hidden = false;
-        if (farmerNameDisplay) farmerNameDisplay.value = name;
+        if (farmerFieldWrap) farmerFieldWrap.hidden = !name;
+        if (farmerNameDisplay && name) farmerNameDisplay.value = name;
         if (farmerIdInput) farmerIdInput.value = fid;
         if (farmerNameHidden) farmerNameHidden.value = name;
-        persistFarmerContext(s);
+        persistFarmerContext({ farmer_id: fid, farmer_name: name });
       }
 
       function farmerFromUrlParams() {
@@ -654,20 +770,7 @@
 
       function applyFormFromState(s) {
         if (!s) return;
-        document.getElementById('client-name').value = s.client_name || '';
-        document.getElementById('pickup-date').value = s.pickup_date || '';
-        document.getElementById('product-type').value = s.product_type || '';
-        document.getElementById('quantity-kg').value = s.quantity_kg || '';
-        amountInput.value = s.payment_amount || '';
         applyFarmerContext(s);
-        if (s.payment_amount) {
-          cashOption.classList.add('selected');
-          amountGroup.style.display = 'block';
-        }
-        if (s.valid_id_preview) {
-          previewImg.src = s.valid_id_preview;
-          viewIdBtn.style.display = 'flex';
-        }
       }
 
       function buildStateFromForm(extra) {
@@ -734,7 +837,8 @@
 
       function startWaitingFlow(ref, state) {
         submittedRef = ref;
-        applyFormFromState(state);
+        if (state) applyFarmerContext(state);
+        clearTransactionFormFields();
         applyWaitingUI(ref);
         stopPoll();
         pollApprovalStatus();
@@ -745,7 +849,7 @@
         var saved = loadPendingState();
         if (!saved || !saved.reference_no) return;
         submittedRef = String(saved.reference_no);
-        applyFormFromState(saved);
+        clearTransactionFormFields();
         if (saved.status === 'sent_to_client') {
           applyReceiptSentUI(submittedRef, saved);
           pollApprovalStatus();
@@ -779,15 +883,9 @@
         var urlRef = params.get('ref');
         urlRef = urlRef ? String(urlRef).trim() : '';
         if (!urlRef) {
+          var urlOnly = farmerFromUrlParams();
+          if (urlOnly) applyFarmerContext(urlOnly);
           restorePendingOnLoad();
-          var savedLocal = mergeFarmerFromUrlIntoState(loadPendingState());
-          if (savedLocal) {
-            savePendingState(savedLocal);
-            applyFormFromState(savedLocal);
-          } else {
-            var urlOnly = farmerFromUrlParams();
-            if (urlOnly) applyFarmerContext(urlOnly);
-          }
           return;
         }
 
@@ -798,11 +896,13 @@
             status: 'pending'
           });
         }
+        var urlOnly = farmerFromUrlParams();
+        if (urlOnly) applyFarmerContext(urlOnly);
         saved = mergeFarmerFromUrlIntoState(saved);
         savePendingState(saved);
 
         submittedRef = urlRef;
-        applyFormFromState(saved);
+        clearTransactionFormFields();
 
         if (saved.status === 'sent_to_client') {
           applyReceiptSentUI(submittedRef, saved);
@@ -875,8 +975,21 @@
         const quantity = document.getElementById('quantity-kg').value;
         const amount = amountInput.value;
 
+        const farmerCtx = getActiveFarmerContext();
+        const farmerIdVal = farmerCtx && farmerCtx.farmer_id ? String(farmerCtx.farmer_id).trim() : '';
+        if (!farmerIdVal || parseInt(farmerIdVal, 10) <= 0) {
+          alert(
+            'Please open Transaction from the farmer profile first (Farmer Profiles → select farmer → Go to Transaction).'
+          );
+          return;
+        }
+
         const fd = new FormData(form);
         fd.set('payment_method', 'Cash');
+        fd.set('farmer_id', farmerIdVal);
+        if (farmerCtx.farmer_name) {
+          fd.set('farmer_name', farmerCtx.farmer_name);
+        }
 
         btn.disabled = true;
         btn.textContent = 'Submitting...';
@@ -886,7 +999,7 @@
 
         function onSubmitOk(data) {
           submittedRef = (data && data.reference_no) ? String(data.reference_no) : '';
-          var state = buildStateFromForm({
+          var state = buildTrackMeta({
             reference_no: submittedRef,
             status: 'pending',
             client_name: buyerName,
@@ -896,6 +1009,8 @@
             payment_amount: amount
           });
           savePendingState(state);
+          clearTransactionFormFields();
+          notifyTransactionSubmitted(submittedRef);
           startWaitingFlow(submittedRef, state);
         }
 
@@ -915,11 +1030,24 @@
               throw new Error((data && data.error) || 'Submit failed');
             }
             onSubmitOk(data);
+            btn.disabled = true;
+            btn.textContent = 'Submitted';
+            btn.classList.add('status-waiting');
           })
           .catch(function (err) {
             btn.disabled = false;
             btn.textContent = 'Submit';
-            alert('Could not save transaction: ' + (err.message || err));
+            btn.classList.remove('status-waiting');
+            if (window.BeanthenticNotifs && window.BeanthenticNotifs.showToast) {
+              window.BeanthenticNotifs.showToast({
+                title: 'Submit failed',
+                text: err.message || 'Could not save transaction.',
+                type: 'error',
+                durationMs: 7000
+              });
+            } else {
+              alert('Could not save transaction: ' + (err.message || err));
+            }
           });
       });
 
@@ -1096,9 +1224,9 @@
       initCalendar();
 
       var farmerCtxOnLoad = farmerFromUrlParams();
-      if (farmerCtxOnLoad && farmerCtxOnLoad.farmer_name) {
+      if (farmerCtxOnLoad) {
         applyFarmerContext(farmerCtxOnLoad);
-      } else if (farmerNameDisplay && farmerNameDisplay.value.trim()) {
+      } else if (farmerNameDisplay && (farmerNameDisplay.value.trim() || (farmerIdInput && farmerIdInput.value))) {
         applyFarmerContext({
           farmer_id: farmerIdInput ? farmerIdInput.value : '',
           farmer_name: farmerNameDisplay.value.trim()
@@ -1109,6 +1237,8 @@
     });
   </script>
 
+  <script src="{{ url_for('static', filename='js/notifications.js') }}?v=20260530-notif-view"></script>
+  <script src="{{ url_for('static', filename='js/client_tx_watch.js') }}?v=20260524-txnotif3"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

@@ -1,3 +1,12 @@
+<script type="application/json" id="beanthentic-notif-routes">
+  {{ {
+    "home": url_for("home"),
+    "farmer_profiles": url_for("farmer_profiles"),
+    "history": url_for("history"),
+    "report": url_for("report"),
+    "transaction": url_for("transaction")
+  }|tojson }}
+</script>
 <div class="header-notif" data-notif-root>
   <button
     type="button"
@@ -32,12 +41,12 @@
     hidden
   >
     <div class="header-notif-panel-head">
-      <h3>Messages</h3>
+      <h3>Notifications</h3>
       <button type="button" class="header-notif-mark-read" data-notif-mark-read>
-        Mark all read
+        Mark all as read
       </button>
     </div>
     <ul class="header-notif-list" data-notif-list></ul>
-    <p class="header-notif-empty" data-notif-empty hidden>No new messages</p>
+    <p class="header-notif-empty" data-notif-empty hidden>No notifications yet</p>
   </div>
 </div>

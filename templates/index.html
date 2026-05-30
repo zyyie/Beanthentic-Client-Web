@@ -107,6 +107,10 @@
       </section>
 
     </main>
-    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <script>
+      window.__BEANTHENTIC_APP_SERVER_BASE__ = {{ app_server_base|tojson }};
+    </script>
+    <script src="{{ url_for('static', filename='js/notifications.js') }}?v=20260530-notif-view"></script>
+    <script src="{{ url_for('static', filename='js/client_tx_watch.js') }}?v=20260524-txnotif3"></script>
   </body>
 </html>
