@@ -266,22 +266,9 @@
         </div>
         
         <div class="calendar-footer">
+          <button type="button" class="calendar-today-btn" id="calendar-today">Today</button>
           <button type="button" class="calendar-ok-btn" id="confirm-date">OK</button>
         </div>
-      </div>
-    </div>
-
-    <!-- Success pop-up after submit -->
-    <div id="txn-success-modal" class="txn-success-modal" hidden aria-hidden="true" role="dialog" aria-labelledby="txn-success-title" aria-modal="true">
-      <div class="txn-success-modal__backdrop" data-txn-success-close></div>
-      <div class="txn-success-modal__card">
-        <div class="txn-success-modal__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-        </div>
-        <h2 id="txn-success-title" class="txn-success-modal__title">Transaction submitted</h2>
-        <p class="txn-success-modal__text">Your request was sent successfully. Please wait for the farmer to approve it.</p>
-        <p class="txn-success-modal__ref">Reference: <strong id="txn-success-ref">—</strong></p>
-        <button type="button" class="txn-success-modal__btn" id="txn-success-ok">OK</button>
       </div>
     </div>
   </main>
@@ -615,40 +602,10 @@
         }
       }
 
-      var txnSuccessModal = document.getElementById('txn-success-modal');
-      var txnSuccessRef = document.getElementById('txn-success-ref');
-      var txnSuccessOk = document.getElementById('txn-success-ok');
-
-      function showTxnSuccessPopup(ref) {
-        if (txnSuccessRef) txnSuccessRef.textContent = ref || '—';
-        if (txnSuccessModal) {
-          txnSuccessModal.hidden = false;
-          txnSuccessModal.setAttribute('aria-hidden', 'false');
-          document.body.style.overflow = 'hidden';
-        }
-      }
-
-      function hideTxnSuccessPopup() {
-        if (!txnSuccessModal) return;
-        txnSuccessModal.hidden = true;
-        txnSuccessModal.setAttribute('aria-hidden', 'true');
-        document.body.style.overflow = '';
-      }
-
-      if (txnSuccessOk) {
-        txnSuccessOk.addEventListener('click', hideTxnSuccessPopup);
-      }
-      if (txnSuccessModal) {
-        txnSuccessModal.querySelectorAll('[data-txn-success-close]').forEach(function (el) {
-          el.addEventListener('click', hideTxnSuccessPopup);
-        });
-      }
-
       function notifyTransactionSubmitted(ref) {
         if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
           window.BeanthenticNotifs.notifyTransactionEvent('submitted', ref);
         }
-        showTxnSuccessPopup(ref);
       }
 
       function notifyTransactionApproved(ref) {
@@ -1168,6 +1125,48 @@
 
       let selectedDate = null;
 
+      function localYmd(year, monthIndex, day) {
+        return (
+          String(year) +
+          '-' +
+          String(monthIndex + 1).padStart(2, '0') +
+          '-' +
+          String(day).padStart(2, '0')
+        );
+      }
+
+      function todayYmd() {
+        const t = new Date();
+        return localYmd(t.getFullYear(), t.getMonth(), t.getDate());
+      }
+
+      function parseDisplayPickupDate(str) {
+        const raw = String(str || '').trim();
+        const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(raw);
+        if (!m) return null;
+        const day = parseInt(m[1], 10);
+        const monthIndex = parseInt(m[2], 10) - 1;
+        const year = parseInt(m[3], 10);
+        if (monthIndex < 0 || monthIndex > 11 || day < 1 || day > 31) return null;
+        return localYmd(year, monthIndex, day);
+      }
+
+      function applySelectedDateToInput(ymd) {
+        if (!ymd) return;
+        const parts = ymd.split('-');
+        if (parts.length !== 3) return;
+        const y = parts[0];
+        const m = parts[1];
+        const d = parts[2];
+        pickupDateInput.value = `${d}/${m}/${y}`;
+      }
+
+      function selectCalendarDate(ymd) {
+        if (!ymd || ymd < todayYmd()) return;
+        selectedDate = ymd;
+        updateCalendar();
+      }
+
       const months = [
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
@@ -1210,29 +1209,34 @@
           daysContainer.appendChild(emptyDiv);
         }
 
+        const todayStr = todayYmd();
+
         // Add days of the month
         for (let i = 1; i <= daysInMonth; i++) {
           const dayBtn = document.createElement('button');
           dayBtn.type = 'button';
           dayBtn.className = 'calendar-day';
           dayBtn.textContent = i;
-          
-          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-          
+
+          const dateStr = localYmd(year, month, i);
+          const isPast = dateStr < todayStr;
+
           if (selectedDate === dateStr) {
             dayBtn.classList.add('selected');
           }
 
-          const today = new Date();
-          if (year === today.getFullYear() && month === today.getMonth() && i === today.getDate()) {
+          if (dateStr === todayStr) {
             dayBtn.classList.add('today');
           }
 
-          dayBtn.addEventListener('click', () => {
-            document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
-            dayBtn.classList.add('selected');
-            selectedDate = dateStr;
-          });
+          if (isPast) {
+            dayBtn.classList.add('disabled');
+            dayBtn.disabled = true;
+          } else {
+            dayBtn.addEventListener('click', () => {
+              selectCalendarDate(dateStr);
+            });
+          }
 
           daysContainer.appendChild(dayBtn);
         }
@@ -1241,11 +1245,15 @@
       pickupDateInput.addEventListener('click', () => {
         calendarModal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
-        
-        // Reset to current date or selected date
-        const dateToShow = selectedDate ? new Date(selectedDate) : new Date();
-        monthSelect.value = dateToShow.getMonth();
-        yearSelect.value = dateToShow.getFullYear();
+
+        const fromInput = parseDisplayPickupDate(pickupDateInput.value);
+        selectedDate = fromInput || selectedDate || todayYmd();
+        if (selectedDate < todayYmd()) {
+          selectedDate = todayYmd();
+        }
+        const parts = selectedDate.split('-');
+        monthSelect.value = parseInt(parts[1], 10) - 1;
+        yearSelect.value = parseInt(parts[0], 10);
         updateCalendar();
       });
 
@@ -1294,15 +1302,28 @@
         }
       });
 
+      const calendarTodayBtn = document.getElementById('calendar-today');
+      if (calendarTodayBtn) {
+        calendarTodayBtn.addEventListener('click', () => {
+          const todayStr = todayYmd();
+          selectedDate = todayStr;
+          const parts = todayStr.split('-');
+          monthSelect.value = parseInt(parts[1], 10) - 1;
+          yearSelect.value = parseInt(parts[0], 10);
+          updateCalendar();
+        });
+      }
+
       confirmDateBtn.addEventListener('click', () => {
-        if (selectedDate) {
-          const [y, m, d] = selectedDate.split('-');
-          pickupDateInput.value = `${d}/${m}/${y}`;
-          calendarModal.style.display = 'none';
-          document.body.style.overflow = 'auto';
-        } else {
-          alert('Please select a date first.');
+        const dateToUse = selectedDate && selectedDate >= todayYmd() ? selectedDate : todayYmd();
+        if (dateToUse < todayYmd()) {
+          alert('Pick-up date cannot be in the past. Please choose today or a future date.');
+          return;
         }
+        selectedDate = dateToUse;
+        applySelectedDateToInput(dateToUse);
+        calendarModal.style.display = 'none';
+        document.body.style.overflow = 'auto';
       });
 
       initCalendar();

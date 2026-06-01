@@ -1018,8 +1018,7 @@ body {
 .liberica-history,
 .portal-page .portal-button-card,
 .fb-embed-wrap,
-.report-chat,
-.txn-success-modal__card {
+.report-chat {
   background: var(--bt-glass-bg);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -3658,7 +3657,39 @@ input[type=number] {
 
 .calendar-footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+
+.calendar-today-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.65);
+  padding: 12px 28px;
+  border-radius: 40px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.calendar-today-btn:hover {
+  background: rgba(255, 255, 255, 0.32);
+  transform: scale(1.02);
+}
+
+.calendar-day.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.calendar-day.disabled:hover {
+  transform: none;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .calendar-ok-btn {
