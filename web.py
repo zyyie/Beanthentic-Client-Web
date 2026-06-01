@@ -667,14 +667,34 @@ def _inject_app_server_base():
     return {"app_server_base": _app_server_base()}
 
 
+def _farmer_display_name(row: dict | None) -> str:
+    if not row:
+        return ""
+    first = str(row.get("first_name") or "").strip()
+    last = str(row.get("last_name") or "").strip()
+    name = f"{first} {last}".strip()
+    if name:
+        return name
+    return str(row.get("username") or "").strip()
+
+
 @app.route("/transaction")
 def transaction():
     farmer_id = request.args.get("farmer_id", type=int) or 0
     farmer_name = (request.args.get("farmer_name") or "").strip()
+    farmer_row = None
+    if farmer_id > 0:
+        farmer_row, _ = _fetch_farmer_profile(farmer_id)
+        if farmer_row:
+            db_name = _farmer_display_name(farmer_row)
+            if db_name:
+                farmer_name = db_name
+            farmer_id = int(farmer_row.get("farmer_id") or farmer_id)
     return render_template(
         "transaction.html",
         farmer_id=farmer_id,
         farmer_name=farmer_name,
+        farmer_profiles_url=url_for("farmer_profiles"),
     )
 
 

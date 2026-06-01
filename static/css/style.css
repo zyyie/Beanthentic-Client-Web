@@ -2441,6 +2441,10 @@ body.pi-page {
 .pickup-details-card {
   padding: clamp(24px, 4vw, 32px);
   margin-top: 0;
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid rgba(43, 127, 31, 0.12);
+  box-shadow: 0 8px 28px rgba(23, 74, 19, 0.06);
 }
 
 .pickup-header {
@@ -2592,9 +2596,86 @@ input[type=number] {
   to { opacity: 1; transform: translateY(0); }
 }
 
+.txn-farmer-pick-banner {
+  max-width: 800px;
+  margin: 0 auto 1.25rem;
+  padding: 1rem 1.15rem;
+  border-radius: 14px;
+  background: #fff8e6;
+  border: 1px solid #f0d78a;
+  color: #5c4a12;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.txn-farmer-pick-banner a {
+  color: #1e5214;
+  font-weight: 800;
+}
+
+@media (max-width: 992px) {
+  .transaction-main {
+    padding: 28px 0 64px;
+  }
+
+  .transaction-form {
+    max-width: 100%;
+    padding: 0 12px;
+  }
+
+  .pickup-details-card {
+    padding: 20px 18px;
+  }
+}
+
 @media (max-width: 600px) {
   .pickup-fields {
     grid-template-columns: 1fr;
+  }
+
+  .transaction-main {
+    padding: 20px 0 56px;
+  }
+
+  .transaction-form {
+    padding: 0 8px;
+  }
+
+  .pickup-header {
+    margin-bottom: 18px;
+  }
+
+  .pickup-title {
+    font-size: 1.15rem;
+  }
+
+  .txn-status-panel {
+    margin-left: 8px;
+    margin-right: 8px;
+  }
+
+  .transaction-page .form-footer {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .form-group input[type="text"],
+  .form-group input[type="number"],
+  .custom-select {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 400px) {
+  .pickup-details-card {
+    padding: 16px 14px;
+    border-radius: 14px;
+  }
+
+  .txn-farmer-pick-banner {
+    margin-left: 8px;
+    margin-right: 8px;
+    font-size: 0.88rem;
   }
 }
 

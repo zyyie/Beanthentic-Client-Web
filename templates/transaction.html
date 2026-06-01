@@ -6,7 +6,11 @@
   <title>Client Transaction Process | Beanthentic</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
-<body class="transaction-page">
+<body
+  class="transaction-page"
+  data-farmer-id="{{ farmer_id or '' }}"
+  data-farmer-name="{{ farmer_name or '' }}"
+>
   <header class="top-header top-header--history">
     <div class="container nav-wrapper nav-wrapper--history">
       <a href="{{ url_for('home') }}" class="nav-back" aria-label="Back to homepage">
@@ -18,6 +22,15 @@
   </header>
 
   <main class="container transaction-main">
+    {% if not farmer_id %}
+    <div class="txn-farmer-pick-banner" role="status">
+      <p>
+        Open <a href="{{ farmer_profiles_url }}">Farmer Profiles</a>, choose a farmer, then tap
+        <strong>Go to Transaction</strong> so the correct name from registration appears here.
+      </p>
+    </div>
+    {% endif %}
+
     <form class="transaction-form" id="client-transaction-form" action="{{ url_for('client_transaction_submit_proxy') }}" method="POST" enctype="multipart/form-data">
       <input type="hidden" name="transaction_type" value="pickup" />
       <input type="hidden" name="quantity_unit" value="KG" />
@@ -36,7 +49,7 @@
           
           <div class="pickup-fields">
             <div class="form-group full-width txn-farmer-field" id="txn-farmer-field-wrap" {% if not farmer_name %}hidden{% endif %}>
-              <label for="txn-farmer-name-display">Farmer</label>
+              <label for="txn-farmer-name-display">Selected farmer (from registration)</label>
               <input
                 type="text"
                 id="txn-farmer-name-display"
@@ -46,11 +59,12 @@
                 tabindex="-1"
                 aria-readonly="true"
               />
+              <p class="form-help">This is the farmer you chose on their profile — not your name.</p>
             </div>
 
             <div class="form-group full-width">
-              <label for="client-name" id="client-name-label">Name</label>
-              <input type="text" id="client-name" name="client_name" placeholder="Enter your full name" required />
+              <label for="client-name" id="client-name-label">Your name (client / buyer)</label>
+              <input type="text" id="client-name" name="client_name" placeholder="Enter your full name" required autocomplete="name" />
             </div>
 
             <div class="form-group full-width">
@@ -317,7 +331,7 @@
         }
       });
 
-      const STORAGE_KEY = 'beanthentic_client_pending_tx';
+      const STORAGE_KEY_LEGACY = 'beanthentic_client_pending_tx';
       const statusPanel = document.getElementById('txn-status-panel');
       const statusBadge = document.getElementById('txn-status-badge');
       const statusRef = document.getElementById('txn-status-ref');
@@ -328,22 +342,68 @@
       var receiptNotifiedForRef = '';
       var pollTimer = null;
 
-      function savePendingState(state) {
+      var FARMER_CTX_KEY = 'beanthentic_tx_farmer_context';
+      var farmerFieldWrap = document.getElementById('txn-farmer-field-wrap');
+      var farmerNameDisplay = document.getElementById('txn-farmer-name-display');
+      var farmerIdInput = document.getElementById('farmer-id');
+      var farmerNameHidden = document.getElementById('farmer-name-hidden');
+
+      function pendingStorageKey(farmerId) {
+        var fid = String(farmerId || '').trim();
+        return fid ? STORAGE_KEY_LEGACY + '_f' + fid : STORAGE_KEY_LEGACY;
+      }
+
+      function savePendingState(state, farmerId) {
+        var fid =
+          String(farmerId || (state && state.farmer_id) || '').trim() ||
+          (farmerIdInput ? String(farmerIdInput.value || '').trim() : '');
+        var key = pendingStorageKey(fid);
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-          sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          var payload = JSON.stringify(state);
+          localStorage.setItem(key, payload);
+          sessionStorage.setItem(key, payload);
         } catch (_e) {}
       }
 
-      function loadPendingState() {
+      function loadPendingState(farmerId) {
+        var fid =
+          String(farmerId || '').trim() ||
+          (farmerIdInput ? String(farmerIdInput.value || '').trim() : '');
+        var key = pendingStorageKey(fid);
         try {
-          var raw = sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY);
+          var raw = sessionStorage.getItem(key) || localStorage.getItem(key);
+          if (!raw && fid) {
+            var legacy = sessionStorage.getItem(STORAGE_KEY_LEGACY) || localStorage.getItem(STORAGE_KEY_LEGACY);
+            if (legacy) {
+              var leg = JSON.parse(legacy);
+              if (leg && String(leg.farmer_id || '').trim() === fid) {
+                raw = legacy;
+              }
+            }
+          }
           if (!raw) return null;
           var s = JSON.parse(raw);
           return s && typeof s === 'object' ? s : null;
         } catch (_e2) {
           return null;
         }
+      }
+
+      function clearPendingStorage(farmerId) {
+        var fid = String(farmerId || '').trim();
+        var keys = [pendingStorageKey(fid), STORAGE_KEY_LEGACY];
+        keys.forEach(function (k) {
+          try {
+            localStorage.removeItem(k);
+            sessionStorage.removeItem(k);
+          } catch (_c) {}
+        });
+      }
+
+      function hidePendingStatusPanel() {
+        stopPoll();
+        submittedRef = '';
+        if (statusPanel) statusPanel.hidden = true;
       }
 
       function stopPoll() {
@@ -626,7 +686,8 @@
 
       function applyReceiptSentUI(ref, state) {
         stopPoll();
-        var s = state || loadPendingState() || buildStateFromForm();
+        var fidPoll = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+        var s = state || loadPendingState(fidPoll) || buildStateFromForm();
         fillReceiptModal(s);
         applyFarmerContext(s);
         clearTransactionFormFields();
@@ -654,10 +715,8 @@
               ? farmerNameHidden.value.trim()
               : ''
         };
-        try {
-          localStorage.removeItem(STORAGE_KEY);
-          sessionStorage.removeItem(STORAGE_KEY);
-        } catch (_clr) {}
+        var fid = farmerKeep.farmer_id || (farmerIdInput ? farmerIdInput.value : '');
+        clearPendingStorage(fid);
         if (statusPanel) statusPanel.hidden = true;
         unlockFormControls();
         clearTransactionFormFields();
@@ -693,12 +752,6 @@
         if (statusHint && hintText) statusHint.innerHTML = hintText;
       }
 
-      var FARMER_CTX_KEY = 'beanthentic_tx_farmer_context';
-      var farmerFieldWrap = document.getElementById('txn-farmer-field-wrap');
-      var farmerNameDisplay = document.getElementById('txn-farmer-name-display');
-      var farmerIdInput = document.getElementById('farmer-id');
-      var farmerNameHidden = document.getElementById('farmer-name-hidden');
-
       function persistFarmerContext(s) {
         if (!s) return;
         var fid = s.farmer_id != null ? String(s.farmer_id).trim() : '';
@@ -712,9 +765,25 @@
         } catch (_e) {}
       }
 
+      function farmerFromServerPage() {
+        var body = document.body;
+        if (!body || !body.dataset) return null;
+        var fid = String(body.dataset.farmerId || '').trim();
+        var name = String(body.dataset.farmerName || '').trim();
+        if (!fid && !name) return null;
+        return { farmer_id: fid, farmer_name: name };
+      }
+
       function getActiveFarmerContext() {
         var urlFarmer = farmerFromUrlParams();
-        if (urlFarmer && (urlFarmer.farmer_id || urlFarmer.farmer_name)) {
+        if (urlFarmer && urlFarmer.farmer_id) {
+          return urlFarmer;
+        }
+        var srv = farmerFromServerPage();
+        if (srv && srv.farmer_id) {
+          return srv;
+        }
+        if (urlFarmer && urlFarmer.farmer_name) {
           return urlFarmer;
         }
         var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
@@ -816,19 +885,20 @@
           })
           .then(function (body) {
             if (!body || body.ok !== true) return;
-            var saved = mergeStatusFromApi(body, loadPendingState() || buildStateFromForm());
+            var fidPoll = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+            var saved = mergeStatusFromApi(body, loadPendingState(fidPoll) || buildStateFromForm());
             saved.reference_no = submittedRef || body.reference_no || saved.reference_no;
             if (body.is_sent_to_client) {
               saved.status = 'sent_to_client';
-              savePendingState(saved);
+              savePendingState(saved, fidPoll);
               applyReceiptSentUI(submittedRef, saved);
             } else if (body.is_approved) {
               saved.status = 'approved';
-              savePendingState(saved);
+              savePendingState(saved, fidPoll);
               applyApprovedUI(submittedRef);
             } else if (body.is_dismissed) {
               saved.status = 'dismissed';
-              savePendingState(saved);
+              savePendingState(saved, fidPoll);
               applyDismissedUI(submittedRef);
             }
           })
@@ -845,9 +915,17 @@
         pollTimer = setInterval(pollApprovalStatus, 5000);
       }
 
-      function restorePendingOnLoad() {
-        var saved = loadPendingState();
-        if (!saved || !saved.reference_no) return;
+      function restorePendingOnLoad(farmerId) {
+        var saved = loadPendingState(farmerId);
+        if (!saved || !saved.reference_no) {
+          hidePendingStatusPanel();
+          return;
+        }
+        var activeFid = String(farmerId || saved.farmer_id || '').trim();
+        if (activeFid && saved.farmer_id && String(saved.farmer_id).trim() !== activeFid) {
+          hidePendingStatusPanel();
+          return;
+        }
         submittedRef = String(saved.reference_no);
         clearTransactionFormFields();
         if (saved.status === 'sent_to_client') {
@@ -879,27 +957,32 @@
       }
 
       function initTransactionFromLinkOrStorage() {
+        var ctx = getActiveFarmerContext();
+        if (ctx) applyFarmerContext(ctx);
+        var activeFid = ctx && ctx.farmer_id ? String(ctx.farmer_id).trim() : '';
+
         var params = new URLSearchParams(window.location.search);
         var urlRef = params.get('ref');
         urlRef = urlRef ? String(urlRef).trim() : '';
         if (!urlRef) {
-          var urlOnly = farmerFromUrlParams();
-          if (urlOnly) applyFarmerContext(urlOnly);
-          restorePendingOnLoad();
+          hidePendingStatusPanel();
+          restorePendingOnLoad(activeFid);
           return;
         }
 
-        var saved = loadPendingState();
+        var saved = loadPendingState(activeFid);
         if (!saved || String(saved.reference_no) !== urlRef) {
           saved = buildStateFromForm({
             reference_no: urlRef,
             status: 'pending'
           });
         }
-        var urlOnly = farmerFromUrlParams();
-        if (urlOnly) applyFarmerContext(urlOnly);
         saved = mergeFarmerFromUrlIntoState(saved);
-        savePendingState(saved);
+        if (ctx) {
+          saved.farmer_id = ctx.farmer_id || saved.farmer_id;
+          saved.farmer_name = ctx.farmer_name || saved.farmer_name;
+        }
+        savePendingState(saved, activeFid);
 
         submittedRef = urlRef;
         clearTransactionFormFields();
@@ -938,10 +1021,11 @@
           reader.onload = function(e) {
             previewImg.src = e.target.result;
             viewIdBtn.style.display = 'flex';
-            var pending = loadPendingState();
+            var fidVid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+            var pending = loadPendingState(fidVid);
             if (pending && pending.reference_no) {
               pending.valid_id_preview = e.target.result;
-              savePendingState(pending);
+              savePendingState(pending, fidVid);
             }
           };
           reader.readAsDataURL(this.files[0]);
@@ -1008,7 +1092,7 @@
             quantity_kg: quantity,
             payment_amount: amount
           });
-          savePendingState(state);
+          savePendingState(state, farmerIdVal);
           clearTransactionFormFields();
           notifyTransactionSubmitted(submittedRef);
           startWaitingFlow(submittedRef, state);
@@ -1222,16 +1306,6 @@
       });
 
       initCalendar();
-
-      var farmerCtxOnLoad = farmerFromUrlParams();
-      if (farmerCtxOnLoad) {
-        applyFarmerContext(farmerCtxOnLoad);
-      } else if (farmerNameDisplay && (farmerNameDisplay.value.trim() || (farmerIdInput && farmerIdInput.value))) {
-        applyFarmerContext({
-          farmer_id: farmerIdInput ? farmerIdInput.value : '',
-          farmer_name: farmerNameDisplay.value.trim()
-        });
-      }
 
       initTransactionFromLinkOrStorage();
     });

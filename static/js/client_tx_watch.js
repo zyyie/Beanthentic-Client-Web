@@ -5,21 +5,36 @@
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "beanthentic_client_pending_tx";
+  const STORAGE_KEY_LEGACY = "beanthentic_client_pending_tx";
   const POLL_MS = 8000;
 
   function apiBase() {
     return String(window.__BEANTHENTIC_APP_SERVER_BASE__ || "").replace(/\/+$/, "");
   }
 
+  function pendingStorageKey(farmerId) {
+    const fid = String(farmerId || "").trim();
+    return fid ? STORAGE_KEY_LEGACY + "_f" + fid : STORAGE_KEY_LEGACY;
+  }
+
   function loadPending() {
     try {
-      const raw =
-        localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!parsed || !parsed.reference_no) return null;
-      return parsed;
+      const tryRaw = function (key) {
+        const raw =
+          sessionStorage.getItem(key) || localStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.reference_no) return null;
+        return parsed;
+      };
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf(STORAGE_KEY_LEGACY) === 0) {
+          const hit = tryRaw(k);
+          if (hit) return hit;
+        }
+      }
+      return tryRaw(STORAGE_KEY_LEGACY);
     } catch {
       return null;
     }
@@ -28,8 +43,9 @@
   function savePending(state) {
     try {
       const raw = JSON.stringify(state);
-      localStorage.setItem(STORAGE_KEY, raw);
-      sessionStorage.setItem(STORAGE_KEY, raw);
+      const key = pendingStorageKey(state && state.farmer_id);
+      localStorage.setItem(key, raw);
+      sessionStorage.setItem(key, raw);
     } catch {
       /* ignore */
     }
