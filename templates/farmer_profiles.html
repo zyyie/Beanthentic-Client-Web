@@ -1,99 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Farmer Profiles | Beanthentic</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
-    />
-  </head>
-  <body>
-    <header class="top-header top-header--history">
-      <div class="container nav-wrapper nav-wrapper--history">
-        <a class="nav-back" href="{{ url_for('home') }}" aria-label="Back to homepage">
-          <svg
-            class="nav-back-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-        </a>
-        <div class="nav-title">Farmer Registered Profiles</div>
-      </div>
-    </header>
 
-    <main class="profiles-page">
-      <div class="container">
-        <div class="farmer-profiles-card">
-          <section class="governor-section">
-            <div class="governor-circle">
-              <img src="{{ url_for('static', filename='images/farmer-profile-photo.png') }}" alt="Governor Profile" />
-            </div>
-            <div class="governor-info">
-              <h2 class="governor-name">ARNOLD MALBATAAN</h2>
-              <h3 class="governor-label">CHAIRMAN OF SAMAHAN NG MAGKAKAPE</h3>
-            </div>
-          </section>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Farmer Profiles | Beanthentic</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
 
-          <section class="farmer-grid-section">
-            <h2 class="farmer-grid-title">OUR FARMERS</h2>
-            {% if demo_mode %}
-            <p class="farmer-demo-banner" role="status">
-              Preview mode — sample farmer profiles. Set <code>use_demo_data</code> to <code>false</code> in settings.json when MySQL is ready.
+<body class="farmer-profiles-page">
+  <header class="top-header top-header--history">
+    <div class="container nav-wrapper nav-wrapper--history">
+      <a class="nav-back" href="{{ url_for('home') }}" aria-label="Back to homepage">
+        <svg class="nav-back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+      </a>
+      <div class="nav-title">Farmer Registered Profiles</div>
+    </div>
+  </header>
+
+  <main class="profiles-page">
+    <div class="container">
+      <div class="farmer-profiles-card">
+        <section class="governor-section">
+          <div class="governor-circle">
+            <img src="{{ url_for('static', filename='images/arnold_profile.jpg') }}" alt="Arnold Malbataan profile" />
+          </div>
+          <div class="governor-info">
+            <h2 class="governor-name">ARNOLD MALBATAAN</h2>
+            <h3 class="governor-label">CHAIRMAN OF SAMAHAN NG MAGKAKAPE</h3>
+          </div>
+        </section>
+
+        <section class="farmer-grid-section">
+          <h2 class="farmer-grid-title">OUR FARMERS</h2>
+          {% if demo_mode %}
+          <p class="farmer-demo-banner" role="status">
+            Preview mode — sample farmer profiles. Set <code>use_demo_data</code> to <code>false</code> in settings.json
+            when MySQL is ready.
+          </p>
+          {% endif %}
+          <div class="farmer-circles-grid">
+            {% if db_error and not farmers %}
+            <p class="farmer-grid-empty">{{ db_error }}</p>
+            <p class="farmer-grid-empty" style="font-size:0.85rem;margin-top:0.5rem;">
+              Tip: open <a href="/api/app-db-status" style="color:#166534;">/api/app-db-status</a> to test the
+              connection (same as admin web).
             </p>
+            {% elif farmers %}
+            {% for farmer in farmers %}
+            <a href="{{ url_for('farmer_detail', farmer_id=farmer.farmer_id) }}" class="farmer-profile-item">
+              <div class="home-circle">
+                {% if farmer.has_photo %}
+                <img class="farmer-circle-photo" src="{{ farmer.photo_url }}"
+                  alt="{{ farmer.first_name }} {{ farmer.last_name }}" loading="lazy"
+                  onerror="this.remove();var el=this.parentElement.querySelector('.default-user-icon');if(el)el.removeAttribute('hidden');" />
+                <svg class="default-user-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round" hidden aria-hidden="true">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                {% else %}
+                <svg class="default-user-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                {% endif %}
+              </div>
+              <div class="farmer-info-bottom">
+                <span class="farmer-name">{{ farmer.first_name }} {{ farmer.last_name }}</span>
+              </div>
+            </a>
+            {% endfor %}
+            {% else %}
+            <p class="farmer-grid-empty">No registered farmers in the database yet.</p>
             {% endif %}
-            <div class="farmer-circles-grid">
-              {% if db_error and not farmers %}
-                <p class="farmer-grid-empty">{{ db_error }}</p>
-                <p class="farmer-grid-empty" style="font-size:0.85rem;margin-top:0.5rem;">
-                  Tip: open <a href="/api/app-db-status" style="color:#166534;">/api/app-db-status</a> to test the connection (same as admin web).
-                </p>
-              {% elif farmers %}
-                {% for farmer in farmers %}
-                <a href="{{ url_for('farmer_detail', farmer_id=farmer.farmer_id) }}" class="farmer-profile-item">
-                  <div class="home-circle">
-                    {% if farmer.has_photo %}
-                    <img
-                      class="farmer-circle-photo"
-                      src="{{ farmer.photo_url }}"
-                      alt="{{ farmer.first_name }} {{ farmer.last_name }}"
-                      loading="lazy"
-                      onerror="this.remove();var el=this.parentElement.querySelector('.default-user-icon');if(el)el.removeAttribute('hidden');"
-                    />
-                    <svg class="default-user-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" hidden aria-hidden="true">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                      <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
-                    {% else %}
-                    <svg class="default-user-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                      <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
-                    {% endif %}
-                  </div>
-                  <div class="farmer-info-bottom">
-                    <span class="farmer-name">{{ farmer.first_name }} {{ farmer.last_name }}</span>
-                  </div>
-                </a>
-                {% endfor %}
-              {% else %}
-                <p class="farmer-grid-empty">No registered farmers in the database yet.</p>
-              {% endif %}
-            </div>
-          </section>
-        </div>
+          </div>
+        </section>
       </div>
-    </main>
+    </div>
+  </main>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-  </body>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
 </html>

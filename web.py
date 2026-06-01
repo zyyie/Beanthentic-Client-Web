@@ -3,6 +3,7 @@ import os
 from datetime import date, datetime
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from flask import Flask, jsonify, redirect, render_template, request, url_for
@@ -89,6 +90,14 @@ FARMER_DETAIL_SQL = """
   LIMIT 1
 """
 
+FARMER_REGISTRATION_RANK_SQL = """
+  SELECT COUNT(*) AS registration_no
+  FROM farmers f2
+  INNER JOIN farmers f1 ON f1.farmer_id = %s
+  WHERE f2.created_at < f1.created_at
+     OR (f2.created_at = f1.created_at AND f2.farmer_id <= f1.farmer_id)
+"""
+
 
 def _read_settings() -> dict:
     try:
@@ -172,6 +181,66 @@ def _app_db_connect():
         return connect_app_mysql(params), None
     except Exception as e:
         return None, _connection_hint(e)
+
+
+def _registration_no_from_rows(rows: list[dict], farmer_id: int) -> int | None:
+    fid = int(farmer_id or 0)
+    if fid <= 0:
+        return None
+
+    def _sort_key(row: dict) -> tuple:
+        created = row.get("created_at")
+        if created is None or created == "":
+            return (datetime.min, int(row.get("farmer_id") or 0))
+        if isinstance(created, datetime):
+            return (created, int(row.get("farmer_id") or 0))
+        if isinstance(created, date):
+            return (datetime.combine(created, datetime.min.time()), int(row.get("farmer_id") or 0))
+        return (datetime.min, int(row.get("farmer_id") or 0))
+
+    ordered = sorted(rows, key=_sort_key)
+    for index, row in enumerate(ordered, start=1):
+        if int(row.get("farmer_id") or 0) == fid:
+            return index
+    return None
+
+
+def _fetch_farmer_registration_no(farmer_id: int) -> int | None:
+    fid = int(farmer_id or 0)
+    if fid <= 0:
+        return None
+
+    if _use_demo_data():
+        return _registration_no_from_rows(_default_farmer_rows(), fid)
+
+    conn, err = _app_db_connect()
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(FARMER_REGISTRATION_RANK_SQL, (fid,))
+                row = cur.fetchone()
+                if row and row.get("registration_no") is not None:
+                    return int(row["registration_no"])
+        except Exception:
+            pass
+        finally:
+            conn.close()
+
+    rows, _list_err, _demo = _fetch_farmer_rows(limit=500)
+    rank = _registration_no_from_rows(rows, fid)
+    if rank is not None:
+        return rank
+
+    return fid
+
+
+def _apply_registration_number(farmer: dict) -> None:
+    fid = int(farmer.get("farmer_id") or 0)
+    reg_no = _fetch_farmer_registration_no(fid)
+    farmer["registration_no"] = reg_no
+    farmer["registration_no_display"] = (
+        f"Registration No. {int(reg_no):03d}" if reg_no else ""
+    )
 
 
 def _normalize_farmer_row(row: dict) -> dict:
@@ -522,6 +591,8 @@ def _render_farmer_profile_page(farmer_id: int) -> str:
         farmer, db_error = _fetch_farmer_profile(farmer_id)
     if farmer:
         _apply_farmer_photo_fields(farmer)
+        _apply_registration_number(farmer)
+        _apply_transaction_link(farmer)
         farmer["birthday"] = _fmt_birthday(farmer.get("birthday"))
         if not demo_mode and not farmer.get("is_default"):
             farmer["is_default"] = False
@@ -532,30 +603,29 @@ def _render_farmer_profile_page(farmer_id: int) -> str:
             demo_mode=demo_mode or bool(farmer.get("is_default")),
         )
 
-    return render_template(
-        "personal_information.html",
-        farmer={
-            "farmer_id": farmer_id,
-            "first_name": "",
-            "last_name": "",
-            "birthday": "",
-            "barangay": "",
-            "ownership_status": "",
-            "federation_assoc": "",
-            "rsbsa_registered": 0,
-            "rsbsa_number": "",
-            "has_photo": False,
-            "photo_url": "",
-            "is_default": False,
-            "profile_not_found": True,
-            "load_error": db_error
-            or (
-                f"No profile found for farmer #{farmer_id}."
-                if farmer_id > 0
-                else "Invalid profile link."
-            ),
-        },
-    )
+    missing = {
+        "farmer_id": farmer_id,
+        "first_name": "",
+        "last_name": "",
+        "birthday": "",
+        "barangay": "",
+        "ownership_status": "",
+        "federation_assoc": "",
+        "rsbsa_registered": 0,
+        "rsbsa_number": "",
+        "has_photo": False,
+        "photo_url": "",
+        "is_default": False,
+        "profile_not_found": True,
+        "load_error": db_error
+        or (
+            f"No profile found for farmer #{farmer_id}."
+            if farmer_id > 0
+            else "Invalid profile link."
+        ),
+    }
+    _apply_transaction_link(missing)
+    return render_template("personal_information.html", farmer=missing)
 
 
 @app.route("/account")
@@ -577,19 +647,18 @@ def account_entry():
     )
     if resolved > 0:
         return redirect(url_for("farmer_detail", farmer_id=resolved))
-    return render_template(
-        "personal_information.html",
-        farmer={
-            "farmer_id": 0,
-            "first_name": "",
-            "last_name": "",
-            "has_photo": False,
-            "photo_url": "",
-            "is_default": False,
-            "profile_not_found": True,
-            "load_error": err or "Could not open your account profile.",
-        },
-    )
+    account_missing = {
+        "farmer_id": 0,
+        "first_name": "",
+        "last_name": "",
+        "has_photo": False,
+        "photo_url": "",
+        "is_default": False,
+        "profile_not_found": True,
+        "load_error": err or "Could not open your account profile.",
+    }
+    _apply_transaction_link(account_missing)
+    return render_template("personal_information.html", farmer=account_missing)
 
 
 @app.route("/farmer/<int:farmer_id>")
@@ -676,6 +745,26 @@ def _farmer_display_name(row: dict | None) -> str:
     if name:
         return name
     return str(row.get("username") or "").strip()
+
+
+def _farmer_transaction_url(farmer: dict | None) -> str:
+    """Canonical link to the transaction page for a selected farmer."""
+    row = farmer if isinstance(farmer, dict) else {}
+    fid = int(row.get("farmer_id") or 0)
+    name = _farmer_display_name(row)
+    params: dict[str, str | int] = {}
+    if fid > 0:
+        params["farmer_id"] = fid
+    if name:
+        params["farmer_name"] = name
+    base = url_for("transaction")
+    if not params:
+        return base
+    return f"{base}?{urlencode(params)}"
+
+
+def _apply_transaction_link(farmer: dict) -> None:
+    farmer["transaction_url"] = _farmer_transaction_url(farmer)
 
 
 @app.route("/transaction")
