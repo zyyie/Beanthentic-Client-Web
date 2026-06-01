@@ -56,6 +56,40 @@ body {
   overflow: visible;
 }
 
+/* Homepage / main header: logo left edge, bell right edge */
+.top-header:not(.top-header--history) {
+  position: relative;
+}
+
+.top-header:not(.top-header--history)>.container.nav-wrapper {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  min-height: 72px;
+}
+
+.top-header:not(.top-header--history) .brand {
+  position: absolute;
+  left: max(14px, env(safe-area-inset-left, 0px));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+.top-header:not(.top-header--history) .header-notif {
+  position: absolute;
+  right: max(14px, env(safe-area-inset-right, 0px));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+.top-header:not(.top-header--history) .header-notif-panel {
+  right: max(14px, env(safe-area-inset-right, 0px));
+  left: auto;
+}
+
 .nav-wrapper {
   display: flex;
   justify-content: space-between;
@@ -151,6 +185,15 @@ body {
 }
 
 @media (min-width: 768px) {
+  .top-header:not(.top-header--history) .brand {
+    left: max(20px, env(safe-area-inset-left, 0px));
+  }
+
+  .top-header:not(.top-header--history) .header-notif,
+  .top-header:not(.top-header--history) .header-notif-panel {
+    right: max(20px, env(safe-area-inset-right, 0px));
+  }
+
   .top-header--history .nav-back {
     left: max(18px, env(safe-area-inset-left, 0px));
     width: 48px;
@@ -908,9 +951,9 @@ body {
   display: flex;
   justify-content: center;
   align-items: stretch;
-  gap: 14px;
+  gap: 24px;
   flex-wrap: nowrap;
-  padding: 18px 20px;
+  padding: 22px 28px;
   background: var(--bt-glass-bg);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -2217,13 +2260,13 @@ body.pi-page {
 @media (max-width: 768px) {
   .quick-cards-grid {
     flex-wrap: wrap;
-    gap: 10px;
-    padding: 14px;
+    gap: 16px;
+    padding: 18px 20px;
     margin-top: -20px;
   }
 
   .quick-cards-grid .card {
-    flex: 1 1 calc(33.333% - 8px);
+    flex: 1 1 calc(33.333% - 12px);
     min-width: 96px;
     min-height: 100px;
     padding: 14px 8px 12px;
@@ -2285,6 +2328,10 @@ body.pi-page {
   }
 
   .nav-wrapper {
+    min-height: 64px;
+  }
+
+  .top-header:not(.top-header--history)>.container.nav-wrapper {
     min-height: 64px;
   }
 
@@ -2360,9 +2407,9 @@ body.pi-page {
   }
 
   .quick-cards-grid {
-    gap: 8px;
+    gap: 14px;
     margin-bottom: 24px;
-    padding: 12px 10px;
+    padding: 16px 14px;
     border-radius: 18px;
   }
 
