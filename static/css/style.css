@@ -34,12 +34,23 @@ body {
   background-attachment: fixed;
   color: var(--bt-text-body);
   line-height: 1.65;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 .container {
-  width: min(1200px, 92%);
+  width: min(1200px, 100%);
   margin: 0 auto;
-  padding: 0 15px;
+  padding-left: max(15px, env(safe-area-inset-left, 0px));
+  padding-right: max(15px, env(safe-area-inset-right, 0px));
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+  height: auto;
 }
 
 .top-header {
@@ -1572,10 +1583,41 @@ body {
   text-transform: uppercase;
 }
 
+/* Text wraps beside floated images; below the images, text runs full width */
+.home-history-flow {
+  overflow: hidden;
+}
+
 .home-history-flow::after {
   content: '';
   display: table;
   clear: both;
+}
+
+.home-history-media--top {
+  float: right;
+  width: min(320px, 36%);
+  max-width: 100%;
+  margin: 0 0 18px clamp(14px, 3vw, 28px);
+}
+
+.home-history-media--compare {
+  float: left;
+  width: min(320px, 38%);
+  max-width: 100%;
+  margin: 4px clamp(14px, 3vw, 28px) 18px 0;
+  padding: 0;
+  border: none;
+}
+
+.home-history-media--compare .home-history-image,
+.home-history-media--top .home-history-image {
+  width: 100%;
+}
+
+.home-history-text--lead,
+.home-history-text--body {
+  width: auto;
 }
 
 .home-history-text p {
@@ -1585,16 +1627,6 @@ body {
   text-align: left;
 }
 
-.home-history-media {
-  width: 320px;
-  max-width: 38%;
-  float: right;
-  margin: 0 0 20px 30px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
 .home-history-image {
   width: 100%;
   height: auto;
@@ -1602,6 +1634,7 @@ body {
   border-radius: 20px;
   border: none;
   object-fit: contain;
+  object-position: center top;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease;
 }
@@ -2285,9 +2318,18 @@ body.pi-page {
     max-width: none;
   }
 
-  .home-history-media {
-    width: clamp(180px, 32vw, 280px);
-    margin: 0 0 16px 20px;
+  .home-history-media--top {
+    width: min(260px, 36%);
+    margin-left: 16px;
+  }
+
+  .home-history-media--compare {
+    width: min(260px, 38%);
+    margin-right: 16px;
+  }
+
+  .home-history-image {
+    border-radius: 14px;
   }
 
   .home-history-text p {
@@ -2381,8 +2423,8 @@ body.pi-page {
   }
 
   .farmer-circles-grid {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 15px;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 14px;
   }
 
   .home-circle {
@@ -2419,7 +2461,7 @@ body.pi-page {
   }
 
   .quick-cards-grid .card h3 {
-    font-size: 9px;
+    font-size: clamp(10px, 2.6vw, 12px);
     letter-spacing: 0.04em;
   }
 
@@ -2477,7 +2519,6 @@ body.pi-page {
     grid-template-columns: 1fr;
     gap: 12px;
   }
-
 }
 
 /* Transaction Page Styles */
@@ -2653,6 +2694,11 @@ body.pi-page {
   height: 24px;
 }
 
+.txn-farmer-selected-wrap .form-help {
+  margin-top: 6px;
+  color: #4a6b52;
+}
+
 .txn-farmer-name-input {
   font-weight: 800;
   font-size: 1.1rem;
@@ -2660,6 +2706,8 @@ body.pi-page {
   background: #f0f9ef;
   border: 2px solid #2b7f1f;
   cursor: default;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .pickup-details-card.txn-tutorial-highlight {
@@ -4282,5 +4330,341 @@ body.txn-tutorial-active:not(.transaction-page--from-farmer) {
   .txn-tutorial-bubble {
     width: min(320px, calc(100vw - 20px));
     padding: 16px;
+  }
+}
+
+/* ========== Mobile / phone layout (matches desktop design, scaled) ========== */
+@media (max-width: 640px) {
+  .hero {
+    min-height: clamp(220px, 42vw, 320px);
+    margin-bottom: 16px;
+    border-bottom-right-radius: 20px;
+    border-bottom-left-radius: 20px;
+  }
+
+  .hero-content h2 {
+    font-size: clamp(2rem, 11vw, 2.75rem);
+  }
+
+  .tagline {
+    font-size: 12px;
+    padding: 6px 16px;
+  }
+
+  .quick-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 14px 12px;
+    margin-top: -16px;
+    margin-bottom: 28px;
+    flex-wrap: unset;
+  }
+
+  .quick-cards-grid .card {
+    flex: unset;
+    min-width: 0;
+    min-height: 86px;
+    padding: 12px 6px 10px;
+  }
+
+  .quick-cards-grid .card-icon {
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+    margin-bottom: 6px;
+  }
+
+  .quick-cards-grid .card h3 {
+    font-size: clamp(9px, 2.8vw, 11px);
+    letter-spacing: 0.03em;
+  }
+
+  .quick-cards-grid .transaction-card {
+    grid-column: 1 / -1;
+    max-width: 100%;
+    min-height: 72px;
+  }
+
+  .home-history {
+    margin-top: 24px;
+    margin-bottom: 40px;
+  }
+
+  /* Phone: cherries right / Arabica vs Robusta left; text wraps, then full width */
+  .home-history-media--top {
+    width: clamp(118px, 36vw, 172px);
+    margin: 0 0 12px 12px;
+  }
+
+  .home-history-media--compare {
+    width: clamp(118px, 36vw, 172px);
+    margin: 0 12px 12px 0;
+  }
+
+  .home-history-text p {
+    font-size: 15px;
+    line-height: 1.65;
+    margin-bottom: 16px;
+    text-align: left;
+  }
+
+  .home-history-bottom-text {
+    padding: 14px 12px;
+    margin-top: 8px;
+    font-size: 15px;
+  }
+
+  .home-history-image {
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  }
+
+  .home-history-image:hover {
+    transform: none;
+  }
+
+  .home-history-wide-image {
+    margin-top: 20px;
+    border-radius: 14px;
+  }
+
+  .home-history-title {
+    margin-bottom: 20px;
+    font-size: 1.25rem;
+  }
+
+  .home-history-card {
+    padding: 18px 12px;
+  }
+
+  .home-history-bottom-text {
+    padding: 16px;
+    margin-top: 20px;
+  }
+
+  .home-history-card,
+  .farmer-profiles-card {
+    padding: 22px 16px;
+    border-radius: 18px;
+  }
+
+  .governor-section-alt {
+    padding: 20px 12px;
+    margin-bottom: 28px;
+  }
+
+  .governor-panel {
+    padding: 28px 16px;
+  }
+
+  .governor-panel h3 {
+    font-size: clamp(1.35rem, 6vw, 1.75rem);
+  }
+
+  .farmer-circles-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px 6px;
+    margin-top: 24px;
+  }
+
+  .farmer-profile-item {
+    max-width: none;
+  }
+
+  .farmer-profile-item .home-circle {
+    width: 100%;
+    aspect-ratio: 1;
+    border-width: 4px;
+    margin-bottom: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .farmer-profile-item .farmer-name {
+    font-size: clamp(8px, 2.35vw, 11px);
+    line-height: 1.2;
+    margin-top: 2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+  }
+
+  .farmer-profile-item .default-user-icon {
+    width: 52%;
+    height: 52%;
+  }
+
+  .report-page-shell {
+    margin-top: 12px;
+    margin-bottom: 32px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .report-sheet-header h2 {
+    font-size: clamp(1.1rem, 5vw, 1.35rem);
+  }
+
+  .report-sheet-header {
+    padding: 14px 14px 10px;
+  }
+
+  .report-reason {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .report-chat--page {
+    height: min(65vh, 520px);
+  }
+
+  .report-chat-input,
+  .report-reporter-input {
+    font-size: 16px;
+  }
+
+  .pi-main {
+    padding: 24px 0 40px;
+  }
+
+  .pi-card {
+    padding: 20px 16px;
+    margin: 0;
+    border-radius: 18px;
+  }
+
+  .pi-transaction-link {
+    font-size: 15px;
+    width: 100%;
+    justify-content: center;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: #f0f9ef;
+    border: 1px solid rgba(43, 127, 31, 0.2);
+  }
+
+  .nav-wrapper--history {
+    padding-left: 48px;
+    padding-right: 48px;
+  }
+
+  .top-header--history .nav-title {
+    font-size: clamp(0.95rem, 4.5vw, 1.15rem);
+  }
+
+  .header-notif-panel {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: none;
+    max-height: min(70vh, 480px);
+    border-radius: 18px 18px 0 0;
+    margin: 0;
+  }
+
+  .top-header:not(.top-header--history) .header-notif-panel,
+  .top-header--history .header-notif-panel {
+    left: 0;
+    right: 0;
+  }
+
+  .transaction-main .container,
+  .transaction-form {
+    padding-left: max(8px, env(safe-area-inset-left, 0px));
+    padding-right: max(8px, env(safe-area-inset-right, 0px));
+  }
+
+  .pickup-details-card {
+    border-radius: 16px;
+  }
+
+  .txn-farmer-name-input {
+    font-size: 1rem;
+  }
+
+  #status-container,
+  .transaction-page .form-footer {
+    align-items: stretch;
+  }
+
+  .submit-btn,
+  .submit-btn.status-waiting,
+  .submit-btn.status-approved,
+  .order-again-btn,
+  .view-receipt-btn {
+    width: 100%;
+    max-width: none;
+    min-height: 48px;
+  }
+
+  .view-id-btn,
+  .report-chat-send,
+  .txn-tutorial-next,
+  .txn-tutorial-skip {
+    min-height: 44px;
+  }
+
+  .calendar-container {
+    width: calc(100vw - 24px);
+    max-width: none;
+    padding: 18px 14px;
+    border-radius: 20px;
+  }
+
+  .receipt-modal-container {
+    width: calc(100vw - 16px);
+    max-width: none;
+    margin: 8px;
+  }
+
+  .fb-embed-wrap,
+  .fb-embed-frame {
+    height: min(480px, 70vh);
+    min-height: 360px;
+  }
+}
+
+@media (max-width: 380px) {
+  .quick-cards-grid {
+    gap: 8px;
+    padding: 12px 10px;
+  }
+
+  .quick-cards-grid .card {
+    min-height: 78px;
+  }
+
+  .farmer-circles-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px 4px;
+  }
+
+  .farmer-profile-item .home-circle {
+    border-width: 3px;
+    margin-bottom: 4px;
+  }
+
+  .farmer-profile-item .farmer-name {
+    font-size: 8px;
+  }
+
+  .home-history-media--top {
+    width: clamp(108px, 34vw, 148px);
+    margin-left: 10px;
+  }
+
+  .home-history-media--compare {
+    width: clamp(108px, 34vw, 148px);
+    margin-right: 10px;
+  }
+
+  .home-history-text p {
+    font-size: 14px;
+    margin-bottom: 14px;
   }
 }

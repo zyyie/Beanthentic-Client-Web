@@ -1,96 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Socials | Beanthentic</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
-    />
-  </head>
-  <body>
-    <header class="top-header top-header--history">
-      <div class="container nav-wrapper nav-wrapper--history">
-        <a class="nav-back" href="{{ url_for('home') }}" aria-label="Back to homepage">
-          <svg
-            class="nav-back-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-        </a>
-        <div class="nav-title">Socials</div>
-      </div>
-    </header>
 
-    <main class="profiles-page">
-      <section class="container">
-        <div class="connect-with-us" aria-label="Beanthentic Facebook feed">
-          <h3>CONNECT WITH US</h3>
-          <div class="fb-embed-wrap">
-            <iframe
-              class="fb-embed-frame"
-              id="beanthentic-fb-page"
-              title="Beanthentic Coffee Facebook page"
-              loading="lazy"
-              data-fb-page-href="https://www.facebook.com/profile.php?id=61588902651094"
-              src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2Fprofile.php%3Fid%3D61588902651094&tabs=timeline&width=500&height=620&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true"
-              referrerpolicy="strict-origin-when-cross-origin"
-              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-            ></iframe>
-          </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Socials | Beanthentic</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+
+<body>
+  <header class="top-header top-header--history">
+    <div class="container nav-wrapper nav-wrapper--history">
+      <a class="nav-back" href="{{ url_for('home') }}" aria-label="Back to homepage">
+        <svg class="nav-back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+      </a>
+      <div class="nav-title">Socials</div>
+    </div>
+  </header>
+
+  <main class="profiles-page">
+    <section class="container">
+      <div class="connect-with-us" aria-label="Beanthentic Facebook feed">
+        <h3>CONNECT WITH US</h3>
+        <div class="fb-embed-wrap">
+          <iframe class="fb-embed-frame" id="beanthentic-fb-page" title="Beanthentic Coffee Facebook page"
+            loading="lazy" data-fb-page-href="https://www.facebook.com/profile.php?id=61588902651094"
+            src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2Fprofile.php%3Fid%3D61588902651094&tabs=timeline&width=500&height=620&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
         </div>
-      </section>
-    </main>
-    <script>
-      (function () {
-        var wrap = document.querySelector(".fb-embed-wrap");
-        var frame = document.getElementById("beanthentic-fb-page");
-        if (!wrap || !frame) return;
+      </div>
+    </section>
+  </main>
+  <script>
+    (function () {
+      var wrap = document.querySelector(".fb-embed-wrap");
+      var frame = document.getElementById("beanthentic-fb-page");
+      if (!wrap || !frame) return;
 
-        function syncFacebookEmbedSize() {
-          var width = Math.max(280, Math.round(wrap.getBoundingClientRect().width));
-          var height = Math.max(400, Math.round(wrap.getBoundingClientRect().height) || 620);
-          try {
-            var url = new URL(frame.src);
-            var nextWidth = String(width);
-            var nextHeight = String(height);
-            if (
-              url.searchParams.get("width") === nextWidth &&
-              url.searchParams.get("height") === nextHeight
-            ) {
-              return;
-            }
-            url.searchParams.set("width", nextWidth);
-            url.searchParams.set("height", nextHeight);
-            url.searchParams.set("adapt_container_width", "true");
-            frame.src = url.toString();
-          } catch (err) {
-            /* ignore */
+      function syncFacebookEmbedSize() {
+        var width = Math.max(280, Math.round(wrap.getBoundingClientRect().width));
+        var height = Math.max(400, Math.round(wrap.getBoundingClientRect().height) || 620);
+        try {
+          var url = new URL(frame.src);
+          var nextWidth = String(width);
+          var nextHeight = String(height);
+          if (
+            url.searchParams.get("width") === nextWidth &&
+            url.searchParams.get("height") === nextHeight
+          ) {
+            return;
           }
+          url.searchParams.set("width", nextWidth);
+          url.searchParams.set("height", nextHeight);
+          url.searchParams.set("adapt_container_width", "true");
+          frame.src = url.toString();
+        } catch (err) {
+          /* ignore */
         }
+      }
 
-        function scheduleSync() {
-          window.clearTimeout(window.__beanthenticFbEmbedResize);
-          window.__beanthenticFbEmbedResize = window.setTimeout(syncFacebookEmbedSize, 150);
-        }
+      function scheduleSync() {
+        window.clearTimeout(window.__beanthenticFbEmbedResize);
+        window.__beanthenticFbEmbedResize = window.setTimeout(syncFacebookEmbedSize, 150);
+      }
 
-        if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", syncFacebookEmbedSize);
-        } else {
-          syncFacebookEmbedSize();
-        }
-        window.addEventListener("resize", scheduleSync);
-      })();
-    </script>
-  </body>
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", syncFacebookEmbedSize);
+      } else {
+        syncFacebookEmbedSize();
+      }
+      window.addEventListener("resize", scheduleSync);
+    })();
+  </script>
+</body>
+
 </html>
-

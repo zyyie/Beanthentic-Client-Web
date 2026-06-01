@@ -12,5 +12,16 @@ Simple Flask website inspired by your reference design.
    - `pip install -r requirements.txt`
 3. Run the Flask app:
    - `python web.py`
-4. Open:
-   - [http://127.0.0.1:5000](http://127.0.0.1:5000)
+4. Open on this computer:
+   - [http://127.0.0.1:5001](http://127.0.0.1:5001)
+
+## Access from your phone (same Wi-Fi as the laptop)
+
+1. **Once (admin):** double-click `scripts\allow-lan-access.bat` → click **Yes** (opens firewall + sets Wi-Fi to Private).
+2. **Every time:** double-click `scripts\run-for-phone.bat` (or `python web.py`).
+3. On the phone (same Wi-Fi, **mobile data off**), open the `http://192.168.x.x:5001/` URL from the terminal.
+4. **Test first:** `http://192.168.x.x:5001/api/lan-ping` — if you see JSON `"ok": true`, the phone reached the laptop.
+
+**Common mistake:** laptop on `192.168.0.x` but phone/PC/XAMPP on `192.168.100.x` — different Wi-Fi networks. Use the **laptop** IP, not `settings.json` `app_db_host`.
+
+**Router (TP-LINK):** turn off **AP Isolation** / **Client Isolation** if the phone still cannot connect.

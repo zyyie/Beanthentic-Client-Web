@@ -1,5 +1,8 @@
 import json
 import os
+import re
+import socket
+import subprocess
 from datetime import date, datetime
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -583,6 +586,40 @@ def home():
     return render_template("index.html")
 
 
+@app.route("/api/lan-ping")
+def lan_ping():
+    """Open this URL on your phone to confirm it reached the laptop."""
+    port = request.environ.get("SERVER_PORT", os.getenv("BEANTHENTIC_PORT", "5001"))
+    return jsonify(
+        {
+            "ok": True,
+            "message": "Your phone reached this laptop.",
+            "ips": _get_wifi_ipv4_addresses(),
+            "port": port,
+        }
+    )
+
+
+@app.route("/phone-test")
+def phone_test():
+    """Simple page for phone browser — confirms Wi-Fi connection to laptop."""
+    port = request.environ.get("SERVER_PORT", os.getenv("BEANTHENTIC_PORT", "5001"))
+    ips = _get_wifi_ipv4_addresses()
+    ip = ips[0] if ips else "unknown"
+    return (
+        "<!DOCTYPE html><html><head><meta charset=utf-8>"
+        "<meta name=viewport content='width=device-width,initial-scale=1'>"
+        "<title>Beanthentic — connected</title>"
+        "<style>body{font-family:system-ui,sans-serif;max-width:420px;margin:2rem auto;"
+        "padding:1rem;text-align:center}h1{color:#1e6216}.ok{font-size:3rem}</style>"
+        "</head><body>"
+        "<p class=ok>✓</p><h1>Phone connected!</h1>"
+        f"<p>Your phone reached the laptop on Wi-Fi.<br>Laptop IP: <b>{ip}</b> · port {port}</p>"
+        f"<p><a href='http://{ip}:{port}/'>Open Beanthentic home</a></p>"
+        "</body></html>"
+    )
+
+
 def _render_farmer_profile_page(farmer_id: int) -> str:
     farmer = None
     db_error = None
@@ -958,5 +995,225 @@ def news_updates():
     return render_template("news_updates.html")
 
 
+def _is_private_lan_ipv4(ip: str) -> bool:
+    try:
+        a, b, *_ = (int(x) for x in ip.split("."))
+    except (ValueError, TypeError):
+        return False
+    if a == 10:
+        return True
+    if a == 172 and 16 <= b <= 31:
+        return True
+    return a == 192 and b == 168
+
+
+def _parse_ipconfig_wifi_ips(text: str) -> list[str]:
+    """IPv4 from Wireless LAN / Wi-Fi adapters only (not hotspot, not Ethernet)."""
+    found: list[str] = []
+    section = ""
+    in_wifi = False
+
+    def add(ip: str) -> None:
+        ip = (ip or "").strip()
+        if not ip or ip.startswith("127.") or ip.startswith("169.254."):
+            return
+        if not _is_private_lan_ipv4(ip) or ip in found:
+            return
+        found.append(ip)
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if not line.startswith((" ", "\t")) and stripped.endswith(":"):
+            section = stripped[:-1]
+            low = section.lower()
+            in_wifi = (
+                "wireless lan adapter wi-fi" in low
+                or low.endswith("wi-fi")
+                or "wlan" in low
+            ) and "hotspot" not in low and "mobile hotspot" not in low
+            continue
+        if not in_wifi:
+            continue
+        if "media disconnected" in stripped.lower():
+            in_wifi = False
+            continue
+        low = stripped.lower()
+        if "ipv4" in low or "ip address" in low:
+            m = re.search(r"(\d{1,3}(?:\.\d{1,3}){3})", stripped)
+            if m:
+                add(m.group(1))
+
+    return found
+
+
+def _get_wifi_ipv4_addresses() -> list[str]:
+    """Wi-Fi router IP only — use this URL on phone (same home Wi-Fi, not hotspot)."""
+    if os.name == "nt":
+        try:
+            out = subprocess.check_output(
+                ["ipconfig"],
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=5,
+            )
+            wifi_ips = _parse_ipconfig_wifi_ips(out)
+            if wifi_ips:
+                wifi_ips.sort(key=lambda ip: (0 if ip.startswith("192.168.") else 1, ip))
+                return wifi_ips
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return _get_lan_ipv4_addresses()
+
+
+def _get_lan_ipv4_addresses():
+    """Private LAN IPv4 (192.168.x.x, etc.) — not 127.0.0.1."""
+    found: list[str] = []
+
+    def add(ip: str) -> None:
+        ip = (ip or "").strip()
+        if not ip or ip.startswith("127.") or ip.startswith("169.254."):
+            return
+        if not _is_private_lan_ipv4(ip) or ip in found:
+            return
+        found.append(ip)
+
+    if os.name == "nt":
+        try:
+            out = subprocess.check_output(
+                ["ipconfig"],
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=5,
+            )
+            for line in out.splitlines():
+                lower = line.lower()
+                if "ipv4" in lower or "ip address" in lower:
+                    m = re.search(r"(\d{1,3}(?:\.\d{1,3}){3})", line)
+                    if m:
+                        add(m.group(1))
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.settimeout(0.5)
+            s.connect(("8.8.8.8", 80))
+            add(s.getsockname()[0])
+    except OSError:
+        pass
+
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, family=socket.AF_INET):
+            add(info[4][0])
+    except OSError:
+        pass
+
+    found.sort(key=lambda ip: (0 if ip.startswith("192.168.") else 1, ip))
+    return found
+
+
+def _ipv4_subnet(ip: str) -> str | None:
+    parts = ip.split(".")
+    if len(parts) != 4:
+        return None
+    try:
+        a, b, c, _ = (int(x) for x in parts)
+    except ValueError:
+        return None
+    return f"{a}.{b}.{c}"
+
+
+def _active_wifi_name() -> str:
+    if os.name != "nt":
+        return ""
+    try:
+        out = subprocess.check_output(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "(Get-NetConnectionProfile | Where-Object { $_.InterfaceAlias -match 'Wi-Fi|WLAN' "
+                "-and $_.IPv4Connectivity -ne 'NoTraffic' } | Select-Object -First 1).Name",
+            ],
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=8,
+        )
+        return out.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def _print_lan_access_help(port: int) -> None:
+    line = "=" * 58
+    ips = _get_wifi_ipv4_addresses()
+    wifi_name = _active_wifi_name()
+    print(line)
+    print("  Beanthentic Client Web")
+    if wifi_name:
+        print(f"  Wi-Fi network:     {wifi_name}")
+    print("  Mode:              HOME Wi-Fi only (NO phone/laptop hotspot)")
+    if ips:
+        primary = ips[0]
+        print(f"  Phone URL:         http://{primary}:{port}/")
+        print(f"  Phone test:        http://{primary}:{port}/phone-test")
+        subnet = _ipv4_subnet(primary) or "192.168.0"
+        print(f"  Phone IP must be:  {subnet}.???  (check phone Wi-Fi settings)")
+    else:
+        print(f"  Phone URL:         http://<Wi-Fi_IP>:{port}/")
+        print("  Connect laptop to home Wi-Fi first (not hotspot).")
+    print(f"  Laptop only:       http://127.0.0.1:{port}/")
+
+    cfg_host = str(_read_connection_settings().get("app_db_host") or "").strip()
+    if ips and cfg_host and _is_private_lan_ipv4(cfg_host):
+        laptop_net = _ipv4_subnet(ips[0])
+        cfg_net = _ipv4_subnet(cfg_host)
+        if laptop_net and cfg_net and laptop_net != cfg_net:
+            print()
+            print("  *** WRONG IP IF YOU USE PC ADDRESS ***")
+            print(f"  Laptop Wi-Fi IP:    {ips[0]}  ({laptop_net}.x)")
+            print(f"  Old PC in settings: {cfg_host}  ({cfg_net}.x)  <- do NOT use on phone")
+            print(f"  Phone must use:     http://{ips[0]}:{port}/")
+
+    print()
+    print("  1) Laptop: connect to home router Wi-Fi")
+    print("  2) Phone:  connect to THE SAME Wi-Fi name, mobile data OFF")
+    print("  3) Do NOT use phone hotspot or laptop mobile hotspot")
+    print("  4) Run allow-lan-access.bat once, then run-for-phone.bat")
+    print(line)
+
+
+def _serve_app(host: str, port: int) -> None:
+    server = os.getenv("BEANTHENTIC_SERVER", "waitress").strip().lower()
+    if server == "waitress":
+        try:
+            from waitress import serve
+
+            print("  Server engine:     waitress (recommended for phone on Wi-Fi)")
+            serve(app, host=host, port=port, threads=8)
+            return
+        except ImportError:
+            print("  waitress not installed — run:  pip install waitress")
+
+    debug = os.getenv("BEANTHENTIC_DEBUG", "0").strip().lower() in ("1", "true", "yes")
+    use_reloader = os.getenv("BEANTHENTIC_RELOADER", "0").strip().lower() in ("1", "true", "yes")
+    print("  Server engine:     flask dev")
+    app.run(
+        host=host,
+        port=port,
+        debug=debug,
+        use_reloader=use_reloader,
+        threaded=True,
+    )
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    port = int(os.getenv("BEANTHENTIC_PORT", "5001"))
+    host = os.getenv("BEANTHENTIC_HOST", "0.0.0.0").strip() or "0.0.0.0"
+    _print_lan_access_help(port)
+    _serve_app(host, port)

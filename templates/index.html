@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Beanthentic Client Page</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
@@ -69,14 +69,11 @@
         <h2 class="home-history-title">HISTORY</h2>
 
         <div class="home-history-flow">
-          <div class="home-history-media" aria-label="History images">
+          <aside class="home-history-media home-history-media--top" aria-label="Coffee cherries">
             <img class="home-history-image"
               src="{{ url_for('static', filename='history/coffee_history_cherries.png') }}" alt="Coffee cherries" />
-            <img class="home-history-image"
-              src="{{ url_for('static', filename='history/coffee_arabica_vs_robusta.png') }}"
-              alt="Arabica vs. Robusta comparison" />
-          </div>
-          <div class="home-history-text">
+          </aside>
+          <div class="home-history-text home-history-text--lead">
             <p>During the early 20th century, particularly during the 1950s and 1960s, the coffee industry bounced back,
               and the Philippine government, in collaboration with various international aid initiatives, actively
               promoted the replanting of coffee. They introduced Robusta to facilitate diversification within the
@@ -87,6 +84,13 @@
               cultivating Arabica and Robusta; thus, the industry gradually regained its footing. However, challenges
               remained because the market dynamics were constantly shifting. Although the efforts were significant, the
               farmers knew they had not attained the full potential of the coffee industry.</p>
+          </div>
+          <div class="home-history-text home-history-text--body">
+            <figure class="home-history-media home-history-media--compare" aria-label="Arabica vs Robusta comparison">
+              <img class="home-history-image"
+                src="{{ url_for('static', filename='history/coffee_arabica_vs_robusta.png') }}"
+                alt="Arabica vs. Robusta comparison" />
+            </figure>
             <p>The coffee industry thrives globally, illustrated by the <em>Coffea arabica</em>, often regarded as the
               first variety cultivated in Lipa, and <em>Coffea canephora</em>, known as Robusta.</p>
             <p>However, another coffee variety debuted in 1843 within the tropical forests of West and Central Africa,
