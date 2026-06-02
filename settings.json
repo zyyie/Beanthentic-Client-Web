@@ -5,8 +5,7 @@
     "app_db_user": "root",
     "app_db_pass": "",
     "app_db_name": "beanthentic_app",
-    "app_server_base": "http://192.168.100.210:8080",
-    "client_web_base": ""
+    "app_server_base": "http://192.168.100.210:8080"
   },
   "notifications": {
     "email_system_events": true,
