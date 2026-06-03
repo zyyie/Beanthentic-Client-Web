@@ -62,8 +62,10 @@
     document.body.classList.toggle("transaction-page--from-farmer", !showGuide);
     var replayBanner = document.getElementById("txn-tutorial-replay");
     var replayInline = document.getElementById("txn-tutorial-replay-inline");
+    var farmerGuideWrap = document.getElementById("txn-farmer-guide-wrap");
     if (replayBanner) replayBanner.hidden = !showGuide;
     if (replayInline) replayInline.hidden = !showGuide;
+    if (farmerGuideWrap) farmerGuideWrap.hidden = !showGuide;
     if (!showGuide && root && !root.hidden) endTour();
   }
 
@@ -265,6 +267,7 @@
       start: startTour,
       end: endTour,
       shouldShow: shouldShowTutorial,
+      updateContext: updateTutorialUiForContext,
     };
   }
 

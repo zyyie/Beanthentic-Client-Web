@@ -11,9 +11,13 @@ Simple Flask website inspired by your reference design.
 2. Install dependencies:
    - `pip install -r requirements.txt`
 3. Run the Flask app:
-   - `python web.py`
+   - **While coding (recommended):** double-click `run.bat` or `scripts\run-dev.bat`
+   - **Phone on same Wi-Fi:** `scripts\run-for-phone.bat`
+   - Or: `python web.py` (auto-reload enabled by default)
 4. Open on this computer:
    - [http://127.0.0.1:5001](http://127.0.0.1:5001)
+
+**If changes do not show:** use `run.bat` (not an old terminal), open `127.0.0.1:5001` (not `settings.json` `app_server_base` port 8080), then refresh.
 
 ## Access from your phone (same Wi-Fi as the laptop)
 

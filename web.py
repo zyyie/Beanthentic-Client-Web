@@ -17,17 +17,49 @@ from config.mysql_app_bridge import connect_app_mysql
 
 app = Flask(__name__)
 
-SETTINGS_PATH = Path(__file__).resolve().parent / "settings.json"
+PROJECT_ROOT = Path(__file__).resolve().parent
+SETTINGS_PATH = PROJECT_ROOT / "settings.json"
+STATIC_ROOT = PROJECT_ROOT / "static"
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes")
+
+
+# Default on so template/CSS edits show up without stale cache (waitress + debug off caches otherwise).
+LIVE_UPDATES = _env_flag("BEANTHENTIC_LIVE_UPDATES", True)
+if LIVE_UPDATES:
+    app.config["TEMPLATES_AUTO_RELOAD"] = True
+    app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+
+
+def _static_asset_version(filename: str) -> int:
+    path = STATIC_ROOT / Path(filename)
+    try:
+        return int(path.stat().st_mtime)
+    except OSError:
+        return 0
 
 
 @app.after_request
-def _cors_for_phone_api(resp):
-    """Allow the Android app (file:// WebView) to probe /api/lan-ping before QR scan."""
+def _apply_response_headers(resp):
+    """CORS for phone API + disable browser cache while developing."""
     path = request.path or ""
     if path.startswith("/api/") or path in ("/phone-test",):
         resp.headers.setdefault("Access-Control-Allow-Origin", "*")
         resp.headers.setdefault("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         resp.headers.setdefault("Access-Control-Allow-Headers", "Content-Type")
+
+    if LIVE_UPDATES and (
+        path.startswith("/static/")
+        or (resp.content_type or "").startswith("text/html")
+    ):
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
     return resp
 
 CLIENT_FARMERS_SQL = """
@@ -783,7 +815,10 @@ def api_app_db_status():
 
 @app.context_processor
 def _inject_app_server_base():
-    return {"app_server_base": _app_server_base()}
+    return {
+        "app_server_base": _app_server_base(),
+        "asset_version": _static_asset_version("css/style.css"),
+    }
 
 
 def _farmer_display_name(row: dict | None) -> str:
@@ -1162,6 +1197,44 @@ def _active_wifi_name() -> str:
         return ""
 
 
+def _free_listening_port(port: int) -> None:
+    """Stop a leftover server on this port (common after closing the terminal)."""
+    if not _env_flag("BEANTHENTIC_KILL_PORT", True):
+        return
+    if os.name != "nt":
+        return
+    try:
+        result = subprocess.run(
+            ["netstat", "-ano"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return
+    pids: set[str] = set()
+    needle = f":{port}"
+    for line in result.stdout.splitlines():
+        if "LISTENING" not in line or needle not in line:
+            continue
+        parts = line.split()
+        if len(parts) < 5:
+            continue
+        pid = parts[-1]
+        if pid.isdigit() and pid != "0":
+            pids.add(pid)
+    current_pid = str(os.getpid())
+    for pid in sorted(pids):
+        if pid == current_pid:
+            continue
+        print(f"  Stopping old server on port {port} (PID {pid})...")
+        subprocess.run(
+            ["taskkill", "/F", "/PID", pid],
+            capture_output=True,
+            check=False,
+        )
+
+
 def _print_lan_access_help(port: int) -> None:
     line = "=" * 58
     ips = _get_wifi_ipv4_addresses()
@@ -1181,6 +1254,11 @@ def _print_lan_access_help(port: int) -> None:
         print(f"  Phone URL:         http://<Wi-Fi_IP>:{port}/")
         print("  Connect laptop to home Wi-Fi first (not hotspot).")
     print(f"  Laptop only:       http://127.0.0.1:{port}/")
+    print(f"  Project folder:    {PROJECT_ROOT}")
+    index_path = PROJECT_ROOT / "templates" / "index.html"
+    if index_path.exists():
+        updated = datetime.fromtimestamp(index_path.stat().st_mtime)
+        print(f"  Homepage file:     updated {updated:%Y-%m-%d %H:%M:%S}")
 
     cfg_host = str(_read_connection_settings().get("app_db_host") or "").strip()
     if ips and cfg_host and _is_private_lan_ipv4(cfg_host):
@@ -1198,24 +1276,41 @@ def _print_lan_access_help(port: int) -> None:
     print("  2) Phone:  connect to THE SAME Wi-Fi name, mobile data OFF")
     print("  3) Do NOT use phone hotspot or laptop mobile hotspot")
     print("  4) Run allow-lan-access.bat once, then run-for-phone.bat")
+    if LIVE_UPDATES:
+        print("  5) Live updates ON — refresh browser after saving files")
     print(line)
 
 
 def _serve_app(host: str, port: int) -> None:
-    server = os.getenv("BEANTHENTIC_SERVER", "waitress").strip().lower()
+    server = os.getenv("BEANTHENTIC_SERVER", "").strip().lower()
+    if not server:
+        server = "flask" if LIVE_UPDATES else "waitress"
+
+    reloader_raw = os.getenv("BEANTHENTIC_RELOADER", "").strip().lower()
+    if reloader_raw:
+        use_reloader = reloader_raw in ("1", "true", "yes")
+    else:
+        use_reloader = LIVE_UPDATES and server == "flask"
+
+    debug_raw = os.getenv("BEANTHENTIC_DEBUG", "").strip().lower()
+    if debug_raw:
+        debug = debug_raw in ("1", "true", "yes")
+    else:
+        debug = LIVE_UPDATES and server == "flask"
+
     if server == "waitress":
         try:
             from waitress import serve
 
-            print("  Server engine:     waitress (recommended for phone on Wi-Fi)")
+            print("  Server engine:     waitress (phone on Wi-Fi)")
+            if LIVE_UPDATES:
+                print("  Note:              restart this window after editing web.py")
             serve(app, host=host, port=port, threads=8)
             return
         except ImportError:
             print("  waitress not installed — run:  pip install waitress")
 
-    debug = os.getenv("BEANTHENTIC_DEBUG", "0").strip().lower() in ("1", "true", "yes")
-    use_reloader = os.getenv("BEANTHENTIC_RELOADER", "0").strip().lower() in ("1", "true", "yes")
-    print("  Server engine:     flask dev")
+    print("  Server engine:     flask dev (auto-reload on file save)")
     app.run(
         host=host,
         port=port,
@@ -1228,5 +1323,6 @@ def _serve_app(host: str, port: int) -> None:
 if __name__ == "__main__":
     port = int(os.getenv("BEANTHENTIC_PORT", "5001"))
     host = os.getenv("BEANTHENTIC_HOST", "0.0.0.0").strip() or "0.0.0.0"
+    _free_listening_port(port)
     _print_lan_access_help(port)
     _serve_app(host, port)

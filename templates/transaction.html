@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Client Transaction Process | Beanthentic</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ asset_version }}" />
 </head>
 
 <body class="transaction-page{% if farmer_id %} transaction-page--from-farmer{% endif %}"
@@ -59,8 +59,16 @@
           </div>
 
           <div class="pickup-fields">
-            <div class="form-group full-width txn-farmer-selected-wrap" id="txn-farmer-selected-wrap"
-              data-txn-tour="farmer-name" {% if not farmer_id and not farmer_name %}hidden{% endif %}>
+            <div class="form-group full-width txn-farmer-guide-wrap" id="txn-farmer-guide-wrap"
+              data-txn-tour="farmer-name" {% if farmer_id %}hidden{% endif %}>
+              <label for="farmer-name-guide">Farmer name</label>
+              <input type="text" id="farmer-name-guide" class="txn-farmer-guide-input"
+                placeholder="Filled in after you choose a farmer" readonly tabindex="-1" aria-readonly="true"
+                autocomplete="off" />
+            </div>
+
+            <div class="form-group full-width txn-farmer-selected-wrap" id="txn-farmer-selected-wrap" {% if not
+              farmer_id and not farmer_name %}hidden{% endif %}>
               <label for="farmer-display-name">Farmer</label>
               <input type="text" id="farmer-display-name" class="txn-farmer-name-input" value="{{ farmer_name or '' }}"
                 readonly tabindex="-1" aria-readonly="true" autocomplete="off" />
@@ -349,6 +357,7 @@
 
       var FARMER_CTX_KEY = 'beanthentic_tx_farmer_context';
       var farmerPickBanner = document.getElementById('txn-farmer-pick-banner');
+      var farmerGuideWrap = document.getElementById('txn-farmer-guide-wrap');
       var farmerSelectedWrap = document.getElementById('txn-farmer-selected-wrap');
       var farmerDisplayName = document.getElementById('farmer-display-name');
       var farmerIdInput = document.getElementById('farmer-id');
@@ -364,6 +373,18 @@
         farmerPickBanner.hidden = !!(fid && parseInt(fid, 10) > 0);
       }
 
+      function updateFarmerGuideVisibility() {
+        var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+        var fromFarmer = !!(fid && parseInt(fid, 10) > 0);
+        document.body.classList.toggle('transaction-page--from-farmer', fromFarmer);
+        if (farmerGuideWrap) farmerGuideWrap.hidden = fromFarmer;
+        if (window.BeanthenticTxTutorial && window.BeanthenticTxTutorial.shouldShow) {
+          if (typeof window.BeanthenticTxTutorial.updateContext === 'function') {
+            window.BeanthenticTxTutorial.updateContext();
+          }
+        }
+      }
+
       function updateFarmerSelectedDisplay() {
         var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
         var name = farmerNameValue();
@@ -372,6 +393,7 @@
         if (farmerDisplayName) {
           farmerDisplayName.value = name || (fid ? 'Farmer #' + fid : '');
         }
+        updateFarmerGuideVisibility();
       }
 
       function pendingStorageKey(farmerId) {
@@ -1360,6 +1382,7 @@
       <h3 class="txn-tutorial-title" id="txn-tutorial-title">How to transact</h3>
       <p class="txn-tutorial-text" id="txn-tutorial-text"></p>
       <ul class="txn-tutorial-checklist" id="txn-tutorial-checklist" hidden>
+        <li>The <strong>farmer name</strong> appears after you pick a farmer from profiles</li>
         <li>Enter <strong>your name</strong> and upload a <strong>valid ID</strong></li>
         <li>Choose <strong>pick-up date</strong>, <strong>product</strong>, and <strong>quantity (KG)</strong></li>
         <li>Select <strong>Cash</strong>, enter the amount, then tap <strong>Submit</strong></li>

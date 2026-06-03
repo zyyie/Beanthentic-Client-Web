@@ -906,28 +906,95 @@ video {
 .hero {
   position: relative;
   min-height: 480px;
-  background-image: url("../images/hero-beans.png");
-  background-size: cover;
-  background-position: center;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  border-bottom-right-radius: 40px;
-  border-bottom-left-radius: 40px;
-  margin-bottom: 30px;
+  margin: 24px max(16px, env(safe-area-inset-right, 0px)) 30px max(16px, env(safe-area-inset-left, 0px));
+  border-radius: 40px;
   overflow: hidden;
+  box-shadow: 0 10px 28px rgba(43, 127, 31, 0.14);
+}
+
+.hero-slideshow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0;
+  animation: hero-slide-fade 25s infinite;
+}
+
+.hero-slide:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.hero-slide:nth-child(2) {
+  animation-delay: -5s;
+}
+
+.hero-slide:nth-child(3) {
+  animation-delay: -10s;
+}
+
+.hero-slide:nth-child(4) {
+  animation-delay: -15s;
+}
+
+.hero-slide:nth-child(5) {
+  animation-delay: -20s;
+}
+
+@keyframes hero-slide-fade {
+  0% {
+    opacity: 0;
+  }
+
+  4% {
+    opacity: 1;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  24% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 0;
+  }
 }
 
 .overlay {
   position: absolute;
   inset: 0;
+  z-index: 1;
   background: rgba(255, 255, 255, 0.4);
 }
 
 .hero-content {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide {
+    animation: none;
+    opacity: 0;
+  }
+
+  .hero-slide:first-child {
+    opacity: 1;
+  }
 }
 
 .hero-content h2 {
@@ -1516,22 +1583,43 @@ video {
   margin-bottom: 8px;
 }
 
+/* History: image right, text wraps left — same layout on desktop and mobile */
 .types-liberica-wrap {
+  overflow: hidden;
   margin: 10px 0 14px;
-}
-
-.types-liberica-wrap .types-liberica-photo {
-  width: min(100%, 280px);
-  float: right;
-  margin: 0 0 8px 14px;
-  border-radius: 8px;
-  border: 1px solid #d8d8d8;
 }
 
 .types-liberica-wrap::after {
   content: "";
   display: table;
   clear: both;
+}
+
+.types-liberica-figure {
+  float: right;
+  width: min(clamp(118px, 36vw, 280px), 38%);
+  max-width: 280px;
+  margin: 0 0 12px clamp(12px, 3vw, 20px);
+}
+
+.types-liberica-text p:last-child {
+  margin-bottom: 0;
+}
+
+.types-liberica-wrap .types-liberica-photo {
+  width: 100%;
+  display: block;
+  margin: 0;
+  border-radius: var(--bt-radius-md);
+  border: 1px solid rgba(43, 127, 31, 0.12);
+  box-shadow: 0 6px 18px rgba(43, 127, 31, 0.1);
+  object-fit: cover;
+  object-position: center;
+}
+
+.types-liberica-wrap--media-left .types-liberica-figure {
+  float: left;
+  margin: 0 clamp(12px, 3vw, 20px) 12px 0;
 }
 
 .barako-split {
@@ -1549,20 +1637,6 @@ video {
   width: min(100%, 320px);
   border-radius: 8px;
   border: 1px solid #d8d8d8;
-  justify-self: center;
-}
-
-.types-liberica-wrap--side-by-side {
-  display: grid;
-  grid-template-columns: 1.4fr 0.9fr;
-  gap: 16px;
-  align-items: start;
-}
-
-.types-liberica-wrap--side-by-side .types-liberica-photo {
-  float: none;
-  width: min(100%, 340px);
-  margin: 0;
   justify-self: center;
 }
 
@@ -2469,15 +2543,8 @@ body.pi-page {
     grid-template-columns: 1fr;
   }
 
-  .barako-split,
-  .types-liberica-wrap--side-by-side {
+  .barako-split {
     grid-template-columns: 1fr;
-  }
-
-  .types-liberica-wrap .types-liberica-photo {
-    float: none;
-    width: 100%;
-    margin: 0 0 10px;
   }
 
   /* Personal Info Responsiveness */
@@ -2708,6 +2775,19 @@ body.pi-page {
   cursor: default;
   width: 100%;
   box-sizing: border-box;
+}
+
+.txn-farmer-guide-input {
+  width: 100%;
+  box-sizing: border-box;
+  cursor: default;
+  color: #4a5f4c;
+  background: #f8fbf7;
+  border: 1px solid rgba(43, 127, 31, 0.2);
+}
+
+body.transaction-page--from-farmer .txn-farmer-guide-wrap {
+  display: none !important;
 }
 
 .pickup-details-card.txn-tutorial-highlight {
@@ -4337,9 +4417,8 @@ body.txn-tutorial-active:not(.transaction-page--from-farmer) {
 @media (max-width: 640px) {
   .hero {
     min-height: clamp(220px, 42vw, 320px);
-    margin-bottom: 16px;
-    border-bottom-right-radius: 20px;
-    border-bottom-left-radius: 20px;
+    margin: 16px max(12px, env(safe-area-inset-right, 0px)) 16px max(12px, env(safe-area-inset-left, 0px));
+    border-radius: 20px;
   }
 
   .hero-content h2 {

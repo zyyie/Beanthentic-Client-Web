@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Beanthentic Client Page</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ asset_version }}" />
 </head>
 
 <body>
@@ -21,6 +21,18 @@
 
   <main>
     <section class="hero">
+      <div class="hero-slideshow" aria-hidden="true">
+        {% set hero_slides = [
+        'images/slide_image (2).jpg',
+        'images/slide_image (4).jpg',
+        'images/slide_image.jpg',
+        'images/slide_image (5).jpg',
+        'images/slide_image (3).jpg'
+        ] %}
+        {% for slide in hero_slides %}
+        <div class="hero-slide" style="background-image: url('{{ url_for('static', filename=slide) }}');"></div>
+        {% endfor %}
+      </div>
       <div class="overlay"></div>
       <div class="container hero-content">
         <h2>Beanthentic</h2>
@@ -86,10 +98,11 @@
               farmers knew they had not attained the full potential of the coffee industry.</p>
           </div>
           <div class="home-history-text home-history-text--body">
-            <figure class="home-history-media home-history-media--compare" aria-label="Arabica vs Robusta comparison">
+            <figure class="home-history-media home-history-media--compare"
+              aria-label="Arabica, Liberica, and Robusta comparison">
               <img class="home-history-image"
-                src="{{ url_for('static', filename='history/coffee_arabica_vs_robusta.png') }}"
-                alt="Arabica vs. Robusta comparison" />
+                src="{{ url_for('static', filename='history/arabica_liberica_robusta.png') }}"
+                alt="Arabica, Liberica, and Robusta coffee bean comparison" />
             </figure>
             <p>The coffee industry thrives globally, illustrated by the <em>Coffea arabica</em>, often regarded as the
               first variety cultivated in Lipa, and <em>Coffea canephora</em>, known as Robusta.</p>
@@ -117,9 +130,6 @@
               1925).</p>
           </div>
         </div>
-        <img class="home-history-wide-image"
-          src="{{ url_for('static', filename='history/arabica_liberica_robusta.png') }}"
-          alt="Arabica vs Liberica vs Robusta comparison" />
       </div>
     </section>
 
