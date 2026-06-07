@@ -34,42 +34,42 @@
               <div class="report-reason-title">Overcharged or unfair pricing</div>
               <div class="report-reason-sub">I was charged more than the quoted or fair price.</div>
             </div>
-            <span class="report-reason-chevron" aria-hidden="true">›</span>
+            <span class="report-reason-chevron" aria-hidden="true"></span>
           </button>
           <button class="report-reason" type="button" role="listitem" data-reason="Poor quality coffee beans">
             <div class="report-reason-text">
               <div class="report-reason-title">Poor quality coffee beans</div>
               <div class="report-reason-sub">The beans are stale, spoiled, or not as described.</div>
             </div>
-            <span class="report-reason-chevron" aria-hidden="true">›</span>
+            <span class="report-reason-chevron" aria-hidden="true"></span>
           </button>
           <button class="report-reason" type="button" role="listitem" data-reason="Incomplete or incorrect amount">
             <div class="report-reason-text">
               <div class="report-reason-title">Incomplete or incorrect amount</div>
               <div class="report-reason-sub">I received less or a different type/weight of beans.</div>
             </div>
-            <span class="report-reason-chevron" aria-hidden="true">›</span>
+            <span class="report-reason-chevron" aria-hidden="true"></span>
           </button>
           <button class="report-reason" type="button" role="listitem" data-reason="Fake or not authentic product">
             <div class="report-reason-text">
               <div class="report-reason-title">Fake or not authentic product</div>
               <div class="report-reason-sub">I believe the beans sold are fake or not from the claimed origin.</div>
             </div>
-            <span class="report-reason-chevron" aria-hidden="true">›</span>
+            <span class="report-reason-chevron" aria-hidden="true"></span>
           </button>
           <button class="report-reason" type="button" role="listitem" data-reason="Rude or unprofessional behavior">
             <div class="report-reason-text">
               <div class="report-reason-title">Rude or unprofessional behavior</div>
               <div class="report-reason-sub">The staff or seller was rude, disrespectful, or unhelpful.</div>
             </div>
-            <span class="report-reason-chevron" aria-hidden="true">›</span>
+            <span class="report-reason-chevron" aria-hidden="true"></span>
           </button>
           <button class="report-reason" type="button" role="listitem" data-reason="Refused refund or exchange">
             <div class="report-reason-text">
               <div class="report-reason-title">Refused refund or exchange</div>
               <div class="report-reason-sub">The seller refused to refund or replace a defective product.</div>
             </div>
-            <span class="report-reason-chevron" aria-hidden="true">›</span>
+            <span class="report-reason-chevron" aria-hidden="true"></span>
           </button>
           <button class="report-reason" type="button" role="listitem" data-reason="Something else"
             data-something-else="true">
@@ -77,16 +77,11 @@
               <div class="report-reason-title">Something else</div>
               <div class="report-reason-sub">My concern isn’t listed above.</div>
             </div>
-            <span class="report-reason-chevron" aria-hidden="true">›</span>
+            <span class="report-reason-chevron" aria-hidden="true"></span>
           </button>
         </div>
 
         <section class="report-details" id="report-details" hidden aria-label="Report details">
-          <div class="report-details-header">
-            <div class="report-details-title" id="report-details-title">Report details</div>
-            <button class="report-details-reset" type="button" id="report-details-reset">Change reason</button>
-          </div>
-
           <div class="report-reporter-fields" aria-label="Your contact information">
             <input class="report-reporter-input" id="report-reporter-name" type="text"
               placeholder="Your full name (required)" autocomplete="name" />
@@ -122,7 +117,8 @@
     window.BEANTHENTIC_REPORT_FARMERS_URL = "{{ url_for('client_report_transaction_farmers_proxy') }}";
     window.BEANTHENTIC_APP_SERVER_BASE = {{ (app_server_base or '')| tojson }};
   </script>
-  <script src="{{ url_for('static', filename='js/report_page_chat.js') }}?v=20260523-report-farmer"></script>
+  <script src="{{ url_for('static', filename='js/report_page_chat.js') }}?v=20260604-report-chevron"></script>
+  {% include 'partials/page_loading.html' %}
 </body>
 
 </html>

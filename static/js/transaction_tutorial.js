@@ -5,14 +5,17 @@
   "use strict";
 
   var HIGHLIGHT_CLASS = "txn-tutorial-highlight";
-  var autoStarted = false;
+  var PENDING_GUIDE_KEY = "beanthentic_tx_pending_guide";
+  var autoStartScheduled = false;
+  var guideOpen = false;
+  var guideDismissedThisLoad = false;
 
   /* One screen: form overview + go to farmer profiles (no 8-step field tour). */
   var steps = [
     {
       target: null,
       title: "How to start a transaction",
-      text: "This form is what you will fill out after you choose a farmer. Here is what you will need:",
+      text: "Pick a farmer from the list below, then fill out the rest of the form:",
       placement: "center",
       isOverview: true,
     },
@@ -57,25 +60,64 @@
     return !hasFarmerSelected();
   }
 
+  function hasSeenGuideThisVisit() {
+    return guideDismissedThisLoad;
+  }
+
+  function markGuideSeen() {
+    guideDismissedThisLoad = true;
+    try {
+      sessionStorage.removeItem(PENDING_GUIDE_KEY);
+    } catch (_e) { }
+  }
+
+  function consumePendingGuideFlag() {
+    try {
+      if (sessionStorage.getItem(PENDING_GUIDE_KEY) !== "1") return false;
+      sessionStorage.removeItem(PENDING_GUIDE_KEY);
+      return true;
+    } catch (_e2) {
+      return false;
+    }
+  }
+
+  function shouldAutoOpenGuide() {
+    if (!shouldShowTutorial() || hasSeenGuideThisVisit()) return false;
+    return consumePendingGuideFlag();
+  }
+
+  function guideOpenDelayMs() {
+    var loadingMs =
+      window.BeanthenticPageLoading && window.BeanthenticPageLoading.durationMs
+        ? window.BeanthenticPageLoading.durationMs
+        : 0;
+    return loadingMs > 0 ? loadingMs + 250 : 700;
+  }
+
   function updateTutorialUiForContext() {
     var showGuide = shouldShowTutorial();
     document.body.classList.toggle("transaction-page--from-farmer", !showGuide);
-    var replayBanner = document.getElementById("txn-tutorial-replay");
     var replayInline = document.getElementById("txn-tutorial-replay-inline");
-    var farmerGuideWrap = document.getElementById("txn-farmer-guide-wrap");
-    if (replayBanner) replayBanner.hidden = !showGuide;
     if (replayInline) replayInline.hidden = !showGuide;
-    if (farmerGuideWrap) farmerGuideWrap.hidden = !showGuide;
-    if (!showGuide && root && !root.hidden) endTour();
+    if (!showGuide && guideOpen) endTour(false);
   }
 
   function scheduleAutoStart() {
-    if (autoStarted || !shouldShowTutorial()) return;
-    window.setTimeout(function () {
-      if (autoStarted || !root || !root.hidden || !shouldShowTutorial()) return;
-      autoStarted = true;
-      startTour();
-    }, 650);
+    function trySchedule() {
+      if (autoStartScheduled || !shouldAutoOpenGuide()) return;
+      autoStartScheduled = true;
+      window.setTimeout(function () {
+        if (hasSeenGuideThisVisit() || !root || guideOpen || !shouldShowTutorial()) return;
+        startTour(false);
+        markGuideSeen();
+      }, guideOpenDelayMs());
+    }
+
+    if (window.BeanthenticPageLoading) {
+      trySchedule();
+      return;
+    }
+    window.addEventListener("load", trySchedule, { once: true });
   }
 
   function clearHighlight() {
@@ -165,7 +207,7 @@
     if (profileLink && cfg().farmerProfilesUrl) {
       profileLink.href = cfg().farmerProfilesUrl;
     }
-    if (btnNext) btnNext.textContent = "Go to Farmer Profiles";
+    if (btnNext) btnNext.textContent = "Got it";
     if (bubble) {
       bubble.classList.toggle("txn-tutorial-bubble--overview", !!step.isOverview);
       bubble.classList.toggle("txn-tutorial-bubble--center", step.placement === "center");
@@ -183,16 +225,22 @@
     });
   }
 
-  function startTour() {
-    if (!root || !shouldShowTutorial()) return;
+  function startTour(manual) {
+    if (!root) return;
+    if (!manual && !shouldShowTutorial()) return;
     index = 0;
+    guideOpen = true;
     root.hidden = false;
     root.setAttribute("aria-hidden", "false");
     document.body.classList.add("txn-tutorial-active");
     renderStep();
   }
 
-  function endTour() {
+  function endTour(markSeen) {
+    if (markSeen !== false) {
+      markGuideSeen();
+    }
+    guideOpen = false;
     clearHighlight();
     if (root) {
       root.hidden = true;
@@ -208,13 +256,12 @@
     return "/farmer-profiles";
   }
 
-  function goToFarmerProfiles() {
-    endTour();
-    window.location.assign(farmerProfilesUrl());
-  }
-
   function nextStep() {
-    goToFarmerProfiles();
+    endTour(true);
+    var farmerSelect = document.getElementById("farmer-select");
+    if (farmerSelect) {
+      farmerSelect.focus();
+    }
   }
 
   function onResize() {
@@ -238,10 +285,14 @@
     btnSkip = document.getElementById("txn-tutorial-skip");
 
     if (btnNext) btnNext.addEventListener("click", nextStep);
-    if (btnSkip) btnSkip.addEventListener("click", endTour);
+    if (btnSkip) btnSkip.addEventListener("click", function () {
+      endTour(true);
+    });
 
     root.querySelectorAll("[data-txn-tutorial-dismiss]").forEach(function (el) {
-      el.addEventListener("click", endTour);
+      el.addEventListener("click", function () {
+        endTour(true);
+      });
     });
 
     window.addEventListener("resize", onResize);
@@ -250,18 +301,13 @@
     function bindReplay(btn) {
       if (!btn) return;
       btn.addEventListener("click", function () {
-        startTour();
+        startTour(true);
       });
     }
-    bindReplay(document.getElementById("txn-tutorial-replay"));
     bindReplay(document.getElementById("txn-tutorial-replay-inline"));
 
     updateTutorialUiForContext();
     scheduleAutoStart();
-    window.addEventListener("load", function () {
-      updateTutorialUiForContext();
-      if (!autoStarted) scheduleAutoStart();
-    });
 
     window.BeanthenticTxTutorial = {
       start: startTour,

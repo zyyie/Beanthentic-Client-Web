@@ -864,10 +864,26 @@ def transaction():
             if db_name:
                 farmer_name = db_name
             farmer_id = int(farmer_row.get("farmer_id") or farmer_id)
+    farmer_rows, farmers_error, _demo_mode = _fetch_farmer_rows()
+    farmers_for_select = []
+    for row in farmer_rows:
+        fid = int(row.get("farmer_id") or 0)
+        if fid <= 0:
+            continue
+        farmers_for_select.append(
+            {
+                "farmer_id": fid,
+                "display_name": _farmer_display_name(row),
+                "barangay": str(row.get("barangay") or "").strip(),
+            }
+        )
+    farmers_for_select.sort(key=lambda item: item["display_name"].lower())
     return render_template(
         "transaction.html",
         farmer_id=farmer_id,
         farmer_name=farmer_name,
+        farmers=farmers_for_select,
+        farmers_error=farmers_error,
         farmer_profiles_url=url_for("farmer_profiles"),
     )
 

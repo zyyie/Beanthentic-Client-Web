@@ -19,19 +19,10 @@
         </svg>
       </a>
       <div class="nav-title">Transaction Process</div>
-      {% include 'partials/header_notif.html' %}
     </div>
   </header>
 
   <main class="container transaction-main">
-    <div class="txn-farmer-pick-banner" id="txn-farmer-pick-banner" role="status" {% if farmer_id %}hidden{% endif %}>
-      <p>
-        Open <a href="{{ farmer_profiles_url }}">Farmer Profiles</a>, choose a farmer, then tap
-        <strong>Go to Transaction</strong> to continue.
-        <button type="button" class="txn-tutorial-replay" id="txn-tutorial-replay">Show quick guide</button>
-      </p>
-    </div>
-
     <form class="transaction-form" id="client-transaction-form"
       action="{{ url_for('client_transaction_submit_proxy') }}" method="POST" enctype="multipart/form-data">
       <input type="hidden" name="transaction_type" value="pickup" />
@@ -59,19 +50,34 @@
           </div>
 
           <div class="pickup-fields">
-            <div class="form-group full-width txn-farmer-guide-wrap" id="txn-farmer-guide-wrap"
-              data-txn-tour="farmer-name" {% if farmer_id %}hidden{% endif %}>
-              <label for="farmer-name-guide">Farmer name</label>
-              <input type="text" id="farmer-name-guide" class="txn-farmer-guide-input"
-                placeholder="Filled in after you choose a farmer" readonly tabindex="-1" aria-readonly="true"
-                autocomplete="off" />
-            </div>
-
-            <div class="form-group full-width txn-farmer-selected-wrap" id="txn-farmer-selected-wrap" {% if not
-              farmer_id and not farmer_name %}hidden{% endif %}>
-              <label for="farmer-display-name">Farmer</label>
-              <input type="text" id="farmer-display-name" class="txn-farmer-name-input" value="{{ farmer_name or '' }}"
-                readonly tabindex="-1" aria-readonly="true" autocomplete="off" />
+            <div class="form-group full-width txn-farmer-select-wrap" id="txn-farmer-select-wrap"
+              data-txn-tour="farmer-name">
+              <label for="farmer-select">Farmer name</label>
+              <select id="farmer-select" class="txn-farmer-select" required aria-describedby="txn-farmer-select-hint">
+                <option value="">Select a farmer…</option>
+                {% for farmer in farmers %}
+                <option value="{{ farmer.farmer_id }}" data-farmer-name="{{ farmer.display_name }}"
+                  {% if farmer_id and farmer.farmer_id == farmer_id %}selected{% endif %}>
+                  {{ farmer.display_name }}{% if farmer.barangay %} · {{ farmer.barangay }}{% endif %}
+                </option>
+                {% endfor %}
+                {% if farmer_id and farmer_name %}
+                {% set ns = namespace(found=false) %}
+                {% for farmer in farmers %}
+                {% if farmer.farmer_id == farmer_id %}{% set ns.found = true %}{% endif %}
+                {% endfor %}
+                {% if not ns.found %}
+                <option value="{{ farmer_id }}" data-farmer-name="{{ farmer_name }}" selected>{{ farmer_name }}</option>
+                {% endif %}
+                {% endif %}
+              </select>
+              <p class="txn-farmer-select-hint" id="txn-farmer-select-hint">
+                {% if farmers_error and not farmers %}
+                {{ farmers_error }}
+                {% else %}
+                Choose who you want to buy from. You can also view full profiles first.
+                {% endif %}
+              </p>
             </div>
 
             <div class="form-group full-width" data-txn-tour="client-name">
@@ -356,10 +362,7 @@
       var pollTimer = null;
 
       var FARMER_CTX_KEY = 'beanthentic_tx_farmer_context';
-      var farmerPickBanner = document.getElementById('txn-farmer-pick-banner');
-      var farmerGuideWrap = document.getElementById('txn-farmer-guide-wrap');
-      var farmerSelectedWrap = document.getElementById('txn-farmer-selected-wrap');
-      var farmerDisplayName = document.getElementById('farmer-display-name');
+      var farmerSelectEl = document.getElementById('farmer-select');
       var farmerIdInput = document.getElementById('farmer-id');
       var farmerNameHidden = document.getElementById('farmer-name-hidden');
 
@@ -367,17 +370,41 @@
         return farmerNameHidden ? String(farmerNameHidden.value || '').trim() : '';
       }
 
-      function updateFarmerPickBanner() {
-        if (!farmerPickBanner) return;
+      function farmerNameFromSelectOption(opt) {
+        if (!opt) return '';
+        return String(opt.dataset.farmerName || opt.textContent || '').split('·')[0].trim();
+      }
+
+      function ensureFarmerSelectOption(fid, name) {
+        if (!farmerSelectEl || !fid) return;
+        var id = String(fid).trim();
+        var existing = Array.prototype.find.call(farmerSelectEl.options, function (opt) {
+          return String(opt.value || '').trim() === id;
+        });
+        if (existing) return;
+        var label = String(name || '').trim() || ('Farmer #' + id);
+        var opt = document.createElement('option');
+        opt.value = id;
+        opt.dataset.farmerName = label;
+        opt.textContent = label;
+        farmerSelectEl.appendChild(opt);
+      }
+
+      function syncFarmerSelectFromContext() {
+        if (!farmerSelectEl) return;
         var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
-        farmerPickBanner.hidden = !!(fid && parseInt(fid, 10) > 0);
+        if (fid) {
+          ensureFarmerSelectOption(fid, farmerNameValue());
+          farmerSelectEl.value = fid;
+        } else {
+          farmerSelectEl.value = '';
+        }
       }
 
       function updateFarmerGuideVisibility() {
         var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
         var fromFarmer = !!(fid && parseInt(fid, 10) > 0);
         document.body.classList.toggle('transaction-page--from-farmer', fromFarmer);
-        if (farmerGuideWrap) farmerGuideWrap.hidden = fromFarmer;
         if (window.BeanthenticTxTutorial && window.BeanthenticTxTutorial.shouldShow) {
           if (typeof window.BeanthenticTxTutorial.updateContext === 'function') {
             window.BeanthenticTxTutorial.updateContext();
@@ -386,14 +413,22 @@
       }
 
       function updateFarmerSelectedDisplay() {
-        var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
-        var name = farmerNameValue();
-        var show = !!(fid && parseInt(fid, 10) > 0) || !!name;
-        if (farmerSelectedWrap) farmerSelectedWrap.hidden = !show;
-        if (farmerDisplayName) {
-          farmerDisplayName.value = name || (fid ? 'Farmer #' + fid : '');
-        }
+        syncFarmerSelectFromContext();
         updateFarmerGuideVisibility();
+      }
+
+      function onFarmerSelectChange() {
+        if (!farmerSelectEl) return;
+        var fid = String(farmerSelectEl.value || '').trim();
+        if (!fid || parseInt(fid, 10) <= 0) {
+          if (farmerIdInput) farmerIdInput.value = '';
+          if (farmerNameHidden) farmerNameHidden.value = '';
+          updateFarmerGuideVisibility();
+          return;
+        }
+        var opt = farmerSelectEl.selectedOptions[0];
+        var name = farmerNameFromSelectOption(opt);
+        applyFarmerContext({ farmer_id: fid, farmer_name: name });
       }
 
       function pendingStorageKey(farmerId) {
@@ -804,14 +839,12 @@
         var name = s && s.farmer_name ? String(s.farmer_name).trim() : '';
         var fid = s && s.farmer_id != null && s.farmer_id !== '' ? String(s.farmer_id).trim() : '';
         if (!name && !fid) {
-          updateFarmerPickBanner();
           updateFarmerSelectedDisplay();
           return;
         }
         if (farmerIdInput) farmerIdInput.value = fid;
         if (farmerNameHidden) farmerNameHidden.value = name;
         persistFarmerContext({ farmer_id: fid, farmer_name: name });
-        updateFarmerPickBanner();
         updateFarmerSelectedDisplay();
       }
 
@@ -1061,9 +1094,8 @@
         const farmerCtx = getActiveFarmerContext();
         const farmerIdVal = farmerCtx && farmerCtx.farmer_id ? String(farmerCtx.farmer_id).trim() : '';
         if (!farmerIdVal || parseInt(farmerIdVal, 10) <= 0) {
-          alert(
-            'Please open Transaction from the farmer profile first (Farmer Profiles → select farmer → Go to Transaction).'
-          );
+          alert('Please select a farmer from the dropdown before submitting.');
+          if (farmerSelectEl) farmerSelectEl.focus();
           return;
         }
 
@@ -1370,7 +1402,15 @@
 
       initCalendar();
 
+      if (farmerSelectEl) {
+        farmerSelectEl.addEventListener('change', onFarmerSelectChange);
+      }
+
       initTransactionFromLinkOrStorage();
+      syncFarmerSelectFromContext();
+      if (farmerSelectEl && farmerSelectEl.value && (!farmerIdInput || !String(farmerIdInput.value || '').trim())) {
+        onFarmerSelectChange();
+      }
     });
   </script>
 
@@ -1382,7 +1422,7 @@
       <h3 class="txn-tutorial-title" id="txn-tutorial-title">How to transact</h3>
       <p class="txn-tutorial-text" id="txn-tutorial-text"></p>
       <ul class="txn-tutorial-checklist" id="txn-tutorial-checklist" hidden>
-        <li>The <strong>farmer name</strong> appears after you pick a farmer from profiles</li>
+        <li>Select a <strong>farmer</strong> from the dropdown at the top of the form</li>
         <li>Enter <strong>your name</strong> and upload a <strong>valid ID</strong></li>
         <li>Choose <strong>pick-up date</strong>, <strong>product</strong>, and <strong>quantity (KG)</strong></li>
         <li>Select <strong>Cash</strong>, enter the amount, then tap <strong>Submit</strong></li>
@@ -1392,7 +1432,7 @@
       </p>
       <div class="txn-tutorial-actions">
         <button type="button" class="txn-tutorial-skip" id="txn-tutorial-skip">Skip</button>
-        <button type="button" class="txn-tutorial-next" id="txn-tutorial-next">Go to Farmer Profiles</button>
+        <button type="button" class="txn-tutorial-next" id="txn-tutorial-next">Got it</button>
       </div>
     </div>
   </div>
@@ -1403,10 +1443,11 @@
     farmerId: { { farmer_id or 0 } }
     };
   </script>
-  <script src="{{ url_for('static', filename='js/transaction_tutorial.js') }}?v=20260601-tx-tour8"></script>
-  <script src="{{ url_for('static', filename='js/notifications.js') }}?v=20260530-notif-view"></script>
+  <script src="{{ url_for('static', filename='js/transaction_tutorial.js') }}?v=20260604-tx-guide-click"></script>
+  <script src="{{ url_for('static', filename='js/notifications.js') }}?v=20260604-notif-icon-design"></script>
   <script src="{{ url_for('static', filename='js/client_tx_watch.js') }}?v=20260524-txnotif3"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% include 'partials/page_loading.html' %}
 </body>
 
 </html>

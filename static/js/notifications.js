@@ -41,7 +41,7 @@
         time: "2 days ago",
         datetime: "2026-05-20",
         href: routes.report || "/report",
-        kind: "info",
+        kind: "system",
       },
     ];
   }
@@ -170,6 +170,42 @@
       .replace(/"/g, "&quot;");
   }
 
+  function resolveNotifIcon(notif) {
+    if (notif.icon) return notif.icon;
+    if (notif.kind === "farmer") return "sprout";
+    if (notif.kind === "transaction") return "receipt";
+    if (notif.kind === "system") return "gear";
+    return "megaphone";
+  }
+
+  function notifIconSvg(name) {
+    const icons = {
+      megaphone:
+        '<path d="M3 10v4h4l5 4V6L7 10H3z"/>' +
+        '<path d="M16.5 8.5a4.5 4.5 0 0 1 0 7"/>' +
+        '<path d="M19.5 5.5a8 8 0 0 1 0 13"/>',
+      sprout:
+        '<path d="M12 22V11"/>' +
+        '<path d="M12 11C12 6.5 8 4 8 4s4 2.5 4 7"/>' +
+        '<path d="M12 11c0-4.5 4-7 4-7s-4 2.5-4 7"/>',
+      gear:
+        '<circle cx="12" cy="12" r="3"/>' +
+        '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+      receipt:
+        '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
+        '<path d="M14 2v6h6"/>' +
+        '<path d="M16 13H8"/>' +
+        '<path d="M16 17H8"/>' +
+        '<path d="M10 9H8"/>',
+    };
+    const paths = icons[name] || icons.megaphone;
+    return (
+      '<svg class="header-notif-item-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+      paths +
+      "</svg>"
+    );
+  }
+
   let uiRoot = null;
 
   function getToastHost() {
@@ -234,39 +270,38 @@
       li.setAttribute("data-notif-ref", String(notif.reference_no));
     }
 
-    const card = document.createElement("div");
+    const card = document.createElement(href ? "a" : "div");
     card.className = "header-notif-item-card";
+    if (href) {
+      card.href = href;
+      card.setAttribute("data-notif-view", "");
+    }
 
-    const title = document.createElement("p");
+    const iconWrap = document.createElement("span");
+    iconWrap.className = "header-notif-item-icon";
+    iconWrap.innerHTML = notifIconSvg(resolveNotifIcon(notif));
+
+    const body = document.createElement("span");
+    body.className = "header-notif-item-body";
+
+    const title = document.createElement("span");
     title.className = "header-notif-item-title";
     title.textContent = notif.title || "Notification";
 
-    const text = document.createElement("p");
+    const text = document.createElement("span");
     text.className = "header-notif-item-text";
     text.textContent = notif.text || "";
-
-    const meta = document.createElement("div");
-    meta.className = "header-notif-item-meta";
 
     const timeEl = document.createElement("time");
     timeEl.className = "header-notif-item-time";
     timeEl.dateTime = notif.datetime || "";
     timeEl.textContent = notif.time || "";
-    meta.appendChild(timeEl);
 
-    if (href) {
-      const viewLink = document.createElement("a");
-      viewLink.className = "header-notif-item-go";
-      viewLink.href = href;
-      viewLink.setAttribute("data-notif-view", "");
-      viewLink.innerHTML =
-        'View<span class="header-notif-item-go-arrow" aria-hidden="true"> →</span>';
-      meta.appendChild(viewLink);
-    }
-
-    card.appendChild(title);
-    card.appendChild(text);
-    card.appendChild(meta);
+    body.appendChild(title);
+    body.appendChild(text);
+    body.appendChild(timeEl);
+    card.appendChild(iconWrap);
+    card.appendChild(body);
     li.appendChild(card);
     return li;
   }
@@ -452,13 +487,13 @@
     });
 
     list.addEventListener("click", (e) => {
-      const viewLink = e.target.closest("[data-notif-view]");
-      if (!viewLink) return;
+      const card = e.target.closest("[data-notif-view]");
+      if (!card) return;
       e.preventDefault();
       e.stopPropagation();
-      const item = viewLink.closest(".header-notif-item");
+      const item = card.closest(".header-notif-item");
       const href =
-        viewLink.getAttribute("href") ||
+        card.getAttribute("href") ||
         item?.getAttribute("data-notif-href") ||
         "";
       navigateFromNotification(item, href);

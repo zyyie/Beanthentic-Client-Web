@@ -1,8 +1,6 @@
 (() => {
   const reasonButtons = Array.from(document.querySelectorAll(".report-reason"));
   const details = document.getElementById("report-details");
-  const detailsTitle = document.getElementById("report-details-title");
-  const resetBtn = document.getElementById("report-details-reset");
   const quickOptions = document.getElementById("report-quick-options");
   const form = document.getElementById("report-chat-form");
   const input = document.getElementById("report-chat-input");
@@ -11,9 +9,10 @@
   const reporterContactEl = document.getElementById("report-reporter-contact");
   const farmerSelectEl = document.getElementById("report-farmer-select");
 
-  if (!form || !input || !body || !details || !detailsTitle || !resetBtn || !quickOptions) return;
+  if (!form || !input || !body || !details || !quickOptions) return;
 
   const reasonsList = document.querySelector(".report-reasons");
+  const DETAILS_ANIM_MS = 320;
   const STORAGE_KEY = "beanthentic_client_pending_tx";
   const SUBMIT_URL =
     window.BEANTHENTIC_REPORT_SUBMIT_URL || "/api/client-report/submit";
@@ -350,8 +349,23 @@
   }
 
   function setSelectedReason(activeBtn) {
-    reasonButtons.forEach((b) => b.classList.remove("is-selected"));
-    if (activeBtn) activeBtn.classList.add("is-selected");
+    reasonButtons.forEach((b) => {
+      b.classList.remove("is-selected");
+      b.setAttribute("aria-expanded", "false");
+      const chev = b.querySelector(".report-reason-chevron");
+      if (chev) {
+        chev.setAttribute("aria-hidden", "true");
+        chev.removeAttribute("aria-label");
+      }
+    });
+    if (!activeBtn) return;
+    activeBtn.classList.add("is-selected");
+    activeBtn.setAttribute("aria-expanded", "true");
+    const chevron = activeBtn.querySelector(".report-reason-chevron");
+    if (chevron) {
+      chevron.removeAttribute("aria-hidden");
+      chevron.setAttribute("aria-label", "Collapse report form");
+    }
   }
 
   function placeDetailsAfter(button) {
@@ -364,6 +378,26 @@
     reasonsList.insertAdjacentElement("afterend", details);
   }
 
+  function showDetailsPanel() {
+    if (!details) return;
+    details.hidden = false;
+    requestAnimationFrame(() => {
+      details.classList.add("is-open");
+    });
+  }
+
+  function hideDetailsPanel(done) {
+    if (!details) {
+      if (done) done();
+      return;
+    }
+    details.classList.remove("is-open");
+    window.setTimeout(() => {
+      details.hidden = true;
+      if (done) done();
+    }, DETAILS_ANIM_MS);
+  }
+
   function openDetails(reason, button) {
     state.reason = reason;
     state.detail = "";
@@ -372,42 +406,52 @@
     state.submitted = false;
     state.submitting = false;
 
-    placeDetailsAfter(button);
     setSelectedReason(button);
-    details.hidden = false;
-    detailsTitle.textContent = reason;
+    placeDetailsAfter(button);
     body.innerHTML = "";
     prefillReporterFields();
+    showDetailsPanel();
     addMessage("Thanks. Please describe your report in detail.", "bot");
     addMessage(`Selected reason: ${reason}`, "bot");
-    setTimeout(() => {
+    window.setTimeout(() => {
       details.scrollIntoView({ block: "nearest", behavior: "smooth" });
       if (reporterNameEl && !reporterNameEl.value.trim()) {
         reporterNameEl.focus();
       } else {
         input.focus();
       }
-    }, 0);
+    }, DETAILS_ANIM_MS + 20);
   }
 
   function resetDetails() {
-    details.hidden = true;
-    setSelectedReason(null);
-    parkDetailsAtEnd();
-    detailsTitle.textContent = "Report details";
-    body.innerHTML = "";
-    input.value = "";
-    quickOptions.innerHTML = "";
-    state.reason = "";
-    state.detail = "";
-    state.isSomethingElse = false;
-    state.chatLog = [];
-    state.submitted = false;
-    state.submitting = false;
-    state.farmers = [];
-    setFarmerSelectMessage("Enter your name above to load farmers…", true);
-    setTypingEnabled(false);
+    hideDetailsPanel(() => {
+      setSelectedReason(null);
+      parkDetailsAtEnd();
+      body.innerHTML = "";
+      input.value = "";
+      quickOptions.innerHTML = "";
+      state.reason = "";
+      state.detail = "";
+      state.isSomethingElse = false;
+      state.chatLog = [];
+      state.submitted = false;
+      state.submitting = false;
+      state.farmers = [];
+      setFarmerSelectMessage("Enter your name above to load farmers…", true);
+      setTypingEnabled(false);
+    });
   }
+
+  reasonButtons.forEach((btn) => {
+    const chevron = btn.querySelector(".report-reason-chevron");
+    if (!chevron) return;
+    chevron.addEventListener("click", (e) => {
+      if (!btn.classList.contains("is-selected")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      resetDetails();
+    });
+  });
 
   if (reporterNameEl) {
     reporterNameEl.addEventListener("input", scheduleLoadTransactionFarmers);
@@ -419,6 +463,7 @@
 
   reasonButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (btn.classList.contains("is-selected")) return;
       const reason = btn.getAttribute("data-reason") || "Report";
       openDetails(reason, btn);
 
@@ -430,7 +475,11 @@
     });
   });
 
-  resetBtn.addEventListener("click", resetDetails);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && details && !details.hidden) {
+      resetDetails();
+    }
+  });
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();

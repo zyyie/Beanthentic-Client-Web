@@ -14,6 +14,7 @@
       <div class="brand">
         <img class="brand-logo-image" src="{{ url_for('static', filename='images/beanthentic-logo.png') }}"
           alt="Beanthentic logo" />
+        <span class="brand-greeting">Hello!</span>
       </div>
       {% include 'partials/header_notif.html' %}
     </div>
@@ -137,8 +138,9 @@
   <script>
     window.__BEANTHENTIC_APP_SERVER_BASE__ = {{ app_server_base | tojson }};
   </script>
-  <script src="{{ url_for('static', filename='js/notifications.js') }}?v=20260530-notif-view"></script>
+  <script src="{{ url_for('static', filename='js/notifications.js') }}?v=20260604-notif-icon-design"></script>
   <script src="{{ url_for('static', filename='js/client_tx_watch.js') }}?v=20260524-txnotif3"></script>
+  {% include 'partials/page_loading.html' %}
 </body>
 
 </html>
