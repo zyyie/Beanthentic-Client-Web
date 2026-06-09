@@ -1,16 +1,16 @@
 :root {
-  --bt-green: #156E34;
-  --bt-green-mid: #156E34;
-  --bt-green-dark: #0f4d28;
-  --bt-green-light: #1b8a42;
+  --bt-green: #0a4520;
+  --bt-green-mid: #0a4520;
+  --bt-green-dark: #062a14;
+  --bt-green-light: #0d5529;
   --bt-accent: #8ad41d;
-  --bt-text: #234f35;
-  --bt-text-muted: #4a5f4c;
-  --bt-text-body: #35593a;
-  --bt-navbar-bg: #127231;
-  --bt-navbar-bg-dark: #0e5c29;
-  --bt-gradient: linear-gradient(155deg, #1b8a42 0%, #156E34 48%, #0f4d28 100%);
-  --bt-gradient-header: #127231;
+  --bt-text: #1a3d24;
+  --bt-text-muted: #3d5240;
+  --bt-text-body: #2a4a32;
+  --bt-navbar-bg: #083d1c;
+  --bt-navbar-bg-dark: #062a14;
+  --bt-gradient: linear-gradient(155deg, #0d5529 0%, #0a4520 48%, #062a14 100%);
+  --bt-gradient-header: #083d1c;
   --bt-glass-bg: rgba(255, 255, 255, 0.82);
   --bt-glass-border: rgba(255, 255, 255, 0.95);
   --bt-radius-xl: 22px;
@@ -1110,7 +1110,7 @@ a.header-notif-item-card:focus-visible {
 
 .hero-content h2 {
   font-size: clamp(52px, 8vw, 100px);
-  color: #2b7f1f;
+  color: var(--bt-green);
   font-weight: 900;
   text-shadow: 0 4px 0 #ffffff;
   -webkit-text-stroke: 0;
@@ -1140,9 +1140,9 @@ a.header-notif-item-card:focus-visible {
   display: flex;
   justify-content: center;
   align-items: stretch;
-  gap: 24px;
+  gap: 14px;
   flex-wrap: nowrap;
-  padding: 22px 28px;
+  padding: 18px 20px;
   background: var(--bt-glass-bg);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -1171,7 +1171,7 @@ a.header-notif-item-card:focus-visible {
   border-radius: var(--bt-radius-lg);
   background: var(--bt-gradient);
   box-shadow:
-    0 6px 18px rgba(21, 110, 52, 0.28),
+    0 6px 18px rgba(10, 69, 32, 0.32),
     inset 0 1px 0 rgba(255, 255, 255, 0.22);
   transition:
     transform 0.4s var(--bt-ease),
@@ -1192,11 +1192,16 @@ a.header-notif-item-card:focus-visible {
   pointer-events: none;
 }
 
+.quick-cards-grid .mission-vision-card h3 {
+  font-size: clamp(8px, 0.9vw, 11px);
+  letter-spacing: 0.04em;
+}
+
 .quick-cards-grid .card h3 {
   position: relative;
   z-index: 1;
   margin: 0;
-  font-size: clamp(10px, 1.1vw, 13px);
+  font-size: clamp(9px, 1vw, 12px);
   font-weight: 800;
   line-height: 1.2;
   letter-spacing: 0.06em;
@@ -1235,7 +1240,7 @@ a.header-notif-item-card:focus-visible {
     border-color: var(--bt-green);
     box-shadow:
       var(--bt-shadow-lift),
-      0 0 0 1px rgba(21, 110, 52, 0.2),
+      0 0 0 1px rgba(10, 69, 32, 0.28),
       inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
 
@@ -1255,7 +1260,7 @@ a.header-notif-item-card:focus-visible {
     color: #ffffff !important;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.22),
-      0 8px 16px rgba(21, 110, 52, 0.22);
+      0 8px 16px rgba(10, 69, 32, 0.28);
     filter: none;
   }
 }
@@ -1335,6 +1340,36 @@ a.header-notif-item-card:focus-visible {
   border-left: 4px solid var(--bt-green);
   border-right: none;
   border-radius: var(--bt-radius-md);
+}
+
+.mv-page-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.mv-intro {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--bt-text-muted);
+  font-size: 1rem;
+  line-height: 1.65;
+  text-align: center;
+  align-self: center;
+}
+
+.mv-panel {
+  text-align: center;
+}
+
+.mv-panel h2 {
+  text-align: center;
+}
+
+.mv-panel p {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 40rem;
 }
 
 .history-section-nav {
@@ -2081,7 +2116,7 @@ body.farmer-profiles-page .farmer-profiles-card {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: linear-gradient(150deg, #93d515 0%, #4f8d0b 100%);
+  background: var(--bt-gradient);
   color: #fff;
   font-size: 28px;
   font-weight: 700;
@@ -3350,6 +3385,212 @@ input[type=number] {
   color: #4b5563;
 }
 
+/* Receipt Ready card — success screen after approval */
+.txn-receipt-ready-card {
+  width: 100%;
+  margin-top: 1.25rem;
+  padding: 1.5rem 1.25rem 1.35rem;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e8ece8;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.txn-receipt-ready-hero {
+  margin-bottom: 0.5rem;
+}
+
+.txn-receipt-ready-icon {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  background: #e8f5e9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.txn-receipt-ready-icon__check {
+  position: absolute;
+  left: 14px;
+  top: 22px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #2e7d32;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(46, 125, 50, 0.35);
+}
+
+.txn-receipt-ready-icon__check svg {
+  width: 18px;
+  height: 18px;
+}
+
+.txn-receipt-ready-icon__doc {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #2e7d32;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+  border: 1px solid #c8e6c9;
+}
+
+.txn-receipt-ready-icon__doc svg {
+  width: 22px;
+  height: 22px;
+}
+
+.txn-receipt-ready-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #1f2937;
+  letter-spacing: -0.02em;
+}
+
+.txn-receipt-ready-subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.txn-receipt-ready-rule {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  margin: 1.1rem 0;
+}
+
+.txn-receipt-ready-ref-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  text-align: left;
+  padding: 0 0.15rem;
+}
+
+.txn-receipt-ready-ref-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 1.1rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.txn-receipt-ready-ref-label {
+  display: block;
+  font-size: 0.78rem;
+  color: #9ca3af;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.txn-receipt-ready-ref-value {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #111827;
+  word-break: break-all;
+  line-height: 1.35;
+}
+
+.txn-receipt-ready-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.txn-receipt-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.95rem 1.25rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.txn-receipt-action-btn svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.txn-receipt-action-btn--primary {
+  border: none;
+  background: linear-gradient(165deg, #1b5e20 0%, #2e7d32 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(46, 125, 50, 0.28);
+}
+
+.txn-receipt-action-btn--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(46, 125, 50, 0.34);
+}
+
+.txn-receipt-action-btn--outline {
+  border: 2px solid #2e7d32;
+  background: #ffffff;
+  color: #2e7d32;
+}
+
+.txn-receipt-action-btn--outline:hover {
+  background: #f1f8f2;
+  transform: translateY(-1px);
+}
+
+.txn-receipt-order-again-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.txn-receipt-order-again-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.txn-receipt-order-again-btn:hover {
+  color: #2e7d32;
+}
+
 #status-container {
   display: flex;
   flex-direction: column;
@@ -3573,24 +3814,80 @@ input[type=number] {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
   animation: fadeIn 0.3s ease forwards;
+}
+
+.receipt-modal-shell {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  animation: popUpModal 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.receipt-modal-topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 52px;
+  padding: 0.65rem 0.85rem;
+  background: linear-gradient(165deg, #1b5e20 0%, #2e7d32 100%);
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.receipt-modal-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.55rem 0.4rem 0.35rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.receipt-modal-back-btn svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.receipt-modal-back-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.receipt-modal-topbar-title {
+  flex: 1;
+  text-align: center;
+  margin-right: 2.5rem;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
 }
 
 .receipt-modal-container {
   position: relative;
   width: 100%;
-  max-width: 420px;
-  animation: popUpModal 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  background: #f8faf8;
+  border-radius: 0 0 14px 14px;
+  padding: 0 0 1rem;
+  overflow: hidden;
 }
 
 /* Official receipt — matches app Transaction History */
 .receipt-modal-container .txn-receipt-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 0;
   padding: 1.35rem 1.15rem 1.2rem;
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+  box-shadow: none;
 }
 
 .receipt-modal-container .txn-rcpt-brand {
@@ -3700,10 +3997,14 @@ input[type=number] {
 }
 
 .receipt-modal-container .client-receipt-actions {
-  margin-top: 1rem;
+  margin-top: 0;
+  padding: 1rem 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
 }
 
-.receipt-modal-container .txn-receipt-send-btn {
+.receipt-modal-container .txn-receipt-download-btn {
   width: 100%;
   min-height: 3rem;
   padding: 0.65rem 1rem;
@@ -3714,22 +4015,43 @@ input[type=number] {
   font-size: 0.98rem;
   font-weight: 800;
   letter-spacing: 0.01em;
-  cursor: default;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
   box-shadow: 0 4px 14px rgba(47, 125, 68, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
 
-.receipt-modal-container .txn-receipt-send-btn:disabled {
-  opacity: 1;
+.receipt-modal-container .txn-receipt-download-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(47, 125, 68, 0.34);
+}
+
+.receipt-modal-container .txn-receipt-back-btn {
+  width: 100%;
+  min-height: 2.85rem;
+  padding: 0.65rem 1rem;
+  border: 2px solid #2e7d32;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #2e7d32;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.receipt-modal-container .txn-receipt-back-btn:hover {
+  background: #f1f8f2;
+  transform: translateY(-1px);
 }
 
 .close-receipt-modal {
   position: absolute;
-  top: -15px;
-  right: -15px;
+  top: 12px;
+  right: 12px;
   width: 40px;
   height: 40px;
   background: #ffffff;
@@ -3750,6 +4072,10 @@ input[type=number] {
 .close-receipt-modal:hover {
   transform: scale(1.1);
   background: #f0f7ef;
+}
+
+#receipt-modal .close-receipt-modal {
+  display: none;
 }
 
 @keyframes popUpModal {
@@ -3871,8 +4197,9 @@ input[type=number] {
 
 @media print {
 
-  .close-receipt-modal,
+  .receipt-modal-topbar,
   .client-receipt-actions,
+  .txn-receipt-back-btn,
   .top-header,
   .transaction-form,
   .txn-status-panel,
@@ -4258,23 +4585,6 @@ input[type=number] {
   gap: 12px;
 }
 
-.calendar-today-btn {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  border: 2px solid rgba(255, 255, 255, 0.65);
-  padding: 12px 28px;
-  border-radius: 40px;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.15s ease;
-}
-
-.calendar-today-btn:hover {
-  background: rgba(255, 255, 255, 0.32);
-  transform: scale(1.02);
-}
-
 .calendar-day.disabled {
   opacity: 0.35;
   cursor: not-allowed;
@@ -4617,10 +4927,8 @@ body.txn-tutorial-active:not(.transaction-page--from-farmer) {
     letter-spacing: 0.03em;
   }
 
-  .quick-cards-grid .transaction-card {
-    grid-column: 1 / -1;
-    max-width: 100%;
-    min-height: 72px;
+  .quick-cards-grid .mission-vision-card h3 {
+    font-size: clamp(8px, 2.4vw, 10px);
   }
 
   .home-history {

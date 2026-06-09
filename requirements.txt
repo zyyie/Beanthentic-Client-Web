@@ -1,4 +1,7 @@
+
 Flask
 Flask-SQLAlchemy
 PyMySQL
 waitress
+psycopg2-binary>=2.9,<3.0; python_version < "3.13"
+psycopg[binary]>=3.2.0

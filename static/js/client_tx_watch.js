@@ -58,14 +58,12 @@
   }
 
   function pollOnce() {
-    const base = apiBase();
     const pending = loadPending();
-    if (!base || !pending || !pending.reference_no) return;
+    if (!pending || !pending.reference_no) return;
 
     const ref = String(pending.reference_no).trim();
     const url =
-      base +
-      "/api/client_transaction_status.php?reference_no=" +
+      "/api/client-transaction/status?reference_no=" +
       encodeURIComponent(ref);
 
     fetch(url, { method: "GET", headers: { Accept: "application/json" } })

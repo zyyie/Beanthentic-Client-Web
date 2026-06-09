@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Mission &amp; Vision | Beanthentic</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ asset_version }}" />
+</head>
+
+<body>
+  <header class="top-header top-header--history">
+    <div class="container nav-wrapper nav-wrapper--history">
+      <a class="nav-back" href="{{ url_for('home') }}" aria-label="Back to homepage">
+        <svg class="nav-back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+      </a>
+      <div class="nav-title">Mission &amp; Vision</div>
+    </div>
+  </header>
+
+  <main class="profiles-page">
+    <section class="container">
+      <div class="home-history-card mv-page-card">
+        <p class="mv-intro">
+          Beanthentic's mission and vision guide how we support local coffee farmers through authentic,
+          traceable, and technology-driven coffee systems.
+        </p>
+
+        <article class="history-topic mv-panel" aria-labelledby="mv-vision-heading">
+          <h2 id="mv-vision-heading">VISION</h2>
+          <p>
+            To become a leading platform that promotes authentic, high-quality coffee by empowering farmers
+            through technology, while ensuring transparency, sustainability, and global recognition of locally
+            produced coffee.
+          </p>
+        </article>
+
+        <article class="history-topic mv-panel" aria-labelledby="mv-mission-heading">
+          <h2 id="mv-mission-heading">MISSION</h2>
+          <p>
+            Beanthentic is committed to supporting coffee farmers by providing an integrated system that
+            verifies authenticity and enhances traceability through innovative technology. It improves
+            farmers' livelihoods and product integrity, while strengthening consumer trust in locally
+            sourced coffee.
+          </p>
+        </article>
+      </div>
+    </section>
+  </main>
+  {% include 'partials/page_loading.html' %}
+</body>
+
+</html>

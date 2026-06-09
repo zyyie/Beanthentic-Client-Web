@@ -60,6 +60,25 @@
     return !hasFarmerSelected();
   }
 
+  function isGuideSuppressedForClient() {
+    if (window.BeanthenticTxGuide && window.BeanthenticTxGuide.isSuppressed) {
+      return window.BeanthenticTxGuide.isSuppressed();
+    }
+    try {
+      return sessionStorage.getItem("beanthentic_tx_guide_suppressed") === "1";
+    } catch (_g) {
+      return false;
+    }
+  }
+
+  function hasActiveTransactionUi() {
+    var card = document.getElementById("txn-receipt-ready-card");
+    if (card && !card.hidden) return true;
+    var panel = document.getElementById("txn-status-panel");
+    if (panel && !panel.hidden) return true;
+    return false;
+  }
+
   function hasSeenGuideThisVisit() {
     return guideDismissedThisLoad;
   }
@@ -83,6 +102,7 @@
 
   function shouldAutoOpenGuide() {
     if (!shouldShowTutorial() || hasSeenGuideThisVisit()) return false;
+    if (isGuideSuppressedForClient() || hasActiveTransactionUi()) return false;
     return consumePendingGuideFlag();
   }
 
@@ -107,7 +127,16 @@
       if (autoStartScheduled || !shouldAutoOpenGuide()) return;
       autoStartScheduled = true;
       window.setTimeout(function () {
-        if (hasSeenGuideThisVisit() || !root || guideOpen || !shouldShowTutorial()) return;
+        if (
+          hasSeenGuideThisVisit() ||
+          isGuideSuppressedForClient() ||
+          hasActiveTransactionUi() ||
+          !root ||
+          guideOpen ||
+          !shouldShowTutorial()
+        ) {
+          return;
+        }
         startTour(false);
         markGuideSeen();
       }, guideOpenDelayMs());

@@ -9,13 +9,24 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from flask import Flask, jsonify, redirect, render_template, request, url_for
-import pymysql
-from pymysql.cursors import DictCursor
+from flask import Flask, Response, jsonify, redirect, render_template, request, url_for
 
-from config.mysql_app_bridge import connect_app_mysql
+import beanthentic_env
+from config.client_reports import get_transaction_farmers, submit_client_report
+from config.client_transactions import (
+    get_client_transaction_status,
+    get_receipt_download,
+    submit_client_transaction,
+)
+from config.farmer_photo_sync import bootstrap_farmer_photos
+from config.farmer_profile_photo import get_farmer_profile_photo
 
 app = Flask(__name__)
+
+try:
+    bootstrap_farmer_photos()
+except Exception:
+    pass
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 SETTINGS_PATH = PROJECT_ROOT / "settings.json"
@@ -170,61 +181,14 @@ def _app_server_base() -> str:
     return base.rstrip("/") if base else ""
 
 
-def _app_db_params() -> dict | None:
-    host = os.getenv("BEANTHENTIC_APP_DB_HOST", "").strip()
-    cfg = _read_connection_settings()
-    if not host:
-        host = str(cfg.get("app_db_host") or "").strip()
-    if not host:
-        return None
-    return {
-        "host": host,
-        "port": int(os.getenv("BEANTHENTIC_APP_DB_PORT", str(cfg.get("app_db_port") or "3306"))),
-        "user": os.getenv("BEANTHENTIC_APP_DB_USER", str(cfg.get("app_db_user") or "root")),
-        "password": os.getenv("BEANTHENTIC_APP_DB_PASS", str(cfg.get("app_db_pass") or "")),
-        "database": os.getenv(
-            "BEANTHENTIC_APP_DB_NAME", str(cfg.get("app_db_name") or "beanthentic_app")
-        ),
-        "charset": "utf8mb4",
-        "cursorclass": DictCursor,
-        "autocommit": True,
-    }
-
-
 def _connection_hint(exc: Exception | None = None) -> str:
-    msg = str(exc or "").lower()
-    if "1130" in msg or "not allowed to connect" in msg:
-        return (
-            "MySQL error 1130: on the XAMPP PC, run Beanthentic-App/xampp-enable-lan-mysql.sql "
-            "in phpMyAdmin, set bind-address=0.0.0.0, restart MySQL, and use user beanthentic_remote."
-        )
-    if "2003" in msg or "timed out" in msg or "can't connect" in msg:
-        return (
-            "Cannot reach MySQL at app_db_host. Use the LAN IP of the PC running XAMPP (ipconfig on that device), "
-            "not 127.0.0.1 unless Client Web and XAMPP are on the same PC."
-        )
-    if "1045" in msg or "access denied" in msg:
-        return (
-            "MySQL login failed (1045). On the XAMPP PC (192.168.0.106), run "
-            "Beanthentic-App/xampp-enable-lan-mysql.sql in phpMyAdmin (user beanthentic_remote, "
-            "password StrongPass123!), OR set Client Web app_db_user/app_db_pass to match Admin "
-            "(e.g. root with empty password — same as Beanthentic/settings.json on the working PC). "
-            "You can also set BEANTHENTIC_APP_DB_USER and BEANTHENTIC_APP_DB_PASS env vars without editing settings.json."
-        )
-    if not _app_db_params():
-        return "Set connection.app_db_host in Beanthentic-Client-Web/settings.json to the XAMPP device LAN IP."
-    return (
-        "Could not load farmers from the app database. Check settings.json (app_db_host, user, password) "
-        "and that port 3306 is open on the XAMPP PC."
-    )
+    return str(exc or "Could not connect to database.")
 
 
 def _app_db_connect():
-    params = _app_db_params()
-    if not params:
-        return None, _connection_hint()
     try:
-        return connect_app_mysql(params), None
+        conn = beanthentic_env.connect()
+        return conn, None
     except Exception as e:
         return None, _connection_hint(e)
 
@@ -588,22 +552,27 @@ def _farmer_has_profile_photo(photo_path) -> bool:
 
 
 def _apply_farmer_photo_fields(farmer: dict) -> None:
-    farmer["has_photo"] = _farmer_has_profile_photo(farmer.get("profile_photo"))
-    farmer["photo_url"] = _get_photo_url(farmer.get("profile_photo"))
+    fid = int(farmer.get("farmer_id") or 0)
+    farmer["has_photo"] = fid > 0 or _farmer_has_profile_photo(farmer.get("profile_photo"))
+    farmer["photo_url"] = _get_photo_url(farmer.get("profile_photo"), farmer_id=fid)
 
 
-def _get_photo_url(photo_path: str) -> str:
-    if not photo_path:
-        return url_for("static", filename="images/farmer-profile-photo.png")
+def _get_photo_url(photo_path: str, farmer_id: int = 0) -> str:
+    fid = int(farmer_id or 0)
+    if fid > 0:
+        photo_path = str(photo_path or "").strip()
+        if photo_path.startswith(("http://", "https://")):
+            return photo_path
+        return url_for("farmer_profile_photo", farmer_id=fid, v=fid)
 
-    if photo_path.startswith(("http://", "https://", "data:image/")):
-        return photo_path
+    if str(photo_path or "").startswith(("http://", "https://", "data:image/")):
+        return str(photo_path)
 
     base_url = _app_server_base()
-    if base_url:
-        return f"{base_url}/{photo_path.lstrip('/')}"
+    if base_url and photo_path:
+        return f"{base_url}/{str(photo_path).lstrip('/')}"
 
-    return url_for("static", filename="images/farmer-profile-photo.png")
+    return url_for("static", filename="images/icon-farmer-line.svg")
 
 
 def _default_farmer_profile(farmer_id: int = 0) -> dict:
@@ -764,41 +733,33 @@ def farmer_profiles():
 @app.route("/api/app-db-status")
 def api_app_db_status():
     """Diagnostic: same idea as admin /api/app-db-status — open in browser on Client Web PC."""
-    params = _app_db_params()
-    if not params:
-        return jsonify(
-            {
-                "ok": False,
-                "configured": False,
-                "hint": "Set connection.app_db_host in Beanthentic-Client-Web/settings.json.",
-            }
-        ), 200
-
+    db_url = beanthentic_env.get_db_url()
     out = {
         "ok": False,
-        "configured": True,
-        "host": params["host"],
-        "port": params["port"],
-        "database": params["database"],
-        "user": params["user"],
+        "configured": db_url is not None,
         "app_server_base": _app_server_base(),
     }
     conn = None
     try:
-        conn = connect_app_mysql(params)
-        with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) AS c FROM farmers")
-            out["farmers_count"] = int((cur.fetchone() or {}).get("c") or 0)
-            cur.execute(
-                """
-                SELECT COUNT(*) AS c FROM farmers f
-                INNER JOIN users u ON u.user_id = f.user_id
-                """
-            )
-            out["farmers_with_user"] = int((cur.fetchone() or {}).get("c") or 0)
-        out["ok"] = True
-        rows, _ = _fetch_farmer_rows_mysql(10)
-        out["sample_list_count"] = len(rows)
+        conn, err = _app_db_connect()
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) AS c FROM farmers")
+                result = cur.fetchone()
+                out["farmers_count"] = int((result.get("c") or 0) if result else 0)
+                cur.execute(
+                    """
+                    SELECT COUNT(*) AS c FROM farmers f
+                    INNER JOIN users u ON u.user_id = f.user_id
+                    """
+                )
+                result = cur.fetchone()
+                out["farmers_with_user"] = int((result.get("c") or 0) if result else 0)
+            out["ok"] = True
+            rows, _ = _fetch_farmer_rows_mysql(10)
+            out["sample_list_count"] = len(rows)
+        else:
+            out["error"] = err
         return jsonify(out), 200
     except Exception as e:
         out["error"] = str(e)
@@ -888,16 +849,8 @@ def transaction():
     )
 
 
-@app.route("/api/client-transaction/submit", methods=["POST", "OPTIONS"])
-def client_transaction_submit_proxy():
-    """Same-origin proxy: forwards multipart to XAMPP app server API."""
-    if request.method == "OPTIONS":
-        resp = jsonify({"ok": True})
-        resp.headers["Access-Control-Allow-Origin"] = "*"
-        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
-        return resp, 204
-
+def _proxy_client_transaction_submit():
+    """Fallback: forward multipart to XAMPP app server API."""
     base = _app_server_base()
     if not base:
         return jsonify({"ok": False, "error": "app_server_base is not set in settings.json."}), 503
@@ -970,19 +923,55 @@ def client_transaction_submit_proxy():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@app.route("/history")
-def history():
-    return render_template("history.html")
+@app.route("/api/client-transaction/submit", methods=["POST", "OPTIONS"])
+def client_transaction_submit_proxy():
+    """Save to Supabase/PostgreSQL (or MySQL); fall back to app server proxy if DB is unavailable."""
+    if request.method == "OPTIONS":
+        resp = jsonify({"ok": True})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp, 204
+
+    if beanthentic_env.get_db_url():
+        data, status = submit_client_transaction(request.form, request.files.get("valid_id"))
+        if data.get("ok") or status < 500:
+            return jsonify(data), status
+
+    return _proxy_client_transaction_submit()
 
 
-@app.route("/report")
-def report():
-    return render_template("report.html")
+@app.route("/api/client-transaction/receipt/download", methods=["GET"])
+def client_transaction_receipt_download():
+    """Download receipt as an HTML file attachment."""
+    ref = str(request.args.get("reference_no") or "").strip()
+    if not ref:
+        return jsonify({"ok": False, "error": "reference_no is required."}), 400
+
+    if beanthentic_env.get_db_url():
+        data, status = get_receipt_download(ref)
+        if status == 200 and data.get("ok"):
+            filename = str(data.get("filename") or f"Beanthentic-Receipt-{ref}.html")
+            html_body = (data.get("html") or "").encode("utf-8")
+            return Response(
+                html_body,
+                mimetype="application/octet-stream",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "Content-Type": "text/html; charset=utf-8",
+                    "X-Content-Type-Options": "nosniff",
+                    "Cache-Control": "no-store",
+                },
+            )
+        if status != 500:
+            return jsonify(data), status
+
+    return jsonify({"ok": False, "error": "Receipt download is not available."}), 503
 
 
-@app.route("/api/client-report/transaction-farmers", methods=["GET", "OPTIONS"])
-def client_report_transaction_farmers_proxy():
-    """Farmers this client has transacted with (by buyer name in customer_transaction)."""
+@app.route("/api/client-transaction/status", methods=["GET", "OPTIONS"])
+def client_transaction_status():
+    """Poll transaction approval status from the database."""
     if request.method == "OPTIONS":
         resp = jsonify({"ok": True})
         resp.headers["Access-Control-Allow-Origin"] = "*"
@@ -990,10 +979,154 @@ def client_report_transaction_farmers_proxy():
         resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
         return resp, 204
 
-    client_name = (request.args.get("client_name") or request.args.get("buyer_name") or "").strip()
-    if not client_name:
-        return jsonify({"ok": False, "error": "client_name is required.", "farmers": []}), 400
+    ref = str(request.args.get("reference_no") or "").strip()
+    tx_id = request.args.get("customer_transaction_id", type=int) or 0
+    if beanthentic_env.get_db_url():
+        data, status = get_client_transaction_status(
+            reference_no=ref, customer_transaction_id=tx_id
+        )
+        if data.get("ok") or status != 500:
+            return jsonify(data), status
 
+    base = _app_server_base()
+    if not base:
+        return jsonify({"ok": False, "error": "Database and app server are not configured."}), 503
+    url = f"{base.rstrip('/')}/api/client_transaction_status.php"
+    if tx_id > 0:
+        url += f"?customer_transaction_id={tx_id}"
+    else:
+        url += f"?reference_no={ref}"
+    try:
+        req = Request(url, headers={"Accept": "application/json"})
+        with urlopen(req, timeout=12) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+        data = json.loads(raw) if raw else {}
+        return jsonify(data), 200 if data.get("ok") else 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 502
+
+
+@app.route("/uploads/client_ids/<path:filename>")
+def serve_client_id_upload(filename):
+    """Serve valid-ID uploads saved with client transactions."""
+    safe = Path(filename).name
+    path = PROJECT_ROOT / "uploads" / "client_ids" / safe
+    if not path.is_file():
+        return "Not found", 404
+    from flask import send_file
+
+    return send_file(path)
+
+
+@app.route("/uploads/farmers/<path:filename>")
+def serve_farmer_upload(filename):
+    """Serve farmer profile photos saved on this server."""
+    safe = Path(filename).name
+    path = PROJECT_ROOT / "uploads" / "farmers" / safe
+    if not path.is_file():
+        return "Not found", 404
+    from flask import send_file
+
+    return send_file(path)
+
+
+@app.route("/api/farmer-profile-photo/<int:farmer_id>")
+def farmer_profile_photo(farmer_id: int):
+    """Serve farmer profile photo from Supabase path/storage, local files, or avatar."""
+    result = get_farmer_profile_photo(farmer_id)
+    if not result:
+        return "Not found", 404
+    data, mimetype = result
+    return Response(
+        data,
+        mimetype=mimetype,
+        headers={
+            "Cache-Control": "public, max-age=300",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@app.route("/api/farmer-photos/sync", methods=["POST"])
+def farmer_photos_sync():
+    """Upload local farmer photos to Supabase Storage and update farmers.profile_photo."""
+    from config.farmer_photo_sync import sync_farmer_photos_to_supabase
+
+    result = sync_farmer_photos_to_supabase()
+    status = 200 if result.get("ok") else 503
+    if result.get("skipped"):
+        status = 200
+    return jsonify(result), status
+
+
+@app.route("/api/farmer-photos/status", methods=["GET"])
+def farmer_photos_status():
+    """Diagnostic: Supabase profile_photo path vs available image sources per farmer."""
+    from config.farmer_profile_photo import (
+        _fetch_farmer_row,
+        _is_stale_local_file,
+        _local_candidate_paths,
+        get_farmer_profile_photo,
+    )
+
+    conn, err = _app_db_connect()
+    if not conn:
+        return jsonify({"ok": False, "error": err or "Database unavailable."}), 503
+    items = []
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT f.farmer_id, f.profile_photo, f.created_at,
+                       pi.first_name, pi.last_name
+                FROM farmers f
+                LEFT JOIN personal_information pi ON pi.farmer_id = f.farmer_id
+                ORDER BY f.farmer_id
+                """
+            )
+            rows = cur.fetchall() or []
+        for row in rows:
+            fid = int(row.get("farmer_id") or 0)
+            full_row = _fetch_farmer_row(fid) or dict(row)
+            local_paths = _local_candidate_paths(fid, str(row.get("profile_photo") or ""))
+            valid_local = [
+                str(p)
+                for p in local_paths
+                if p.is_file() and not _is_stale_local_file(p, full_row)
+            ]
+            photo = get_farmer_profile_photo(fid)
+            items.append(
+                {
+                    "farmer_id": fid,
+                    "name": f"{row.get('first_name') or ''} {row.get('last_name') or ''}".strip(),
+                    "profile_photo": str(row.get("profile_photo") or ""),
+                    "created_at": str(row.get("created_at") or ""),
+                    "valid_local_files": valid_local,
+                    "served_as": photo[1] if photo else None,
+                    "has_image": bool(photo and photo[1] != "image/svg+xml"),
+                }
+            )
+    finally:
+        conn.close()
+    return jsonify({"ok": True, "farmers": items, "count": len(items)})
+
+
+@app.route("/history")
+def history():
+    return render_template("history.html")
+
+
+@app.route("/mission-vision")
+def mission_vision():
+    return render_template("mission_vision.html")
+
+
+@app.route("/report")
+def report():
+    return render_template("report.html")
+
+
+def _proxy_client_report_transaction_farmers(client_name: str):
     base = _app_server_base()
     if not base:
         return jsonify({"ok": False, "error": "app_server_base is not set in settings.json.", "farmers": []}), 503
@@ -1018,21 +1151,11 @@ def client_report_transaction_farmers_proxy():
         return jsonify({"ok": False, "error": str(e), "farmers": []}), 500
 
 
-@app.route("/api/client-report/submit", methods=["POST", "OPTIONS"])
-def client_report_submit_proxy():
-    """Same-origin proxy: Client Web report form → XAMPP app server API."""
-    if request.method == "OPTIONS":
-        resp = jsonify({"ok": True})
-        resp.headers["Access-Control-Allow-Origin"] = "*"
-        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
-        return resp, 204
-
+def _proxy_client_report_submit(payload: dict):
     base = _app_server_base()
     if not base:
         return jsonify({"ok": False, "error": "app_server_base is not set in settings.json."}), 503
 
-    payload = request.get_json(silent=True) or {}
     url = base.rstrip("/") + "/api/client_report_submit.php"
     try:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -1052,6 +1175,47 @@ def client_report_submit_proxy():
         return jsonify({"ok": False, "error": f"Submit failed HTTP {e.code}", "detail": detail}), 502
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/client-report/transaction-farmers", methods=["GET", "OPTIONS"])
+def client_report_transaction_farmers_proxy():
+    """Farmers this client has transacted with (by buyer name in customer_transaction)."""
+    if request.method == "OPTIONS":
+        resp = jsonify({"ok": True})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp, 204
+
+    client_name = (request.args.get("client_name") or request.args.get("buyer_name") or "").strip()
+    if not client_name:
+        return jsonify({"ok": False, "error": "client_name is required.", "farmers": []}), 400
+
+    if beanthentic_env.get_db_url():
+        data, status = get_transaction_farmers(client_name)
+        if data.get("ok") or status < 500:
+            return jsonify(data), status
+
+    return _proxy_client_report_transaction_farmers(client_name)
+
+
+@app.route("/api/client-report/submit", methods=["POST", "OPTIONS"])
+def client_report_submit_proxy():
+    """Save misconduct report to Supabase/PostgreSQL (or MySQL); fall back to app server proxy."""
+    if request.method == "OPTIONS":
+        resp = jsonify({"ok": True})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp, 204
+
+    payload = request.get_json(silent=True) or {}
+    if beanthentic_env.get_db_url():
+        data, status = submit_client_report(payload)
+        if data.get("ok") or status < 500:
+            return jsonify(data), status
+
+    return _proxy_client_report_submit(payload)
 
 
 @app.route("/news-updates")

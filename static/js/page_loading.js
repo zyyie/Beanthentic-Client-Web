@@ -1,7 +1,65 @@
 (function () {
   const LOADING_MS = 2000;
+  const GUIDE_SUPPRESS_KEY = "beanthentic_tx_guide_suppressed";
+  const PENDING_GUIDE_KEY = "beanthentic_tx_pending_guide";
+  const CLIENT_SESSION_KEY = "beanthentic_tx_client_session";
   let busy = false;
   let pendingTimer = null;
+
+  function isGuideSuppressed() {
+    try {
+      return sessionStorage.getItem(GUIDE_SUPPRESS_KEY) === "1";
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  function suppressGuideForClient() {
+    try {
+      sessionStorage.setItem(GUIDE_SUPPRESS_KEY, "1");
+      sessionStorage.removeItem(PENDING_GUIDE_KEY);
+    } catch (_s) {}
+  }
+
+  function resetGuideForNewClient() {
+    try {
+      sessionStorage.removeItem(GUIDE_SUPPRESS_KEY);
+      sessionStorage.setItem(CLIENT_SESSION_KEY, String(Date.now()));
+    } catch (_r) {}
+  }
+
+  function maybeStartNewClientSession() {
+    var path = window.location.pathname.replace(/\/+$/, "") || "/";
+    if (path !== "/" && path !== "/index") return;
+
+    var params = new URLSearchParams(window.location.search);
+    var scanEntry =
+      params.has("scan") || params.has("qr") || params.get("new") === "1";
+    var externalEntry = false;
+    var ref = String(document.referrer || "").trim();
+    if (!ref) {
+      externalEntry = true;
+    } else {
+      try {
+        externalEntry =
+          new URL(ref, window.location.href).origin !== window.location.origin;
+      } catch (_u) {
+        externalEntry = true;
+      }
+    }
+
+    if (scanEntry || externalEntry) {
+      resetGuideForNewClient();
+    }
+  }
+
+  maybeStartNewClientSession();
+
+  window.BeanthenticTxGuide = {
+    suppress: suppressGuideForClient,
+    isSuppressed: isGuideSuppressed,
+    resetForNewClient: resetGuideForNewClient,
+  };
 
   function getOverlay() {
     return document.getElementById("beanthentic-page-loading");
@@ -86,9 +144,9 @@
   function beforeNavigate(link) {
     if (!link) return;
 
-    if (isTransactionNavLink(link)) {
+    if (isTransactionNavLink(link) && !isGuideSuppressed()) {
       try {
-        sessionStorage.setItem("beanthentic_tx_pending_guide", "1");
+        sessionStorage.setItem(PENDING_GUIDE_KEY, "1");
       } catch (_guide) {
         /* ignore */
       }

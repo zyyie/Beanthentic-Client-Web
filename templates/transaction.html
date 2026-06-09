@@ -157,32 +157,90 @@
         </p>
       </div>
 
+      <div id="txn-receipt-ready-card" class="txn-receipt-ready-card" hidden aria-live="polite">
+        <div class="txn-receipt-ready-hero">
+          <div class="txn-receipt-ready-icon" aria-hidden="true">
+            <span class="txn-receipt-ready-icon__check">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            </span>
+            <span class="txn-receipt-ready-icon__doc">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+              </svg>
+            </span>
+          </div>
+          <h2 class="txn-receipt-ready-title">Receipt Ready!</h2>
+          <p class="txn-receipt-ready-subtitle" id="txn-receipt-ready-subtitle">Your payment was successful.</p>
+        </div>
+        <hr class="txn-receipt-ready-rule" aria-hidden="true" />
+        <div class="txn-receipt-ready-ref-block">
+          <div class="txn-receipt-ready-ref-icon" aria-hidden="true">#</div>
+          <div class="txn-receipt-ready-ref-text">
+            <span class="txn-receipt-ready-ref-label">Reference Number</span>
+            <strong class="txn-receipt-ready-ref-value" id="txn-receipt-ready-ref">—</strong>
+          </div>
+        </div>
+        <hr class="txn-receipt-ready-rule" aria-hidden="true" />
+        <div class="txn-receipt-ready-actions">
+          <button type="button" id="download-receipt-btn" class="txn-receipt-action-btn txn-receipt-action-btn--primary"
+            aria-label="Download receipt">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download Receipt
+          </button>
+          <button type="button" id="view-receipt-btn" class="txn-receipt-action-btn txn-receipt-action-btn--outline"
+            aria-label="View receipt">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" aria-hidden="true">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            View Receipt
+          </button>
+          <button type="button" id="order-again-btn" class="txn-receipt-order-again-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" aria-hidden="true">
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            </svg>
+            Order Again
+          </button>
+        </div>
+      </div>
+
       <div class="form-footer">
         <div id="status-container" data-txn-tour="submit">
           <button type="submit" class="submit-btn" id="submit-btn">Submit</button>
-          <button type="button" id="approved-check-btn" class="view-receipt-btn" style="display: none;"
-            aria-label="View official receipt">
-            <svg class="view-receipt-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-              <polyline points="10 9 9 9 8 9" />
-            </svg>
-            <span class="view-receipt-btn__label">View Receipt</span>
-          </button>
-        </div>
-        <div class="order-again-wrap" id="order-again-wrap" hidden>
-          <button type="button" id="order-again-btn" class="order-again-btn">Order again</button>
         </div>
       </div>
     </form>
 
     <!-- Receipt Pop-up Modal (same layout as app Transaction History) -->
-    <div id="receipt-modal" class="receipt-modal-overlay" style="display: none;">
-      <div class="receipt-modal-container">
-        <button type="button" class="close-receipt-modal" id="close-receipt" aria-label="Close receipt">&times;</button>
+    <div id="receipt-modal" class="receipt-modal-overlay" style="display: none;" role="dialog" aria-modal="true"
+      aria-labelledby="receipt-modal-title">
+      <div class="receipt-modal-shell">
+        <div class="receipt-modal-topbar">
+          <button type="button" class="receipt-modal-back-btn" id="close-receipt-back" aria-label="Back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+              stroke-linejoin="round" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            <span>Back</span>
+          </button>
+          <span class="receipt-modal-topbar-title" id="receipt-modal-title">View Receipt</span>
+        </div>
+        <div class="receipt-modal-container">
         <div class="txn-receipt-card" id="client-receipt-print-area">
           <div class="txn-rcpt-brand">
             <img class="txn-rcpt-logo" src="{{ url_for('static', filename='images/beanthentic-logo.png') }}"
@@ -261,7 +319,9 @@
         </div>
 
         <div class="txn-receipt-actions client-receipt-actions">
-          <button type="button" id="client-receipt-sent-btn" class="txn-receipt-send-btn" disabled>Receipt Sent</button>
+          <button type="button" id="client-receipt-download-btn" class="txn-receipt-download-btn">Download Receipt</button>
+          <button type="button" id="close-receipt" class="txn-receipt-back-btn">Back</button>
+        </div>
         </div>
       </div>
     </div>
@@ -298,7 +358,6 @@
         </div>
 
         <div class="calendar-footer">
-          <button type="button" class="calendar-today-btn" id="calendar-today">Today</button>
           <button type="button" class="calendar-ok-btn" id="confirm-date">OK</button>
         </div>
       </div>
@@ -317,11 +376,16 @@
       const appApiBase = String(window.__BEANTHENTIC_APP_SERVER_BASE__ || '').replace(/\/+$/, '');
       const btn = document.getElementById('submit-btn');
       const statusContainer = document.getElementById('status-container');
-      const checkBtn = document.getElementById('approved-check-btn');
-      const orderAgainWrap = document.getElementById('order-again-wrap');
+      const receiptReadyCard = document.getElementById('txn-receipt-ready-card');
+      const receiptReadyRefEl = document.getElementById('txn-receipt-ready-ref');
+      const receiptReadySubtitle = document.getElementById('txn-receipt-ready-subtitle');
+      const downloadReceiptBtn = document.getElementById('download-receipt-btn');
+      const viewReceiptBtn = document.getElementById('view-receipt-btn');
+      const modalDownloadBtn = document.getElementById('client-receipt-download-btn');
       const orderAgainBtn = document.getElementById('order-again-btn');
       const receiptModal = document.getElementById('receipt-modal');
       const closeReceipt = document.getElementById('close-receipt');
+      const closeReceiptBack = document.getElementById('close-receipt-back');
       const cashOption = document.getElementById('cash-payment-option');
       const amountGroup = document.getElementById('amount-input-group');
       const amountInput = document.getElementById('payment-amount');
@@ -362,6 +426,19 @@
       var pollTimer = null;
 
       var FARMER_CTX_KEY = 'beanthentic_tx_farmer_context';
+      function suppressTxQuickGuide() {
+        if (window.BeanthenticTxGuide && window.BeanthenticTxGuide.suppress) {
+          window.BeanthenticTxGuide.suppress();
+        } else {
+          try {
+            sessionStorage.setItem('beanthentic_tx_guide_suppressed', '1');
+            sessionStorage.removeItem('beanthentic_tx_pending_guide');
+          } catch (_guideSuppress) { }
+        }
+        if (window.BeanthenticTxTutorial && typeof window.BeanthenticTxTutorial.end === 'function') {
+          window.BeanthenticTxTutorial.end(true);
+        }
+      }
       var farmerSelectEl = document.getElementById('farmer-select');
       var farmerIdInput = document.getElementById('farmer-id');
       var farmerNameHidden = document.getElementById('farmer-name-hidden');
@@ -487,6 +564,7 @@
         stopPoll();
         submittedRef = '';
         if (statusPanel) statusPanel.hidden = true;
+        hideReceiptReadyCard();
       }
 
       function stopPoll() {
@@ -499,10 +577,13 @@
       function lockFormControls() {
         form.querySelectorAll('input, select, button').forEach(function (control) {
           if (
-            control !== checkBtn &&
+            control !== downloadReceiptBtn &&
+            control !== viewReceiptBtn &&
             control !== orderAgainBtn &&
             control.id !== 'view-id-btn' &&
-            control.id !== 'close-receipt'
+            control.id !== 'close-receipt' &&
+            control.id !== 'close-receipt-back' &&
+            control.id !== 'client-receipt-download-btn'
           ) {
             control.disabled = true;
             control.style.cursor = 'not-allowed';
@@ -523,8 +604,7 @@
         btn.classList.remove('status-waiting', 'status-approved');
         btn.style.display = '';
         if (statusContainer) statusContainer.classList.remove('status-receipt-ready');
-        checkBtn.style.display = 'none';
-        if (orderAgainWrap) orderAgainWrap.hidden = true;
+        hideReceiptReadyCard();
       }
 
       function clearTransactionFormFields() {
@@ -646,7 +726,10 @@
         return s;
       }
 
-      function fillReceiptModal(state) {
+      var currentReceiptState = null;
+      var logoUrl = {{ url_for('static', filename='images/beanthentic-logo.png') | tojson }};
+
+      function fillReceiptCard(prefix, state) {
         if (!state) return;
         var r = stateToReceiptRecord(state);
         var dt = formatReceiptDateTime(r.at);
@@ -654,25 +737,246 @@
           r.qty != null && String(r.qty) !== '' ? String(r.qty) : '-';
         qtyStr += r.unit ? String(r.unit).toUpperCase() : '';
 
-        document.getElementById('client-receipt-buyer').textContent = r.buyer || '-';
-        document.getElementById('client-receipt-product').textContent = r.product || '-';
-        document.getElementById('client-receipt-qty').textContent = qtyStr;
-        document.getElementById('client-receipt-amount').textContent =
-          r.amount == null ? '0.00' : moneyLike(r.amount);
-        document.getElementById('client-receipt-payment').textContent = r.payment || 'Cash';
-        document.getElementById('client-receipt-payment-amount').textContent =
-          r.paymentAmount == null ? '0.00' : moneyLike(r.paymentAmount);
-        document.getElementById('client-receipt-total').textContent =
-          r.total == null ? '0.00' : moneyLike(r.total);
-        document.getElementById('client-receipt-change').textContent =
-          r.change == null ? '0.00' : moneyLike(r.change);
-        document.getElementById('client-receipt-ref').textContent = r.ref ? '#' + r.ref : '-';
-        document.getElementById('client-receipt-date').textContent = dt.date;
-        document.getElementById('client-receipt-time').textContent = dt.time;
+        var el = function (id) { return document.getElementById(prefix + '-' + id); };
+        if (el('buyer')) el('buyer').textContent = r.buyer || '-';
+        if (el('product')) el('product').textContent = r.product || '-';
+        if (el('qty')) el('qty').textContent = qtyStr;
+        if (el('amount')) el('amount').textContent = r.amount == null ? '0.00' : moneyLike(r.amount);
+        if (el('payment')) el('payment').textContent = r.payment || 'Cash';
+        if (el('payment-amount')) el('payment-amount').textContent = r.paymentAmount == null ? '0.00' : moneyLike(r.paymentAmount);
+        if (el('total')) el('total').textContent = r.total == null ? '0.00' : moneyLike(r.total);
+        if (el('change')) el('change').textContent = r.change == null ? '0.00' : moneyLike(r.change);
+        if (el('ref')) el('ref').textContent = r.ref ? '#' + r.ref : '-';
+        if (el('date')) el('date').textContent = dt.date;
+        if (el('time')) el('time').textContent = dt.time;
+      }
+
+      function fillReceiptModal(state) {
+        currentReceiptState = state || currentReceiptState;
+        fillReceiptCard('client-receipt', currentReceiptState);
+      }
+
+      function showReceiptReadyCard(ref, state, subtitle) {
+        if (state) fillReceiptModal(state);
+        if (statusPanel) statusPanel.hidden = true;
+        if (receiptReadyRefEl) receiptReadyRefEl.textContent = ref || '—';
+        if (receiptReadySubtitle) {
+          receiptReadySubtitle.textContent =
+            subtitle || 'Your payment was successful.';
+        }
+        if (receiptReadyCard) receiptReadyCard.hidden = false;
+        btn.style.display = 'none';
+        btn.classList.remove('status-waiting', 'status-approved');
+        if (statusContainer) statusContainer.classList.remove('status-receipt-ready');
+      }
+
+      function hideReceiptReadyCard() {
+        if (receiptReadyCard) receiptReadyCard.hidden = true;
+      }
+
+      function openReceiptModal() {
+        if (!receiptModal) return;
+        receiptModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeReceiptModal() {
+        if (!receiptModal) return;
+        receiptModal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+
+      function escapeHtml(text) {
+        return String(text == null ? '' : text)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function getReceiptReference() {
+        if (currentReceiptState) {
+          var fromState = stateToReceiptRecord(currentReceiptState).ref;
+          if (fromState) return String(fromState).trim();
+        }
+        if (submittedRef) return String(submittedRef).trim();
+        if (receiptReadyRefEl) {
+          var cardRef = String(receiptReadyRefEl.textContent || '').trim();
+          if (cardRef && cardRef !== '—') return cardRef;
+        }
+        return '';
+      }
+
+      function showReceiptDownloadToast() {
+        if (window.BeanthenticNotifs && window.BeanthenticNotifs.showToast) {
+          window.BeanthenticNotifs.showToast({
+            title: 'Receipt downloaded',
+            text: 'Open the file to view or print your receipt.',
+            type: 'success',
+            durationMs: 5000
+          });
+        }
+      }
+
+      function setReceiptDownloadBusy(busy) {
+        [downloadReceiptBtn, modalDownloadBtn].forEach(function (btn) {
+          if (!btn) return;
+          btn.disabled = !!busy;
+          btn.setAttribute('aria-busy', busy ? 'true' : 'false');
+        });
+      }
+
+      function receiptDownloadUrl(ref) {
+        return '/api/client-transaction/receipt/download?reference_no=' + encodeURIComponent(ref);
+      }
+
+      function triggerReceiptAttachmentDownload(url, filename) {
+        var link = document.createElement('a');
+        link.href = url;
+        if (filename) link.setAttribute('download', filename);
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+
+        var frame = document.createElement('iframe');
+        frame.setAttribute('aria-hidden', 'true');
+        frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none';
+        frame.src = url;
+        document.body.appendChild(frame);
+
+        setTimeout(function () {
+          if (link.parentNode) link.parentNode.removeChild(link);
+          if (frame.parentNode) frame.parentNode.removeChild(frame);
+        }, 120000);
+        showReceiptDownloadToast();
+      }
+
+      function saveReceiptBlob(blob, filename) {
+        if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function') {
+          window.navigator.msSaveOrOpenBlob(blob, filename);
+          showReceiptDownloadToast();
+          return;
+        }
+        var objUrl = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = objUrl;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(function () {
+          if (link.parentNode) link.parentNode.removeChild(link);
+          URL.revokeObjectURL(objUrl);
+        }, 60000);
+        showReceiptDownloadToast();
+      }
+
+      function hydrateReceiptStateFromApi(ref) {
+        return fetch('/api/client-transaction/status?reference_no=' + encodeURIComponent(ref))
+          .then(function (res) { return res.json(); })
+          .then(function (body) {
+            if (!body || body.ok !== true) throw new Error('status failed');
+            var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+            currentReceiptState = mergeStatusFromApi(body, loadPendingState(fid) || {});
+            fillReceiptModal(currentReceiptState);
+            return currentReceiptState;
+          });
+      }
+
+      function resolveReceiptStateForDownload() {
+        if (currentReceiptState) return currentReceiptState;
+        var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+        var saved = loadPendingState(fid);
+        if (saved) {
+          currentReceiptState = saved;
+          return saved;
+        }
+        var ref = getReceiptReference();
+        if (!ref) return null;
+        return {
+          reference_no: ref,
+          receipt: { ref: ref, reference_no: ref },
+          transaction_at: new Date().toISOString()
+        };
+      }
+
+      function downloadReceiptClientBlob() {
+        var state = resolveReceiptStateForDownload();
+        if (!state) return false;
+        currentReceiptState = state;
+        var r = stateToReceiptRecord(currentReceiptState);
+        var dt = formatReceiptDateTime(r.at);
+        var qtyStr = r.qty != null && String(r.qty) !== '' ? String(r.qty) : '-';
+        qtyStr += r.unit ? String(r.unit).toUpperCase() : '';
+        var refSafe = (r.ref || 'receipt').replace(/[^\w-]+/g, '_');
+        var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Beanthentic Receipt ' +
+          escapeHtml(r.ref) + '</title><style>' +
+          'body{margin:0;padding:24px;background:#f1f5f9;font-family:system-ui,-apple-system,Segoe UI,sans-serif;}' +
+          '.card{max-width:420px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:1.35rem 1.15rem;box-shadow:0 2px 12px rgba(15,23,42,.06);}' +
+          '.brand{text-align:center;margin-bottom:.85rem}.logo{width:128px;height:auto;display:block;margin:0 auto .65rem}' +
+          'h1{margin:0 0 .2rem;font-size:1.35rem;color:#1a2b4b} .sub{margin:0;font-size:.82rem;color:#94a3b8;font-weight:600}' +
+          'hr{border:0;margin:.85rem 0}.solid{border-top:1px solid #e2e8f0}.dash{border-top:1px dashed #cbd5e1}' +
+          '.section{margin:0 0 .55rem;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8}' +
+          '.row{display:flex;justify-content:space-between;gap:.75rem;margin:.42rem 0;font-size:.9rem}' +
+          '.label{color:#64748b;font-weight:600}.value{color:#1a2b4b;font-weight:800;text-align:right}' +
+          '.product{display:flex;justify-content:space-between;font-size:.92rem;font-weight:700;color:#1a2b4b}' +
+          '.thanks{margin-top:.95rem;text-align:center;font-size:.88rem;font-weight:700;color:#64748b}' +
+          '</style></head><body><div class="card"><div class="brand"><img class="logo" src="' + escapeHtml(logoUrl) +
+          '" alt="Beanthentic"><h1>Beanthentic Coffee</h1><p class="sub">Official Transaction Receipt</p></div>' +
+          '<hr class="solid"><div class="row"><span class="label">Ref. No.</span><span class="value">#' +
+          escapeHtml(r.ref || '-') + '</span></div><div class="row"><span class="label">Date</span><span class="value">' +
+          escapeHtml(dt.date) + '</span></div><div class="row"><span class="label">Time</span><span class="value">' +
+          escapeHtml(dt.time) + '</span></div><hr class="dash"><p class="section">Buyer Details</p><div class="row"><span class="label">Buyer Name</span><span class="value">' +
+          escapeHtml(r.buyer || '-') + '</span></div><hr class="dash"><p class="section">Product Info</p><div class="product"><span>' +
+          escapeHtml(r.product || '-') + '</span><span>' + escapeHtml(qtyStr) + '</span></div><hr class="dash"><p class="section">Payment Details</p>' +
+          '<div class="row"><span class="label">Amount</span><span class="value">' + escapeHtml(r.amount == null ? '0.00' : moneyLike(r.amount)) + '</span></div>' +
+          '<div class="row"><span class="label">Payment</span><span class="value">' + escapeHtml(r.payment || 'Cash') + '</span></div>' +
+          '<div class="row"><span class="label">Payment Amt</span><span class="value">' + escapeHtml(r.paymentAmount == null ? '0.00' : moneyLike(r.paymentAmount)) + '</span></div>' +
+          '<div class="row"><span class="label">Total</span><span class="value">' + escapeHtml(r.total == null ? '0.00' : moneyLike(r.total)) + '</span></div>' +
+          '<div class="row"><span class="label">Change</span><span class="value">' + escapeHtml(r.change == null ? '0.00' : moneyLike(r.change)) + '</span></div>' +
+          '<p class="thanks">Thank you for using Beanthentic!</p></div></body></html>';
+        saveReceiptBlob(
+          new Blob([html], { type: 'text/html;charset=utf-8' }),
+          'Beanthentic-Receipt-' + refSafe + '.html'
+        );
+        return true;
+      }
+
+      function downloadReceiptFile() {
+        ensureReceiptState();
+        var ref = getReceiptReference();
+        if (!ref) {
+          alert('Receipt is not ready yet. Please wait for the official receipt.');
+          return;
+        }
+
+        var refSafe = String(ref).replace(/[^\w-]+/g, '_');
+        var fallbackName = 'Beanthentic-Receipt-' + refSafe + '.html';
+        var url = receiptDownloadUrl(ref);
+        setReceiptDownloadBusy(true);
+
+        fetch(url)
+          .then(function (res) {
+            if (!res.ok) throw new Error('download failed');
+            var ctype = String(res.headers.get('content-type') || '');
+            if (ctype.indexOf('application/json') >= 0) throw new Error('download failed');
+            triggerReceiptAttachmentDownload(url, fallbackName);
+          })
+          .catch(function () {
+            return hydrateReceiptStateFromApi(ref).then(function () {
+              if (!downloadReceiptClientBlob()) throw new Error('client blob failed');
+            });
+          })
+          .catch(function () {
+            alert('Could not download receipt. Please try again.');
+          })
+          .finally(function () {
+            setReceiptDownloadBusy(false);
+          });
       }
 
       function applyWaitingUI(ref) {
-        checkBtn.style.display = 'none';
+        hideReceiptReadyCard();
         unlockFormControls();
         if (statusPanel) {
           statusPanel.hidden = false;
@@ -700,29 +1004,26 @@
         if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
           window.BeanthenticNotifs.notifyTransactionEvent('approved', ref);
         }
-        showStatusPanel(
-          'approved',
-          ref,
-          'The farmer approved your transaction. You will be notified when the receipt is sent.'
-        );
       }
 
       function notifyTransactionReceiptSent(ref) {
         if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
           window.BeanthenticNotifs.notifyTransactionEvent('receipt', ref);
         }
-        showStatusPanel(
-          'receipt',
-          ref,
-          'The farmer sent your official receipt. Tap <strong>View Receipt</strong> below.'
-        );
       }
 
-      function applyApprovedUI(ref) {
-        if (statusContainer) statusContainer.classList.remove('status-receipt-ready');
-        checkBtn.style.display = 'none';
-        unlockFormControls();
+      function applyApprovedUI(ref, state) {
+        stopPoll();
+        suppressTxQuickGuide();
+        var fidPoll = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+        var s = state || loadPendingState(fidPoll) || buildStateFromForm();
+        applyFarmerContext(s);
         clearTransactionFormFields();
+        showReceiptReadyCard(
+          ref,
+          s,
+          'The farmer approved your transaction.'
+        );
         if (approvedNotifiedForRef !== ref) {
           approvedNotifiedForRef = ref;
           notifyTransactionApproved(ref);
@@ -731,26 +1032,21 @@
 
       function applyReceiptSentUI(ref, state) {
         stopPoll();
+        suppressTxQuickGuide();
         var fidPoll = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
         var s = state || loadPendingState(fidPoll) || buildStateFromForm();
-        fillReceiptModal(s);
         applyFarmerContext(s);
         clearTransactionFormFields();
-        if (statusContainer) statusContainer.classList.add('status-receipt-ready');
-        checkBtn.style.display = 'inline-flex';
-        btn.style.display = 'none';
-        btn.classList.remove('status-waiting', 'status-approved');
-        if (orderAgainWrap) orderAgainWrap.hidden = false;
+        showReceiptReadyCard(ref, s, 'Your payment was successful.');
         if (receiptNotifiedForRef !== ref) {
           receiptNotifiedForRef = ref;
           notifyTransactionReceiptSent(ref);
-        } else if (statusPanel) {
-          statusPanel.hidden = true;
         }
       }
 
       function resetForOrderAgain() {
         stopPoll();
+        hideReceiptReadyCard();
         submittedRef = '';
         var farmerKeep = {
           farmer_id: farmerIdInput ? farmerIdInput.value : '',
@@ -766,7 +1062,7 @@
 
       function applyDismissedUI(ref) {
         stopPoll();
-        checkBtn.style.display = 'none';
+        hideReceiptReadyCard();
         unlockFormControls();
         clearTransactionFormFields();
         if (statusPanel) statusPanel.hidden = true;
@@ -906,10 +1202,9 @@
       }
 
       function pollApprovalStatus() {
-        if (!submittedRef || !appApiBase) return;
+        if (!submittedRef) return;
         var url =
-          appApiBase +
-          '/api/client_transaction_status.php?reference_no=' +
+          '/api/client-transaction/status?reference_no=' +
           encodeURIComponent(submittedRef);
         fetch(url, { method: 'GET', headers: { Accept: 'application/json' } })
           .then(function (r) {
@@ -927,7 +1222,7 @@
             } else if (body.is_approved) {
               saved.status = 'approved';
               savePendingState(saved, fidPoll);
-              applyApprovedUI(submittedRef);
+              applyApprovedUI(submittedRef, saved);
             } else if (body.is_dismissed) {
               saved.status = 'dismissed';
               savePendingState(saved, fidPoll);
@@ -938,6 +1233,7 @@
       }
 
       function startWaitingFlow(ref, state) {
+        suppressTxQuickGuide();
         submittedRef = ref;
         if (state) applyFarmerContext(state);
         clearTransactionFormFields();
@@ -966,10 +1262,8 @@
           return;
         }
         if (saved.status === 'approved') {
-          applyApprovedUI(submittedRef);
-          stopPoll();
+          applyApprovedUI(submittedRef, saved);
           pollApprovalStatus();
-          pollTimer = setInterval(pollApprovalStatus, 5000);
           return;
         }
         if (saved.status === 'dismissed') {
@@ -1026,10 +1320,8 @@
           return;
         }
         if (saved.status === 'approved') {
-          applyApprovedUI(submittedRef);
-          stopPoll();
+          applyApprovedUI(submittedRef, saved);
           pollApprovalStatus();
-          pollTimer = setInterval(pollApprovalStatus, 5000);
           return;
         }
         if (saved.status === 'dismissed') {
@@ -1166,23 +1458,45 @@
           });
       });
 
-      // Show Pop-up Receipt Logic
-      checkBtn.addEventListener('click', () => {
-        receiptModal.style.display = 'flex';
-        document.body.style.overflow = 'hidden'; // Prevent scrolling
-      });
+      function ensureReceiptState() {
+        if (!currentReceiptState) {
+          var fidPoll = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+          currentReceiptState = loadPendingState(fidPoll) || buildStateFromForm();
+          fillReceiptModal(currentReceiptState);
+        }
+      }
 
-      // Close Modal Logic
-      closeReceipt.addEventListener('click', () => {
-        receiptModal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-      });
+      if (downloadReceiptBtn) {
+        downloadReceiptBtn.addEventListener('click', function () {
+          ensureReceiptState();
+          downloadReceiptFile();
+        });
+      }
+      if (viewReceiptBtn) {
+        viewReceiptBtn.addEventListener('click', function () {
+          ensureReceiptState();
+          openReceiptModal();
+        });
+      }
+      if (modalDownloadBtn) {
+        modalDownloadBtn.addEventListener('click', function () {
+          ensureReceiptState();
+          downloadReceiptFile();
+        });
+      }
 
-      // Close if clicking outside
+      if (closeReceipt) closeReceipt.addEventListener('click', closeReceiptModal);
+      if (closeReceiptBack) closeReceiptBack.addEventListener('click', closeReceiptModal);
+
       receiptModal.addEventListener('click', (e) => {
         if (e.target === receiptModal) {
-          receiptModal.style.display = 'none';
-          document.body.style.overflow = 'auto';
+          closeReceiptModal();
+        }
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && receiptModal && receiptModal.style.display === 'flex') {
+          closeReceiptModal();
         }
       });
 
@@ -1376,18 +1690,6 @@
         }
       });
 
-      const calendarTodayBtn = document.getElementById('calendar-today');
-      if (calendarTodayBtn) {
-        calendarTodayBtn.addEventListener('click', () => {
-          const todayStr = todayYmd();
-          selectedDate = todayStr;
-          const parts = todayStr.split('-');
-          monthSelect.value = parseInt(parts[1], 10) - 1;
-          yearSelect.value = parseInt(parts[0], 10);
-          updateCalendar();
-        });
-      }
-
       confirmDateBtn.addEventListener('click', () => {
         const dateToUse = selectedDate && selectedDate >= todayYmd() ? selectedDate : todayYmd();
         if (dateToUse < todayYmd()) {
@@ -1440,10 +1742,10 @@
   <script>
     window.BEANTHENTIC_TX_TUTORIAL = {
       farmerProfilesUrl: {{ farmer_profiles_url | tojson }},
-    farmerId: { { farmer_id or 0 } }
+      farmerId: {{ farmer_id or 0 }}
     };
   </script>
-  <script src="{{ url_for('static', filename='js/transaction_tutorial.js') }}?v=20260604-tx-guide-click"></script>
+  <script src="{{ url_for('static', filename='js/transaction_tutorial.js') }}?v=20260608-tx-guide-once"></script>
   <script src="{{ url_for('static', filename='js/notifications.js') }}?v=20260604-notif-icon-design"></script>
   <script src="{{ url_for('static', filename='js/client_tx_watch.js') }}?v=20260524-txnotif3"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
