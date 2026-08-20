@@ -1,0 +1,21 @@
+# Permanent Cloudflare Tunnel (free Cloudflare account + your domain required).
+#
+# 1) Install cloudflared: scripts\install-cloudflared.bat
+# 2) Login:          scripts\cloudflared.exe tunnel login
+# 3) Create tunnel:  scripts\cloudflared.exe tunnel create beanthentic-client
+# 4) Copy tunnel ID from output into tunnel: line below
+# Easier: double-click scripts\setup-cloudflare-beanthentic.bat (automates below)
+#
+# 5) DNS is created automatically for beanthentic.com + www.beanthentic.com
+# 6) BEANTHENTIC_PUBLIC_URL=https://beanthentic.com/ in .env
+# 7) Daily run: scripts\run-beanthentic-cloudflare.bat
+#
+tunnel: REPLACE_WITH_TUNNEL_ID
+credentials-file: C:\path\to\.cloudflared\REPLACE_WITH_TUNNEL_ID.json
+
+ingress:
+  - hostname: beanthentic.com
+    service: http://127.0.0.1:5001
+  - hostname: www.beanthentic.com
+    service: http://127.0.0.1:5001
+  - service: http_status:404

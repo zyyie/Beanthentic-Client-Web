@@ -1,0 +1,15 @@
+# Beanthentic Client Web — permanent Cloudflare Tunnel
+# Run once: scripts\setup-cloudflare-beanthentic.bat
+# Then daily: scripts\run-beanthentic-cloudflare.bat
+#
+# Domain: https://beanthentic.com/
+
+tunnel: REPLACE_TUNNEL_ID
+credentials-file: REPLACE_CREDENTIALS_FILE
+
+ingress:
+  - hostname: beanthentic.com
+    service: http://127.0.0.1:5001
+  - hostname: www.beanthentic.com
+    service: http://127.0.0.1:5001
+  - service: http_status:404

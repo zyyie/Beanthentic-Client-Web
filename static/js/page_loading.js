@@ -93,20 +93,33 @@
     if (el.closest("[data-no-page-loading]")) return true;
     if (el.closest("#beanthentic-page-loading")) return true;
     if (el.matches("#notif-toggle, [data-notif-mark-read]")) return true;
-    if (el.closest(".report-chat") && !el.closest("a[href]")) return true;
     if (
-      el.closest(".header-notif-panel") &&
-      !el.closest("a[href].header-notif-item-card, a[data-notif-view]")
+      el.closest("a.header-notif-item-card") ||
+      el.closest("[data-notif-view]")
     ) {
       return true;
     }
+    if (el.closest(".report-chat") && !el.closest("a[href]")) return true;
+    if (el.closest(".header-notif-panel")) return true;
     if (el.matches("input, textarea, select, label")) return true;
     return false;
+  }
+
+  function isReceiptDownloadHref(href) {
+    try {
+      const url = new URL(String(href || "").trim(), window.location.href);
+      return /\/api\/client-transaction\/receipt\/download\/?$/i.test(
+        url.pathname.replace(/\/+$/, "")
+      );
+    } catch {
+      return false;
+    }
   }
 
   function isNavigableHref(href) {
     const raw = String(href || "").trim();
     if (!raw || raw === "#" || /^javascript:/i.test(raw)) return false;
+    if (isReceiptDownloadHref(raw)) return false;
     try {
       const url = new URL(raw, window.location.href);
       if (
@@ -187,6 +200,7 @@
       const link = e.target.closest("a[href]");
       if (link && !shouldSkip(link)) {
         const href = link.getAttribute("href");
+        if (link.hasAttribute("download") || isReceiptDownloadHref(href)) return;
         if (!isNavigableHref(href)) return;
 
         e.preventDefault();

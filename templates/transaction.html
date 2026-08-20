@@ -19,6 +19,7 @@
         </svg>
       </a>
       <div class="nav-title">Transaction Process</div>
+      {% include 'partials/header_notif.html' %}
     </div>
   </header>
 
@@ -52,30 +53,45 @@
           <div class="pickup-fields">
             <div class="form-group full-width txn-farmer-select-wrap" id="txn-farmer-select-wrap"
               data-txn-tour="farmer-name">
-              <label for="farmer-select">Farmer name</label>
-              <select id="farmer-select" class="txn-farmer-select" required aria-describedby="txn-farmer-select-hint">
-                <option value="">Select a farmer…</option>
-                {% for farmer in farmers %}
-                <option value="{{ farmer.farmer_id }}" data-farmer-name="{{ farmer.display_name }}"
-                  {% if farmer_id and farmer.farmer_id == farmer_id %}selected{% endif %}>
-                  {{ farmer.display_name }}{% if farmer.barangay %} · {{ farmer.barangay }}{% endif %}
-                </option>
-                {% endfor %}
-                {% if farmer_id and farmer_name %}
-                {% set ns = namespace(found=false) %}
-                {% for farmer in farmers %}
-                {% if farmer.farmer_id == farmer_id %}{% set ns.found = true %}{% endif %}
-                {% endfor %}
-                {% if not ns.found %}
-                <option value="{{ farmer_id }}" data-farmer-name="{{ farmer_name }}" selected>{{ farmer_name }}</option>
-                {% endif %}
-                {% endif %}
-              </select>
+              <label for="farmer-search">Farmer name</label>
+              <div class="txn-farmer-search-wrap">
+                <div class="txn-farmer-search-field">
+                  <svg class="txn-farmer-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" />
+                    <line x1="16.65" y1="16.65" x2="21" y2="21" />
+                  </svg>
+                  <input type="text" id="farmer-search" class="txn-farmer-search-input"
+                    placeholder="Search farmer name…" autocomplete="off" spellcheck="false"
+                    aria-autocomplete="list" aria-controls="farmer-search-list" aria-expanded="false"
+                    aria-describedby="txn-farmer-select-hint" inputmode="search" />
+                </div>
+                <select id="farmer-select" class="txn-farmer-select txn-farmer-select--hidden" required
+                  aria-hidden="true" tabindex="-1">
+                  <option value="">Select a farmer…</option>
+                  {% for farmer in farmers %}
+                  <option value="{{ farmer.farmer_id }}" data-farmer-name="{{ farmer.display_name }}"
+                    {% if farmer_id and farmer.farmer_id == farmer_id %}selected{% endif %}>
+                    {{ farmer.display_name }}{% if farmer.barangay %} · {{ farmer.barangay }}{% endif %}
+                  </option>
+                  {% endfor %}
+                  {% if farmer_id and farmer_name %}
+                  {% set ns = namespace(found=false) %}
+                  {% for farmer in farmers %}
+                  {% if farmer.farmer_id == farmer_id %}{% set ns.found = true %}{% endif %}
+                  {% endfor %}
+                  {% if not ns.found %}
+                  <option value="{{ farmer_id }}" data-farmer-name="{{ farmer_name }}" selected>{{ farmer_name }}</option>
+                  {% endif %}
+                  {% endif %}
+                </select>
+                <ul id="farmer-search-list" class="txn-farmer-search-list" role="listbox" hidden></ul>
+              </div>
               <p class="txn-farmer-select-hint" id="txn-farmer-select-hint">
                 {% if farmers_error and not farmers %}
                 {{ farmers_error }}
                 {% else %}
-                Choose who you want to buy from. You can also view full profiles first.
+                Search or choose who you want to buy from. You can also view full profiles first.
                 {% endif %}
               </p>
             </div>
@@ -110,19 +126,41 @@
             </div>
 
             <div class="form-group" data-txn-tour="product-type">
-              <label for="product-type">Product</label>
-              <select id="product-type" name="product_type" class="custom-select" required>
-                <option value="" disabled selected>Select a product</option>
-                <option value="Liberica">Liberica</option>
-                <option value="Excelsa">Excelsa</option>
-                <option value="Robusta">Robusta</option>
+              <label for="txn-product">Product</label>
+              <select id="txn-product" name="product" class="custom-select" required>
+                <option value="" disabled selected hidden>Select product</option>
+              </select>
+              <p class="form-help" id="txn-price-hint">Prices are loaded from the current Beanthentic coffee price list.</p>
+            </div>
+
+            <div class="form-group" data-txn-tour="bean-form">
+              <label for="txn-bean-form">Coffee Bean Type</label>
+              <select id="txn-bean-form" name="bean_form" class="custom-select" required>
+                <option value="" disabled selected hidden>Select coffee bean type</option>
+                <option value="gcb">Green Coffee Bean (GCB)</option>
+                <option value="roasted">Roasted Beans</option>
               </select>
             </div>
 
-            <div class="form-group" data-txn-tour="quantity-kg">
-              <label for="quantity-kg">Quantity (KG)</label>
-              <input type="number" id="quantity-kg" name="quantity_kg" min="1" step="0.1" placeholder="0.0" required />
+            <div class="form-group" data-txn-tour="classification">
+              <label for="txn-classification">Classification</label>
+              <select id="txn-classification" name="classification" class="custom-select" required disabled>
+                <option value="" disabled selected hidden>Select classification</option>
+              </select>
             </div>
+
+            <div class="form-group" data-txn-tour="quantity">
+              <label for="txn-quantity-pack" id="txn-quantity-label">Quantity</label>
+              <select id="txn-quantity-pack" name="product_quantity_pack" class="custom-select" disabled>
+                <option value="" disabled selected hidden>Select quantity</option>
+              </select>
+              <input type="number" id="txn-quantity-kg" name="product_quantity_kg" class="txn-qty-input" min="0.01"
+                step="0.01" placeholder="Enter kilos (e.g. 2)" hidden disabled />
+            </div>
+
+            <input type="hidden" name="product_type" id="product-type" value="" />
+            <input type="hidden" name="quantity_kg" id="quantity-kg" value="" />
+            <input type="hidden" name="order_selections_json" id="order-selections-json" value="" />
 
             <div class="form-group" data-txn-tour="payment-method">
               <label>Payment Method</label>
@@ -169,11 +207,11 @@
             <span class="txn-receipt-ready-icon__doc">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                 stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-              </svg>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
             </span>
           </div>
           <h2 class="txn-receipt-ready-title">Receipt Ready!</h2>
@@ -240,7 +278,7 @@
           </button>
           <span class="receipt-modal-topbar-title" id="receipt-modal-title">View Receipt</span>
         </div>
-        <div class="receipt-modal-container">
+      <div class="receipt-modal-container">
         <div class="txn-receipt-card" id="client-receipt-print-area">
           <div class="txn-rcpt-brand">
             <img class="txn-rcpt-logo" src="{{ url_for('static', filename='images/beanthentic-logo.png') }}"
@@ -327,10 +365,14 @@
     </div>
 
     <!-- Image Preview Modal -->
-    <div id="image-preview-modal" class="receipt-modal-overlay" style="display: none;">
+    <div id="image-preview-modal" class="receipt-modal-overlay image-preview-modal" style="display: none;"
+      role="dialog" aria-modal="true" aria-label="Valid ID preview">
       <div class="image-preview-container">
-        <button type="button" class="close-receipt-modal" id="close-preview">&times;</button>
+        <button type="button" class="close-receipt-modal image-preview-close" id="close-preview"
+          aria-label="Close valid ID preview">&times;</button>
+        <div class="image-preview-scroll">
         <img id="id-preview-img" src="" alt="Valid ID Preview" class="full-id-preview" />
+        </div>
       </div>
     </div>
     <!-- Custom Calendar Modal -->
@@ -362,6 +404,26 @@
         </div>
       </div>
     </div>
+
+    <!-- Waiting for approval modal -->
+    <div id="txn-waiting-modal" class="receipt-modal-overlay txn-waiting-modal" style="display: none;" role="dialog"
+      aria-modal="true" aria-labelledby="txn-waiting-modal-title">
+      <div class="txn-waiting-modal__card">
+        <div class="txn-waiting-modal__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </div>
+        <h2 id="txn-waiting-modal-title" class="txn-waiting-modal__title">Waiting for approval</h2>
+        <p class="txn-waiting-modal__text">
+          Your transaction was sent successfully. Please wait while the farmer reviews your request.
+        </p>
+        <p class="txn-waiting-modal__ref">Reference: <strong id="txn-waiting-modal-ref">—</strong></p>
+        <button type="button" class="txn-waiting-modal__btn" id="txn-waiting-modal-close">OK</button>
+      </div>
+    </div>
   </main>
 
   <div id="beanthentic-toast-host" class="beanthentic-toast-host" aria-live="polite" aria-atomic="true"></div>
@@ -390,16 +452,470 @@
       const amountGroup = document.getElementById('amount-input-group');
       const amountInput = document.getElementById('payment-amount');
 
-      // ID Preview Logic
+      var TX_BEAN_FORM_LABELS = {
+        gcb: 'Green Coffee Bean (GCB)',
+        roasted: 'Roasted Beans'
+      };
+
+      var TX_ROASTED = {
+        classifications: ['Ground Beans', 'Whole Beans'],
+        packs: [
+          { value: '250g', kg: 0.25 },
+          { value: '500g', kg: 0.5 },
+          { value: '1kg', kg: 1 }
+        ]
+      };
+
+      var TX_GCB = {
+        classifications: ['Small', 'Medium', 'Large']
+      };
+      var clientPriceItems = [];
+      var amountEditedByBuyer = false;
+
+      function loadClientPrices() {
+        return fetch('/api/client-pricelist', { headers: { Accept: 'application/json' } })
+          .then(function (res) { return res.json(); })
+          .then(function (body) {
+            if (!body || body.ok !== true || !Array.isArray(body.items) || !body.items.length) {
+              throw new Error('No current prices available');
+            }
+            clientPriceItems = body.items.filter(function (item) {
+              return item && String(item.product || '').trim();
+            });
+            var productEl = document.getElementById('txn-product');
+            var products = [];
+            clientPriceItems.forEach(function (item) {
+              var product = String(item.product).trim();
+              if (products.indexOf(product) < 0) products.push(product);
+            });
+            fillSelectOptions(productEl, 'Select product', products);
+            syncAvailableBeanForms();
+            var hint = document.getElementById('txn-price-hint');
+            if (hint) hint.textContent = 'Live prices from the Beanthentic coffee price list.';
+            return clientPriceItems;
+          })
+          .catch(function () {
+            var hint = document.getElementById('txn-price-hint');
+            if (hint) hint.textContent = 'Current prices are unavailable. Please try again shortly.';
+            return [];
+          });
+      }
+
+      function syncAvailableBeanForms() {
+        var product = String((document.getElementById('txn-product') || {}).value || '').trim().toLowerCase();
+        var beanFormEl = document.getElementById('txn-bean-form');
+        if (!beanFormEl || !clientPriceItems.length) return;
+        var forms = [];
+        clientPriceItems.forEach(function (item) {
+          if (String(item.product || '').trim().toLowerCase() !== product) return;
+          var form = String(item.bean_form || '').trim().toLowerCase();
+          if (form && forms.indexOf(form) < 0) forms.push(form);
+        });
+        if (!forms.length) return;
+        var current = String(beanFormEl.value || '').trim().toLowerCase();
+        fillSelectOptions(beanFormEl, 'Select coffee bean type', forms, function (value) {
+          return TX_BEAN_FORM_LABELS[value] || value;
+        });
+        if (forms.indexOf(current) >= 0) beanFormEl.value = current;
+        else {
+          beanFormEl.selectedIndex = 0;
+          syncBeanFormFields(false);
+        }
+      }
+
+      function updatePriceFromCatalog() {
+        var product = String((document.getElementById('txn-product') || {}).value || '').trim().toLowerCase();
+        var beanForm = String((document.getElementById('txn-bean-form') || {}).value || '').trim().toLowerCase();
+        var classification = String((document.getElementById('txn-classification') || {}).value || '').trim().toLowerCase();
+        var selections = readOrderSelections();
+        var item = clientPriceItems.find(function (row) {
+          return String(row.product || '').trim().toLowerCase() === product &&
+            (!row.bean_form || String(row.bean_form).trim().toLowerCase() === beanForm) &&
+            (!row.classification || String(row.classification).trim().toLowerCase() === classification);
+        });
+        var price = item ? Number(item.price) : 0;
+        var qty = Number(selections.quantity_kg || 0);
+        if (amountInput && !amountEditedByBuyer) {
+          amountInput.value = price > 0 && qty > 0 ? (price * qty).toFixed(2) : '';
+        }
+      }
+
+      function setQuantityMode(mode) {
+        var packEl = document.getElementById('txn-quantity-pack');
+        var kgEl = document.getElementById('txn-quantity-kg');
+        var labelEl = document.getElementById('txn-quantity-label');
+        if (mode === 'gcb') {
+          if (packEl) {
+            packEl.hidden = true;
+            packEl.disabled = true;
+            packEl.removeAttribute('required');
+            packEl.selectedIndex = 0;
+          }
+          if (kgEl) {
+            kgEl.hidden = false;
+            kgEl.disabled = false;
+            kgEl.setAttribute('required', 'required');
+          }
+          if (labelEl) labelEl.textContent = 'Quantity (kg)';
+        } else if (mode === 'roasted') {
+          if (packEl) {
+            packEl.hidden = false;
+            packEl.disabled = false;
+            packEl.setAttribute('required', 'required');
+          }
+          if (kgEl) {
+            kgEl.hidden = true;
+            kgEl.disabled = true;
+            kgEl.removeAttribute('required');
+            kgEl.value = '';
+          }
+          if (labelEl) labelEl.textContent = 'Quantity';
+        } else {
+          if (packEl) {
+            packEl.hidden = false;
+            packEl.disabled = true;
+            packEl.removeAttribute('required');
+            packEl.selectedIndex = 0;
+          }
+          if (kgEl) {
+            kgEl.hidden = true;
+            kgEl.disabled = true;
+            kgEl.removeAttribute('required');
+            kgEl.value = '';
+          }
+          if (labelEl) labelEl.textContent = 'Quantity';
+        }
+      }
+
+      function fillSelectOptions(selectEl, placeholder, items, labelFn) {
+        if (!selectEl) return;
+        selectEl.innerHTML = '';
+        var ph = document.createElement('option');
+        ph.value = '';
+        ph.textContent = placeholder || 'Select…';
+        ph.disabled = true;
+        ph.selected = true;
+        ph.hidden = true;
+        selectEl.appendChild(ph);
+        items.forEach(function (item) {
+          var opt = document.createElement('option');
+          if (typeof item === 'string') {
+            opt.value = item;
+            opt.textContent = labelFn ? labelFn(item) : item;
+          } else {
+            opt.value = item.value;
+            opt.textContent = labelFn ? labelFn(item) : item.label || item.value;
+          }
+          selectEl.appendChild(opt);
+        });
+      }
+
+      function packToKg(pack) {
+        if (pack === '250g') return 0.25;
+        if (pack === '500g') return 0.5;
+        if (pack === '1kg' || pack === '1kl') return 1;
+        if (pack === '200g') return 0.2;
+        return 0;
+      }
+
+      function syncBeanFormFields(preserve) {
+        var beanFormEl = document.getElementById('txn-bean-form');
+        var classEl = document.getElementById('txn-classification');
+        var packEl = document.getElementById('txn-quantity-pack');
+        var kgEl = document.getElementById('txn-quantity-kg');
+        var beanForm = beanFormEl ? String(beanFormEl.value || '').trim() : '';
+        var prevClass = preserve && classEl ? classEl.value : '';
+        var prevPack = preserve && packEl ? packEl.value : '';
+        var prevKg = preserve && kgEl ? kgEl.value : '';
+
+        if (!beanForm) {
+          fillSelectOptions(classEl, 'Select classification', []);
+          fillSelectOptions(packEl, 'Select quantity', []);
+          if (classEl) classEl.disabled = true;
+          setQuantityMode('');
+          return;
+        }
+
+        if (beanForm === 'roasted') {
+          fillSelectOptions(classEl, 'Select classification', TX_ROASTED.classifications);
+          fillSelectOptions(packEl, 'Select quantity', TX_ROASTED.packs, function (item) {
+            return item.value;
+          });
+          setQuantityMode('roasted');
+        } else if (beanForm === 'gcb') {
+          fillSelectOptions(classEl, 'Select classification', TX_GCB.classifications);
+          setQuantityMode('gcb');
+        }
+
+        if (classEl) {
+          classEl.disabled = false;
+          if (prevClass) classEl.value = prevClass;
+        }
+        if (packEl && beanForm === 'roasted' && prevPack) packEl.value = prevPack;
+        if (kgEl && beanForm === 'gcb' && prevKg) kgEl.value = prevKg;
+        updatePriceFromCatalog();
+      }
+
+      function normalizeOrderSelections(raw) {
+        if (!raw || typeof raw !== 'object') return raw;
+        var s = Object.assign({}, raw);
+        if (!s.product && s.coffee_type) s.product = s.coffee_type;
+        if (!s.bean_form && s.bean_type) s.bean_form = s.bean_type;
+        if (!s.bean_form_label && s.bean_type_label) s.bean_form_label = s.bean_type_label;
+        if (s.bean_form && !s.bean_form_label) {
+          s.bean_form_label = TX_BEAN_FORM_LABELS[s.bean_form] || '';
+        }
+        return s;
+      }
+
+      function readOrderSelections() {
+        var productEl = document.getElementById('txn-product');
+        var beanFormEl = document.getElementById('txn-bean-form');
+        var classEl = document.getElementById('txn-classification');
+        var packEl = document.getElementById('txn-quantity-pack');
+        var kgEl = document.getElementById('txn-quantity-kg');
+        var product = productEl ? String(productEl.value || '').trim() : '';
+        var beanForm = beanFormEl ? String(beanFormEl.value || '').trim() : '';
+        var classification = classEl ? String(classEl.value || '').trim() : '';
+        var quantityPack = null;
+        var quantityKg = null;
+        var quantityLabel = '';
+
+        if (beanForm === 'roasted') {
+          quantityPack = packEl ? String(packEl.value || '').trim() : '';
+          quantityKg = packToKg(quantityPack);
+          quantityLabel = quantityPack;
+        } else if (beanForm === 'gcb') {
+          var kg = kgEl ? parseFloat(String(kgEl.value || '0')) : 0;
+          if (isFinite(kg) && kg > 0) {
+            quantityKg = kg;
+            quantityLabel = kg + ' kg';
+          }
+        }
+
+        return {
+          product: product || null,
+          bean_form: beanForm || null,
+          bean_form_label: TX_BEAN_FORM_LABELS[beanForm] || '',
+          classification: classification || null,
+          quantity_pack: quantityPack || null,
+          quantity_kg: quantityKg != null && quantityKg > 0 ? quantityKg : null,
+          quantity_label: quantityLabel || null
+        };
+      }
+
+      function buildOrderSummary() {
+        var s = readOrderSelections();
+        if (!s.product) {
+          throw new Error('Select product (Liberica, Robusta, or Excelsa).');
+        }
+        if (!s.bean_form) {
+          throw new Error('Select coffee bean type (Green Coffee Bean or Roasted Beans).');
+        }
+        if (!s.classification) {
+          throw new Error('Select classification.');
+        }
+        if (s.bean_form === 'roasted' && !s.quantity_pack) {
+          throw new Error('Select quantity.');
+        }
+        if (s.bean_form === 'gcb' && (!s.quantity_kg || s.quantity_kg <= 0)) {
+          throw new Error('Enter quantity in kilos.');
+        }
+        return {
+          product_type:
+            s.product +
+            ' · ' +
+            s.bean_form_label +
+            ' · ' +
+            s.classification +
+            ' · ' +
+            s.quantity_label,
+          quantity_kg: s.quantity_kg,
+          order_selections: s
+        };
+      }
+
+      function applyOrderSummaryToForm(summary) {
+        var productEl = document.getElementById('product-type');
+        var qtyEl = document.getElementById('quantity-kg');
+        var jsonEl = document.getElementById('order-selections-json');
+        var unitHidden = form.querySelector('input[name="quantity_unit"]');
+        if (productEl) productEl.value = summary.product_type || '';
+        if (qtyEl) qtyEl.value = summary.quantity_kg != null ? String(summary.quantity_kg) : '';
+        if (jsonEl) {
+          jsonEl.value = JSON.stringify(summary.order_selections || readOrderSelections());
+        }
+        if (unitHidden) {
+          unitHidden.value = 'KG';
+        }
+      }
+
+      function clearOrderSelectionFields() {
+        var productEl = document.getElementById('txn-product');
+        var beanFormEl = document.getElementById('txn-bean-form');
+        if (productEl) productEl.selectedIndex = 0;
+        if (beanFormEl) beanFormEl.selectedIndex = 0;
+        syncBeanFormFields(false);
+        applyOrderSummaryToForm({ product_type: '', quantity_kg: '', order_selections: readOrderSelections() });
+      }
+
+      function restoreOrderSelectionFields(state) {
+        if (!state || !state.order_selections) return;
+        var s = normalizeOrderSelections(state.order_selections);
+        if (s.varieties) {
+          var keys = ['liberica', 'robusta', 'excelsa'];
+          for (var i = 0; i < keys.length; i++) {
+            var row = s.varieties[keys[i]];
+            if (!row || !row.bean_type) continue;
+            s = normalizeOrderSelections({
+              product: keys[i].charAt(0).toUpperCase() + keys[i].slice(1),
+              bean_form: row.bean_type,
+              classification: row.classification,
+              quantity_pack: row.quantity_pack || row.pack || null
+            });
+            break;
+          }
+        }
+        var productEl = document.getElementById('txn-product');
+        var beanFormEl = document.getElementById('txn-bean-form');
+        var classEl = document.getElementById('txn-classification');
+        var packEl = document.getElementById('txn-quantity-pack');
+        var kgEl = document.getElementById('txn-quantity-kg');
+        if (productEl && s.product) productEl.value = s.product;
+        if (beanFormEl && s.bean_form) {
+          beanFormEl.value = s.bean_form;
+          syncBeanFormFields(true);
+        }
+        if (classEl && s.classification) classEl.value = s.classification;
+        if (s.bean_form === 'gcb' && kgEl && s.quantity_kg != null) {
+          kgEl.value = String(s.quantity_kg);
+        } else if (packEl && s.quantity_pack) {
+          var packVal = s.quantity_pack === '1kl' ? '1kg' : s.quantity_pack;
+          packEl.value = packVal;
+        } else if (packEl && s.quantity != null && s.unit) {
+          var legacy = String(s.quantity) + String(s.unit);
+          if (legacy === '250g' || legacy === '500g' || legacy === '1kg' || legacy === '1kl' || legacy === '200g') {
+            packEl.value = legacy === '1kl' ? '1kg' : legacy;
+          }
+        }
+      }
+
+      var beanFormElInit = document.getElementById('txn-bean-form');
+      if (beanFormElInit) {
+        beanFormElInit.addEventListener('change', function () {
+          syncBeanFormFields(false);
+        });
+      }
+      syncBeanFormFields(false);
+      document.getElementById('txn-product').addEventListener('change', function () {
+        syncAvailableBeanForms();
+        updatePriceFromCatalog();
+      });
+      document.getElementById('txn-classification').addEventListener('change', updatePriceFromCatalog);
+      document.getElementById('txn-quantity-pack').addEventListener('change', updatePriceFromCatalog);
+      document.getElementById('txn-quantity-kg').addEventListener('input', updatePriceFromCatalog);
+      if (amountInput) {
+        amountInput.addEventListener('input', function () {
+          amountEditedByBuyer = true;
+        });
+      }
+      loadClientPrices().then(updatePriceFromCatalog);
+
       const validIdInput = document.getElementById('valid-id');
       const viewIdBtn = document.getElementById('view-id-btn');
       const previewModal = document.getElementById('image-preview-modal');
       const previewImg = document.getElementById('id-preview-img');
       const closePreview = document.getElementById('close-preview');
+      var validIdSavedOnServer = false;
 
-      viewIdBtn.addEventListener('click', () => {
+      function validIdServeUrl(pathOrUrl) {
+        if (!pathOrUrl) return '';
+        var s = String(pathOrUrl).trim();
+        if (!s) return '';
+        if (s.indexOf('data:image') === 0 || s.indexOf('http://') === 0 || s.indexOf('https://') === 0) {
+          return s;
+        }
+        if (s.indexOf('/uploads/client_ids/') === 0) return s;
+        if (s.indexOf('/') === -1) return '/uploads/client_ids/' + s;
+        var parts = s.split('/');
+        return '/uploads/client_ids/' + parts[parts.length - 1];
+      }
+
+      function openValidIdPreviewModal() {
+        if (!previewImg || !previewImg.src) return;
+        var scrollEl = previewModal.querySelector('.image-preview-scroll');
+        if (scrollEl) scrollEl.scrollTop = 0;
         previewModal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+      }
+
+      function clearValidIdPreview() {
+        validIdSavedOnServer = false;
+        if (validIdInput) {
+          validIdInput.value = '';
+          validIdInput.setAttribute('required', 'required');
+        }
+        if (previewImg) previewImg.src = '';
+        if (viewIdBtn) viewIdBtn.style.display = 'none';
+      }
+
+      function setValidIdPreview(src, opts) {
+        opts = opts || {};
+        var url = validIdServeUrl(src);
+        if (!url) {
+          clearValidIdPreview();
+          return;
+        }
+        validIdSavedOnServer = !!opts.fromDb;
+        if (previewImg) previewImg.src = url;
+        if (viewIdBtn) viewIdBtn.style.display = 'flex';
+        if (validIdInput && opts.fromDb) validIdInput.removeAttribute('required');
+      }
+
+      function restoreValidIdFromState(saved) {
+        if (!saved) return;
+        if (saved.valid_id_preview) {
+          setValidIdPreview(saved.valid_id_preview, { fromDb: true });
+          return;
+        }
+        if (saved.valid_id_url) {
+          setValidIdPreview(saved.valid_id_url, { fromDb: true });
+          return;
+        }
+        if (saved.valid_id_path) {
+          setValidIdPreview(saved.valid_id_path, { fromDb: true });
+          return;
+        }
+        if (saved.reference_no) {
+          fetchValidIdForRef(saved.reference_no);
+        }
+      }
+
+      function fetchValidIdForRef(ref) {
+        if (!ref) return;
+        fetch('/api/client-transaction/status?reference_no=' + encodeURIComponent(ref), {
+          method: 'GET',
+          headers: { Accept: 'application/json' }
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (body) {
+            if (!body || body.ok !== true) return;
+            var url = body.valid_id_url || body.valid_id_path;
+            if (!url) return;
+            setValidIdPreview(url, { fromDb: true });
+            var fidVid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+            var pending = loadPendingState(fidVid);
+            if (pending) {
+              pending.valid_id_url = url;
+              pending.valid_id_path = body.valid_id_path || url;
+              savePendingState(pending, fidVid);
+            }
+          })
+          .catch(function () { });
+      }
+
+      viewIdBtn.addEventListener('click', () => {
+        openValidIdPreviewModal();
       });
 
       closePreview.addEventListener('click', () => {
@@ -419,6 +935,9 @@
       const statusBadge = document.getElementById('txn-status-badge');
       const statusRef = document.getElementById('txn-status-ref');
       const statusHint = document.getElementById('txn-status-hint');
+      const waitingModal = document.getElementById('txn-waiting-modal');
+      const waitingModalRef = document.getElementById('txn-waiting-modal-ref');
+      const waitingModalClose = document.getElementById('txn-waiting-modal-close');
 
       var submittedRef = '';
       var approvedNotifiedForRef = '';
@@ -440,8 +959,168 @@
         }
       }
       var farmerSelectEl = document.getElementById('farmer-select');
+      var farmerSearchInput = document.getElementById('farmer-search');
+      var farmerSearchList = document.getElementById('farmer-search-list');
       var farmerIdInput = document.getElementById('farmer-id');
       var farmerNameHidden = document.getElementById('farmer-name-hidden');
+      var farmerSearchOptions = [];
+      var farmerSearchActiveIndex = -1;
+
+      function buildFarmerSearchOptions() {
+        if (!farmerSelectEl) return [];
+        var out = [];
+        Array.prototype.forEach.call(farmerSelectEl.options, function (opt) {
+          var fid = String(opt.value || '').trim();
+          if (!fid) return;
+          out.push({
+            id: fid,
+            name: farmerNameFromSelectOption(opt),
+            label: String(opt.textContent || '').trim()
+          });
+        });
+        return out;
+      }
+
+      function refreshFarmerSearchOptions() {
+        farmerSearchOptions = buildFarmerSearchOptions();
+      }
+
+      function syncFarmerSearchInputFromSelect() {
+        if (!farmerSearchInput || !farmerSelectEl) return;
+        var opt = farmerSelectEl.selectedOptions[0];
+        if (opt && String(opt.value || '').trim()) {
+          farmerSearchInput.value = String(opt.textContent || '').trim();
+        } else if (!String(farmerSearchInput.value || '').trim()) {
+          farmerSearchInput.value = '';
+        }
+      }
+
+      function closeFarmerSearchList() {
+        if (!farmerSearchList) return;
+        farmerSearchList.hidden = true;
+        farmerSearchActiveIndex = -1;
+        if (farmerSearchInput) farmerSearchInput.setAttribute('aria-expanded', 'false');
+      }
+
+      function openFarmerSearchList() {
+        if (!farmerSearchList) return;
+        farmerSearchList.hidden = false;
+        if (farmerSearchInput) farmerSearchInput.setAttribute('aria-expanded', 'true');
+      }
+
+      function selectFarmerFromSearch(item) {
+        if (!farmerSelectEl || !item) return;
+        ensureFarmerSelectOption(item.id, item.name);
+        refreshFarmerSearchOptions();
+        farmerSelectEl.value = item.id;
+        if (farmerSearchInput) {
+          farmerSearchInput.value = item.label;
+          farmerSearchInput.classList.remove('txn-farmer-search-input--invalid');
+        }
+        closeFarmerSearchList();
+        onFarmerSelectChange();
+      }
+
+      function renderFarmerSearchList(items) {
+        if (!farmerSearchList) return;
+        farmerSearchList.innerHTML = '';
+        farmerSearchActiveIndex = -1;
+        if (!items.length) {
+          var empty = document.createElement('li');
+          empty.className = 'txn-farmer-search-empty';
+          empty.textContent = 'No farmers found.';
+          farmerSearchList.appendChild(empty);
+          return;
+        }
+        var selectedId = farmerSelectEl ? String(farmerSelectEl.value || '').trim() : '';
+        items.forEach(function (item, index) {
+          var li = document.createElement('li');
+          li.className = 'txn-farmer-search-option';
+          li.setAttribute('role', 'option');
+          li.setAttribute('data-index', String(index));
+          li.textContent = item.label;
+          if (selectedId && selectedId === item.id) li.classList.add('is-selected');
+          li.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            selectFarmerFromSearch(item);
+          });
+          farmerSearchList.appendChild(li);
+        });
+      }
+
+      function filterFarmerSearch(query) {
+        var q = String(query || '').trim().toLowerCase();
+        if (!q) return farmerSearchOptions.slice();
+        return farmerSearchOptions.filter(function (item) {
+          return (
+            item.label.toLowerCase().indexOf(q) >= 0 ||
+            item.name.toLowerCase().indexOf(q) >= 0
+          );
+        });
+      }
+
+      function setFarmerSearchActiveIndex(nextIndex, items) {
+        if (!farmerSearchList || !items.length) return;
+        var nodes = farmerSearchList.querySelectorAll('.txn-farmer-search-option');
+        farmerSearchActiveIndex = nextIndex;
+        Array.prototype.forEach.call(nodes, function (node, idx) {
+          node.classList.toggle('is-active', idx === farmerSearchActiveIndex);
+        });
+        if (farmerSearchActiveIndex >= 0 && nodes[farmerSearchActiveIndex]) {
+          nodes[farmerSearchActiveIndex].scrollIntoView({ block: 'nearest' });
+        }
+      }
+
+      function initFarmerSearch() {
+        if (!farmerSearchInput || !farmerSearchList || !farmerSelectEl) return;
+        refreshFarmerSearchOptions();
+        syncFarmerSearchInputFromSelect();
+
+        farmerSearchInput.addEventListener('focus', function () {
+          renderFarmerSearchList(filterFarmerSearch(farmerSearchInput.value));
+          openFarmerSearchList();
+        });
+
+        farmerSearchInput.addEventListener('input', function () {
+          farmerSearchInput.classList.remove('txn-farmer-search-input--invalid');
+          farmerSelectEl.value = '';
+          if (farmerIdInput) farmerIdInput.value = '';
+          if (farmerNameHidden) farmerNameHidden.value = '';
+          renderFarmerSearchList(filterFarmerSearch(farmerSearchInput.value));
+          openFarmerSearchList();
+          updateFarmerGuideVisibility();
+        });
+
+        farmerSearchInput.addEventListener('keydown', function (e) {
+          var items = filterFarmerSearch(farmerSearchInput.value);
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (farmerSearchList.hidden) {
+              renderFarmerSearchList(items);
+              openFarmerSearchList();
+            }
+            var next = farmerSearchActiveIndex + 1;
+            if (next >= items.length) next = 0;
+            setFarmerSearchActiveIndex(next, items);
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            var prev = farmerSearchActiveIndex - 1;
+            if (prev < 0) prev = items.length - 1;
+            setFarmerSearchActiveIndex(prev, items);
+          } else if (e.key === 'Enter') {
+            if (farmerSearchActiveIndex >= 0 && items[farmerSearchActiveIndex]) {
+              e.preventDefault();
+              selectFarmerFromSearch(items[farmerSearchActiveIndex]);
+            }
+          } else if (e.key === 'Escape') {
+            closeFarmerSearchList();
+          }
+        });
+
+        document.addEventListener('click', function (e) {
+          if (!e.target.closest('.txn-farmer-search-wrap')) closeFarmerSearchList();
+        });
+      }
 
       function farmerNameValue() {
         return farmerNameHidden ? String(farmerNameHidden.value || '').trim() : '';
@@ -465,6 +1144,7 @@
         opt.dataset.farmerName = label;
         opt.textContent = label;
         farmerSelectEl.appendChild(opt);
+        refreshFarmerSearchOptions();
       }
 
       function syncFarmerSelectFromContext() {
@@ -476,6 +1156,7 @@
         } else {
           farmerSelectEl.value = '';
         }
+        syncFarmerSearchInputFromSelect();
       }
 
       function updateFarmerGuideVisibility() {
@@ -560,9 +1241,77 @@
         });
       }
 
+      function archiveCompletedPending(farmerId) {
+        function maybeClear(saved, clearFid) {
+          if (!saved || saved.status !== 'sent_to_client') return;
+          clearPendingStorage(clearFid || saved.farmer_id || farmerId || '');
+        }
+        var fid = String(farmerId || '').trim();
+        if (fid) {
+          maybeClear(loadPendingState(fid), fid);
+          return;
+        }
+        try {
+          var legacyRaw =
+            sessionStorage.getItem(STORAGE_KEY_LEGACY) ||
+            localStorage.getItem(STORAGE_KEY_LEGACY);
+          if (legacyRaw) maybeClear(JSON.parse(legacyRaw), '');
+        } catch (_archive) { }
+      }
+
+      function resetForFreshTransaction(farmerId) {
+        stopPoll();
+        submittedRef = '';
+        clearPendingStorage(farmerId);
+        hideWaitingApprovalModal();
+        hidePendingStatusPanel();
+        hideReceiptReadyCard();
+        unlockFormControls();
+      }
+
+      function hideWaitingApprovalModal() {
+        if (!waitingModal) return;
+        waitingModal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+
+      function showWaitingApprovalModal(ref) {
+        if (!waitingModal) return;
+        if (waitingModalRef) waitingModalRef.textContent = ref || '—';
+        waitingModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      }
+
+      if (waitingModalClose) {
+        waitingModalClose.addEventListener('click', hideWaitingApprovalModal);
+      }
+      if (waitingModal) {
+        waitingModal.addEventListener('click', function (e) {
+          if (e.target === waitingModal) hideWaitingApprovalModal();
+        });
+      }
+
+      function getFarmerKeepContext(state) {
+        var s = state || {};
+        return {
+          farmer_id: s.farmer_id || (farmerIdInput ? farmerIdInput.value : ''),
+          farmer_name: s.farmer_name || farmerNameValue()
+        };
+      }
+
+      function resetToNormalTransactionForm(state) {
+        hideWaitingApprovalModal();
+        hideReceiptReadyCard();
+        if (statusPanel) statusPanel.hidden = true;
+        unlockFormControls();
+        clearTransactionFormFields();
+        applyFarmerContext(getFarmerKeepContext(state));
+      }
+
       function hidePendingStatusPanel() {
         stopPoll();
         submittedRef = '';
+        hideWaitingApprovalModal();
         if (statusPanel) statusPanel.hidden = true;
         hideReceiptReadyCard();
       }
@@ -610,15 +1359,11 @@
       function clearTransactionFormFields() {
         document.getElementById('client-name').value = '';
         document.getElementById('pickup-date').value = '';
-        var productEl = document.getElementById('product-type');
-        if (productEl) productEl.selectedIndex = 0;
-        document.getElementById('quantity-kg').value = '';
+        clearOrderSelectionFields();
         amountInput.value = '';
         cashOption.classList.remove('selected');
         amountGroup.style.display = 'none';
-        validIdInput.value = '';
-        viewIdBtn.style.display = 'none';
-        if (previewImg) previewImg.src = '';
+        clearValidIdPreview();
         selectedDate = null;
       }
 
@@ -722,6 +1467,11 @@
         s.total = body.total != null ? body.total : rc.total != null ? rc.total : s.total;
         s.change = body.change != null ? body.change : rc.change != null ? rc.change : s.change;
         s.transaction_at = body.transaction_at || rc.at || s.transaction_at || s.submitted_at;
+        if (body.farmer_name) s.farmer_name = String(body.farmer_name).trim();
+        if (body.farmer_id != null && body.farmer_id !== '') s.farmer_id = String(body.farmer_id);
+        if (body.buyer_name) s.client_name = String(body.buyer_name).trim();
+        if (body.valid_id_url) s.valid_id_url = String(body.valid_id_url).trim();
+        if (body.valid_id_path) s.valid_id_path = String(body.valid_id_path).trim();
         s.receipt = rc;
         return s;
       }
@@ -830,25 +1580,26 @@
         return '/api/client-transaction/receipt/download?reference_no=' + encodeURIComponent(ref);
       }
 
+      function dismissReceiptDownloadUi() {
+        if (window.BeanthenticPageLoading && window.BeanthenticPageLoading.hide) {
+          window.BeanthenticPageLoading.hide();
+        }
+        closeReceiptModal();
+      }
+
       function triggerReceiptAttachmentDownload(url, filename) {
         var link = document.createElement('a');
         link.href = url;
+        link.setAttribute('data-no-page-loading', '');
         if (filename) link.setAttribute('download', filename);
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
-
-        var frame = document.createElement('iframe');
-        frame.setAttribute('aria-hidden', 'true');
-        frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none';
-        frame.src = url;
-        document.body.appendChild(frame);
-
         setTimeout(function () {
           if (link.parentNode) link.parentNode.removeChild(link);
-          if (frame.parentNode) frame.parentNode.removeChild(frame);
-        }, 120000);
+        }, 2000);
         showReceiptDownloadToast();
+        dismissReceiptDownloadUi();
       }
 
       function saveReceiptBlob(blob, filename) {
@@ -939,6 +1690,7 @@
           new Blob([html], { type: 'text/html;charset=utf-8' }),
           'Beanthentic-Receipt-' + refSafe + '.html'
         );
+        dismissReceiptDownloadUi();
         return true;
       }
 
@@ -972,62 +1724,80 @@
           })
           .finally(function () {
             setReceiptDownloadBusy(false);
+            dismissReceiptDownloadUi();
           });
       }
 
       function applyWaitingUI(ref) {
         hideReceiptReadyCard();
         unlockFormControls();
-        if (statusPanel) {
-          statusPanel.hidden = false;
-          statusPanel.classList.remove(
-            'txn-status-panel--approved',
-            'txn-status-panel--dismissed',
-            'txn-status-panel--receipt'
-          );
-          if (statusRef) statusRef.textContent = ref || '—';
-          if (statusBadge) statusBadge.textContent = 'Waiting for approval';
-          if (statusHint) {
-            statusHint.textContent =
-              'Your request was sent. You will get a notification when the farmer approves it.';
-          }
+        if (statusPanel) statusPanel.hidden = true;
+        showWaitingApprovalModal(ref);
+      }
+
+      function txNotifyExtra(ref, state) {
+        var s = state || {};
+        var name = String(s.farmer_name || farmerNameValue() || '').trim();
+        return { farmer_name: name, reference_no: ref };
+      }
+
+      function notifyTransactionSubmitted(ref, state) {
+        if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
+          window.BeanthenticNotifs.notifyTransactionEvent('submitted', ref, txNotifyExtra(ref, state));
         }
       }
 
-      function notifyTransactionSubmitted(ref) {
+      function notifyTransactionApproved(ref, state) {
         if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
-          window.BeanthenticNotifs.notifyTransactionEvent('submitted', ref);
+          window.BeanthenticNotifs.notifyTransactionEvent('approved', ref, txNotifyExtra(ref, state));
         }
       }
 
-      function notifyTransactionApproved(ref) {
+      function notifyTransactionReceiptSent(ref, state) {
         if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
-          window.BeanthenticNotifs.notifyTransactionEvent('approved', ref);
-        }
-      }
-
-      function notifyTransactionReceiptSent(ref) {
-        if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
-          window.BeanthenticNotifs.notifyTransactionEvent('receipt', ref);
+          window.BeanthenticNotifs.notifyTransactionEvent('receipt', ref, txNotifyExtra(ref, state));
         }
       }
 
       function applyApprovedUI(ref, state) {
-        stopPoll();
         suppressTxQuickGuide();
-        var fidPoll = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
-        var s = state || loadPendingState(fidPoll) || buildStateFromForm();
-        applyFarmerContext(s);
-        clearTransactionFormFields();
-        showReceiptReadyCard(
-          ref,
-          s,
-          'The farmer approved your transaction.'
-        );
+        stopPoll();
+        submittedRef = '';
+        var s = state || buildStateFromForm();
+        resetToNormalTransactionForm(s);
         if (approvedNotifiedForRef !== ref) {
           approvedNotifiedForRef = ref;
-          notifyTransactionApproved(ref);
+          notifyTransactionApproved(ref, s);
         }
+        if (window.BeanthenticNotifs && window.BeanthenticNotifs.showToast) {
+          window.BeanthenticNotifs.showToast({
+            title: 'Transaction approved',
+            text: 'The farmer approved your request. You can submit a new transaction or wait for the receipt notification.',
+            type: 'success',
+            durationMs: 7000
+          });
+        }
+      }
+
+      function shouldOpenReceiptFromUrl() {
+        return new URLSearchParams(window.location.search).get('view') === 'receipt';
+      }
+
+      function maybeOpenReceiptFromUrl() {
+        if (!shouldOpenReceiptFromUrl()) return;
+        var ref = String(submittedRef || getReceiptReference() || '').trim();
+        if (!ref) return;
+        hydrateReceiptStateFromApi(ref)
+          .then(function () {
+            openReceiptModal();
+          })
+          .catch(function () {
+            if (!currentReceiptState) {
+              currentReceiptState = { reference_no: ref, receipt: { ref: ref } };
+              fillReceiptModal(currentReceiptState);
+            }
+            openReceiptModal();
+          });
       }
 
       function applyReceiptSentUI(ref, state) {
@@ -1040,13 +1810,15 @@
         showReceiptReadyCard(ref, s, 'Your payment was successful.');
         if (receiptNotifiedForRef !== ref) {
           receiptNotifiedForRef = ref;
-          notifyTransactionReceiptSent(ref);
+          notifyTransactionReceiptSent(ref, s);
         }
+        maybeOpenReceiptFromUrl();
       }
 
       function resetForOrderAgain() {
         stopPoll();
         hideReceiptReadyCard();
+        hideWaitingApprovalModal();
         submittedRef = '';
         var farmerKeep = {
           farmer_id: farmerIdInput ? farmerIdInput.value : '',
@@ -1062,10 +1834,18 @@
 
       function applyDismissedUI(ref) {
         stopPoll();
-        hideReceiptReadyCard();
-        unlockFormControls();
-        clearTransactionFormFields();
-        if (statusPanel) statusPanel.hidden = true;
+        submittedRef = '';
+        var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+        clearPendingStorage(fid);
+        resetToNormalTransactionForm();
+        if (window.BeanthenticNotifs && window.BeanthenticNotifs.showToast) {
+          window.BeanthenticNotifs.showToast({
+            title: 'Transaction dismissed',
+            text: ref ? 'Reference ' + ref + ' was dismissed by the farmer.' : 'Your transaction was dismissed.',
+            type: 'error',
+            durationMs: 7000
+          });
+        }
       }
 
       function showStatusPanel(mode, ref, hintText) {
@@ -1172,13 +1952,26 @@
       function applyFormFromState(s) {
         if (!s) return;
         applyFarmerContext(s);
+        restoreOrderSelectionFields(s);
+        if (s.product_type || s.quantity_kg) {
+          applyOrderSummaryToForm({
+            product_type: s.product_type || '',
+            quantity_kg: s.quantity_kg || '',
+            order_selections: s.order_selections || readOrderSelections()
+          });
+        }
       }
 
       function buildStateFromForm(extra) {
         var idPreview = '';
+        var idUrl = '';
         try {
-          if (previewImg && previewImg.src && previewImg.src.indexOf('data:image') === 0) {
+          if (previewImg && previewImg.src) {
+            if (previewImg.src.indexOf('data:image') === 0) {
             idPreview = previewImg.src;
+            } else if (validIdSavedOnServer) {
+              idUrl = previewImg.src;
+            }
           }
         } catch (_p) { }
         return Object.assign(
@@ -1189,10 +1982,12 @@
             pickup_date: document.getElementById('pickup-date').value,
             product_type: document.getElementById('product-type').value,
             quantity_kg: document.getElementById('quantity-kg').value,
+            order_selections: readOrderSelections(),
             payment_amount: amountInput.value,
             payment_method: 'Cash',
             transaction_type: 'pickup',
             valid_id_preview: idPreview,
+            valid_id_url: idUrl,
             status: 'pending',
             reference_no: '',
             submitted_at: new Date().toISOString()
@@ -1215,6 +2010,11 @@
             var fidPoll = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
             var saved = mergeStatusFromApi(body, loadPendingState(fidPoll) || buildStateFromForm());
             saved.reference_no = submittedRef || body.reference_no || saved.reference_no;
+            if (body.valid_id_url || body.valid_id_path) {
+              saved.valid_id_url = body.valid_id_url || saved.valid_id_url;
+              saved.valid_id_path = body.valid_id_path || saved.valid_id_path;
+              savePendingState(saved, fidPoll);
+            }
             if (body.is_sent_to_client) {
               saved.status = 'sent_to_client';
               savePendingState(saved, fidPoll);
@@ -1232,15 +2032,19 @@
           .catch(function () { });
       }
 
+      function ensureStatusPolling() {
+        stopPoll();
+        pollApprovalStatus();
+        pollTimer = setInterval(pollApprovalStatus, 5000);
+      }
+
       function startWaitingFlow(ref, state) {
         suppressTxQuickGuide();
         submittedRef = ref;
         if (state) applyFarmerContext(state);
         clearTransactionFormFields();
         applyWaitingUI(ref);
-        stopPoll();
-        pollApprovalStatus();
-        pollTimer = setInterval(pollApprovalStatus, 5000);
+        ensureStatusPolling();
       }
 
       function restorePendingOnLoad(farmerId) {
@@ -1258,12 +2062,10 @@
         clearTransactionFormFields();
         if (saved.status === 'sent_to_client') {
           applyReceiptSentUI(submittedRef, saved);
-          pollApprovalStatus();
           return;
         }
         if (saved.status === 'approved') {
           applyApprovedUI(submittedRef, saved);
-          pollApprovalStatus();
           return;
         }
         if (saved.status === 'dismissed') {
@@ -1282,20 +2084,8 @@
         return next;
       }
 
-      function initTransactionFromLinkOrStorage() {
+      function bootstrapTransactionFromRef(urlRef, activeFid) {
         var ctx = getActiveFarmerContext();
-        if (ctx) applyFarmerContext(ctx);
-        var activeFid = ctx && ctx.farmer_id ? String(ctx.farmer_id).trim() : '';
-
-        var params = new URLSearchParams(window.location.search);
-        var urlRef = params.get('ref');
-        urlRef = urlRef ? String(urlRef).trim() : '';
-        if (!urlRef) {
-          hidePendingStatusPanel();
-          restorePendingOnLoad(activeFid);
-          return;
-        }
-
         var saved = loadPendingState(activeFid);
         if (!saved || String(saved.reference_no) !== urlRef) {
           saved = buildStateFromForm({
@@ -1308,29 +2098,63 @@
           saved.farmer_id = ctx.farmer_id || saved.farmer_id;
           saved.farmer_name = ctx.farmer_name || saved.farmer_name;
         }
-        savePendingState(saved, activeFid);
-
         submittedRef = urlRef;
         clearTransactionFormFields();
+        applyFarmerContext(saved);
 
-        if (saved.status === 'sent_to_client') {
-          applyReceiptSentUI(submittedRef, saved);
-          pollApprovalStatus();
-          pollTimer = setInterval(pollApprovalStatus, 5000);
+        return fetch(
+          '/api/client-transaction/status?reference_no=' +
+          encodeURIComponent(urlRef),
+          { method: 'GET', headers: { Accept: 'application/json' } }
+        )
+          .then(function (r) { return r.json(); })
+          .then(function (body) {
+            if (!body || body.ok !== true) {
+              savePendingState(saved, activeFid);
+              startWaitingFlow(urlRef, saved);
           return;
         }
-        if (saved.status === 'approved') {
-          applyApprovedUI(submittedRef, saved);
-          pollApprovalStatus();
-          return;
-        }
-        if (saved.status === 'dismissed') {
-          applyDismissedUI(submittedRef);
-          pollApprovalStatus();
+            saved = mergeStatusFromApi(body, saved);
+            saved.reference_no = urlRef;
+            savePendingState(saved, activeFid);
+            if (body.is_sent_to_client) {
+              applyReceiptSentUI(urlRef, saved);
+            } else if (body.is_approved) {
+              applyApprovedUI(urlRef, saved);
+            } else if (body.is_dismissed) {
+              applyDismissedUI(urlRef);
+            } else {
+              startWaitingFlow(urlRef, saved);
+            }
+          })
+          .catch(function () {
+            savePendingState(saved, activeFid);
+            startWaitingFlow(urlRef, saved);
+          });
+      }
+
+      function initTransactionFromLinkOrStorage() {
+        var ctx = getActiveFarmerContext();
+        if (ctx) applyFarmerContext(ctx);
+        var activeFid = ctx && ctx.farmer_id ? String(ctx.farmer_id).trim() : '';
+
+        var params = new URLSearchParams(window.location.search);
+        var urlRef = params.get('ref');
+        urlRef = urlRef ? String(urlRef).trim() : '';
+        var isNewOrder = params.get('new') === '1';
+
+        if (isNewOrder && !urlRef) {
+          resetForFreshTransaction(activeFid);
           return;
         }
 
-        startWaitingFlow(submittedRef, saved);
+        if (!urlRef) {
+          archiveCompletedPending(activeFid);
+          restorePendingOnLoad(activeFid);
+          return;
+        }
+
+        bootstrapTransactionFromRef(urlRef, activeFid);
       }
 
       if (orderAgainBtn) {
@@ -1341,20 +2165,22 @@
 
       validIdInput.addEventListener('change', function () {
         if (this.files && this.files[0]) {
+          validIdSavedOnServer = false;
+          validIdInput.setAttribute('required', 'required');
           const reader = new FileReader();
           reader.onload = function (e) {
-            previewImg.src = e.target.result;
-            viewIdBtn.style.display = 'flex';
+            setValidIdPreview(e.target.result, { fromDb: false });
             var fidVid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
             var pending = loadPendingState(fidVid);
             if (pending && pending.reference_no) {
               pending.valid_id_preview = e.target.result;
+              pending.valid_id_url = '';
               savePendingState(pending, fidVid);
             }
           };
           reader.readAsDataURL(this.files[0]);
-        } else {
-          viewIdBtn.style.display = 'none';
+        } else if (!validIdSavedOnServer) {
+          clearValidIdPreview();
         }
       });
 
@@ -1379,21 +2205,39 @@
 
         const buyerName = document.getElementById('client-name').value.trim();
         const sched = document.getElementById('pickup-date').value;
-        const product = document.getElementById('product-type').value;
-        const quantity = document.getElementById('quantity-kg').value;
         const amount = amountInput.value;
+
+        var orderSummary;
+        try {
+          orderSummary = buildOrderSummary();
+          applyOrderSummaryToForm(orderSummary);
+        } catch (orderErr) {
+          alert(orderErr.message || 'Please complete your product selections.');
+          return;
+        }
+
+        const product = orderSummary.product_type;
+        const quantity = String(orderSummary.quantity_kg);
 
         const farmerCtx = getActiveFarmerContext();
         const farmerIdVal = farmerCtx && farmerCtx.farmer_id ? String(farmerCtx.farmer_id).trim() : '';
         if (!farmerIdVal || parseInt(farmerIdVal, 10) <= 0) {
-          alert('Please select a farmer from the dropdown before submitting.');
-          if (farmerSelectEl) farmerSelectEl.focus();
+          alert('Please search and select a farmer before submitting.');
+          if (farmerSearchInput) {
+            farmerSearchInput.classList.add('txn-farmer-search-input--invalid');
+            farmerSearchInput.focus();
+          } else if (farmerSelectEl) {
+            farmerSelectEl.focus();
+          }
           return;
         }
 
         const fd = new FormData(form);
         fd.set('payment_method', 'Cash');
         fd.set('farmer_id', farmerIdVal);
+        fd.set('product_type', product);
+        fd.set('quantity_kg', quantity);
+        fd.set('order_selections_json', JSON.stringify(orderSummary.order_selections));
         if (farmerCtx.farmer_name) {
           fd.set('farmer_name', farmerCtx.farmer_name);
         }
@@ -1402,44 +2246,52 @@
         btn.textContent = 'Submitting...';
 
         const postUrl = submitUrl.indexOf('http') === 0 ? submitUrl : submitUrl;
-        const directApi = appApiBase ? (appApiBase + '/api/client_transaction_submit.php') : '';
 
         function onSubmitOk(data) {
           submittedRef = (data && data.reference_no) ? String(data.reference_no) : '';
+          var savedFields = (data && data.saved_fields) || {};
+          var validPath = savedFields.valid_id_path || savedFields.valid_id_url || '';
+          var idPreview = '';
+          try {
+            if (previewImg && previewImg.src && previewImg.src.indexOf('data:image') === 0) {
+              idPreview = previewImg.src;
+            }
+          } catch (_pv) { }
           var state = buildTrackMeta({
             reference_no: submittedRef,
             status: 'pending',
+            farmer_id: farmerIdVal,
+            farmer_name: (farmerCtx && farmerCtx.farmer_name) || farmerNameValue(),
             client_name: buyerName,
             pickup_date: sched,
             product_type: product,
             quantity_kg: quantity,
-            payment_amount: amount
+            order_selections: orderSummary.order_selections,
+            payment_amount: amount,
+            valid_id_preview: idPreview,
+            valid_id_path: validPath,
+            valid_id_url: validPath ? validIdServeUrl(validPath) : ''
           });
           savePendingState(state, farmerIdVal);
           clearTransactionFormFields();
-          notifyTransactionSubmitted(submittedRef);
+          notifyTransactionSubmitted(submittedRef, state);
           startWaitingFlow(submittedRef, state);
         }
 
-        function tryProxy() {
-          return fetch(postUrl, { method: 'POST', body: fd }).then(function (r) { return r.json(); });
-        }
-
-        function tryDirect() {
-          if (!directApi) return Promise.reject(new Error('no direct api'));
-          return fetch(directApi, { method: 'POST', body: fd }).then(function (r) { return r.json(); });
-        }
-
-        tryProxy()
-          .catch(function () { return tryDirect(); })
-          .then(function (data) {
-            if (!data || data.ok !== true) {
+        fetch(postUrl, { method: 'POST', body: fd })
+          .then(function (r) {
+            return r.json().then(function (data) {
+              if (!r.ok || !data || data.ok !== true) {
               throw new Error((data && data.error) || 'Submit failed');
             }
+              return data;
+            });
+          })
+          .then(function (data) {
             onSubmitOk(data);
-            btn.disabled = true;
-            btn.textContent = 'Submitted';
-            btn.classList.add('status-waiting');
+            btn.disabled = false;
+            btn.textContent = 'Submit';
+            btn.classList.remove('status-waiting', 'status-approved');
           })
           .catch(function (err) {
             btn.disabled = false;
@@ -1467,7 +2319,9 @@
       }
 
       if (downloadReceiptBtn) {
-        downloadReceiptBtn.addEventListener('click', function () {
+        downloadReceiptBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
           ensureReceiptState();
           downloadReceiptFile();
         });
@@ -1479,7 +2333,9 @@
         });
       }
       if (modalDownloadBtn) {
-        modalDownloadBtn.addEventListener('click', function () {
+        modalDownloadBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
           ensureReceiptState();
           downloadReceiptFile();
         });
@@ -1495,6 +2351,9 @@
       });
 
       document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && waitingModal && waitingModal.style.display === 'flex') {
+          hideWaitingApprovalModal();
+        }
         if (e.key === 'Escape' && receiptModal && receiptModal.style.display === 'flex') {
           closeReceiptModal();
         }
@@ -1703,6 +2562,7 @@
       });
 
       initCalendar();
+      initFarmerSearch();
 
       if (farmerSelectEl) {
         farmerSelectEl.addEventListener('change', onFarmerSelectChange);
@@ -1724,7 +2584,7 @@
       <h3 class="txn-tutorial-title" id="txn-tutorial-title">How to transact</h3>
       <p class="txn-tutorial-text" id="txn-tutorial-text"></p>
       <ul class="txn-tutorial-checklist" id="txn-tutorial-checklist" hidden>
-        <li>Select a <strong>farmer</strong> from the dropdown at the top of the form</li>
+        <li>Search or select a <strong>farmer</strong> from the field at the top of the form</li>
         <li>Enter <strong>your name</strong> and upload a <strong>valid ID</strong></li>
         <li>Choose <strong>pick-up date</strong>, <strong>product</strong>, and <strong>quantity (KG)</strong></li>
         <li>Select <strong>Cash</strong>, enter the amount, then tap <strong>Submit</strong></li>
@@ -1745,9 +2605,11 @@
       farmerId: {{ farmer_id or 0 }}
     };
   </script>
-  <script src="{{ url_for('static', filename='js/transaction_tutorial.js') }}?v=20260608-tx-guide-once"></script>
-  <script src="{{ url_for('static', filename='js/notifications.js') }}?v=20260604-notif-icon-design"></script>
-  <script src="{{ url_for('static', filename='js/client_tx_watch.js') }}?v=20260524-txnotif3"></script>
+  <script src="{{ url_for('static', filename='js/transaction_tutorial.js') }}?v=20260720-tx-guide-design"></script>
+  {% include 'partials/header_notif_panel.html' %}
+  <script src="{{ url_for('static', filename='js/client_tx_storage.js') }}?v=20260610-actions"></script>
+  <script src="{{ url_for('static', filename='js/notifications.js') }}?v=20260610-actions"></script>
+  <script src="{{ url_for('static', filename='js/client_tx_watch.js') }}?v=20260610-actions"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   {% include 'partials/page_loading.html' %}
 </body>

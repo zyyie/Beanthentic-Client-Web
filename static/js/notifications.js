@@ -2,6 +2,13 @@
   const NOTIF_LIST_KEY = "beanthentic_notifications";
   const READ_KEY = "beanthentic_notifications_read";
 
+  function farmerLabel(extra) {
+    const name = String(
+      (extra && (extra.farmer_name || extra.farmerName)) || ""
+    ).trim();
+    return name || "The farmer";
+  }
+
   function loadNotifRoutes() {
     try {
       const el = document.getElementById("beanthentic-notif-routes");
@@ -129,10 +136,15 @@
     return true;
   }
 
-  function markRead(id) {
+  function markNotificationRead(id) {
+    if (!id) return;
     const readIds = loadReadIds();
-    readIds.add(id);
+    readIds.add(String(id));
     saveReadIds(readIds);
+  }
+
+  function markRead(id) {
+    markNotificationRead(id);
   }
 
   function markAllRead() {
@@ -307,10 +319,10 @@
   }
 
   function renderList() {
-    if (!uiRoot) return;
-    const list = uiRoot.querySelector("[data-notif-list]");
-    const badge = uiRoot.querySelector("[data-notif-badge]");
-    const empty = uiRoot.querySelector("[data-notif-empty]");
+    if (!uiRoot) uiRoot = document.querySelector("[data-notif-root]");
+    const list = document.querySelector("[data-notif-list]");
+    const badge = uiRoot?.querySelector("[data-notif-badge]");
+    const empty = document.querySelector("[data-notif-empty]");
     if (!list) return;
 
     list.innerHTML = "";
@@ -343,6 +355,7 @@
     pushTransactionSubmitted(referenceNo, extra) {
       const ref = String(referenceNo || "").trim();
       if (!ref) return false;
+      const farmer = farmerLabel(extra);
       const txBase = loadNotifRoutes().transaction || "/transaction";
       const added = pushNotification({
         id: "tx-submitted-" + ref,
@@ -350,7 +363,7 @@
         title: "Transaction submitted",
         text:
           (extra && extra.text) ||
-          `Your request was sent (Ref: ${ref}). We will notify you when the farmer approves it.`,
+          `Your request was sent to ${farmer} (Ref: ${ref}). We will notify you when they approve it.`,
         time: "Just now",
         datetime: new Date().toISOString(),
         href: txBase + "?ref=" + encodeURIComponent(ref),
@@ -362,13 +375,14 @@
     pushTransactionApproved(referenceNo, extra) {
       const ref = String(referenceNo || "").trim();
       if (!ref) return false;
+      const farmer = farmerLabel(extra);
       const added = pushNotification({
         id: "tx-approved-" + ref,
         kind: "transaction",
         title: "Transaction approved",
         text:
           (extra && extra.text) ||
-          `The farmer approved your transaction (Ref: ${ref}). Waiting for the official receipt.`,
+          `${farmer} approved your transaction (Ref: ${ref}). Waiting for the official receipt.`,
         time: "Just now",
         datetime: new Date().toISOString(),
         href:
@@ -383,19 +397,22 @@
     pushTransactionReceiptSent(referenceNo, extra) {
       const ref = String(referenceNo || "").trim();
       if (!ref) return false;
+      const farmer = farmerLabel(extra);
+      const txBase = loadNotifRoutes().transaction || "/transaction";
       const added = pushNotification({
         id: "tx-receipt-" + ref,
         kind: "transaction",
         title: "Receipt sent",
         text:
           (extra && extra.text) ||
-          `The farmer sent your official receipt (Ref: ${ref}). Tap to view your receipt.`,
+          `${farmer} sent your official receipt (Ref: ${ref}). Tap to view your receipt.`,
         time: "Just now",
         datetime: new Date().toISOString(),
         href:
-          (loadNotifRoutes().transaction || "/transaction") +
+          normalizeHref(txBase) +
           "?ref=" +
-          encodeURIComponent(ref),
+          encodeURIComponent(ref) +
+          "&view=receipt",
         reference_no: ref,
       });
       renderList();
@@ -418,10 +435,11 @@
         approved: "Transaction approved",
         receipt: "Receipt sent",
       };
+      const farmer = farmerLabel(extra);
       const texts = {
-        submitted: "Ref " + ref + " — waiting for farmer approval.",
-        approved: "Ref " + ref + " — farmer approved your request.",
-        receipt: "Ref " + ref + " — tap to view your receipt.",
+        submitted: "Ref " + ref + " — waiting for " + farmer + " to approve.",
+        approved: "Ref " + ref + " — " + farmer + " approved your request.",
+        receipt: "Ref " + ref + " — " + farmer + " sent your receipt.",
       };
       if (showToast) {
         showToast({
@@ -438,11 +456,26 @@
       markAllRead();
       renderList();
     },
+    markNotificationRead(id) {
+      markNotificationRead(id);
+      renderList();
+    },
     list: mergeNotifications,
     refresh: renderList,
   };
 
   let uiBound = false;
+
+  function portalNotifOverlay() {
+    const panel = document.getElementById("notif-panel");
+    const backdrop = document.getElementById("notif-backdrop");
+    if (panel && panel.parentElement !== document.body) {
+      document.body.appendChild(panel);
+    }
+    if (backdrop && backdrop.parentElement !== document.body) {
+      document.body.appendChild(backdrop);
+    }
+  }
 
   function bindNotificationUi() {
     if (uiBound) {
@@ -453,16 +486,24 @@
     if (!uiRoot) return false;
 
     const toggle = uiRoot.querySelector("#notif-toggle");
-    const panel = uiRoot.querySelector("#notif-panel");
-    const markReadBtn = uiRoot.querySelector("[data-notif-mark-read]");
-    const list = uiRoot.querySelector("[data-notif-list]");
+    const panel = document.getElementById("notif-panel");
+    const backdrop = document.getElementById("notif-backdrop");
+    const markReadBtn = panel?.querySelector("[data-notif-mark-read]");
+    const list = panel?.querySelector("[data-notif-list]");
 
     if (!toggle || !panel || !list) return false;
+
+    portalNotifOverlay();
 
     function setPanelOpen(open) {
       panel.hidden = !open;
       toggle.setAttribute("aria-expanded", open ? "true" : "false");
       panel.classList.toggle("is-open", open);
+      document.body.classList.toggle("notif-panel-open", open);
+      if (backdrop) {
+        backdrop.hidden = !open;
+        backdrop.setAttribute("aria-hidden", open ? "false" : "true");
+      }
       if (open) renderList();
     }
 
@@ -470,37 +511,56 @@
       const target = normalizeHref(href);
       if (!item || !target) return;
       const id = item.getAttribute("data-notif-id");
-      if (id) markRead(id);
+      if (id) {
+        markNotificationRead(id);
+        item.classList.remove("is-unread");
+        item.classList.add("is-read");
+        renderList();
+      }
       setPanelOpen(false);
-      renderList();
       window.location.assign(target);
     }
 
     toggle.addEventListener("click", (e) => {
+      e.preventDefault();
       e.stopPropagation();
       setPanelOpen(panel.hasAttribute("hidden"));
     });
 
     markReadBtn?.addEventListener("click", (e) => {
+      e.preventDefault();
       e.stopPropagation();
       window.BeanthenticNotifs.markAllRead();
     });
 
-    list.addEventListener("click", (e) => {
-      const card = e.target.closest("[data-notif-view]");
-      if (!card) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const item = card.closest(".header-notif-item");
-      const href =
-        card.getAttribute("href") ||
-        item?.getAttribute("data-notif-href") ||
-        "";
-      navigateFromNotification(item, href);
+    backdrop?.addEventListener("click", () => {
+      setPanelOpen(false);
     });
 
+    list.addEventListener(
+      "click",
+      (e) => {
+        const card = e.target.closest("[data-notif-view]");
+        if (!card) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const item = card.closest(".header-notif-item");
+        const href =
+          card.getAttribute("href") ||
+          item?.getAttribute("data-notif-href") ||
+          "";
+        navigateFromNotification(item, href);
+      },
+      true
+    );
+
     document.addEventListener("click", (e) => {
-      if (!uiRoot.contains(e.target)) setPanelOpen(false);
+      if (panel.hasAttribute("hidden")) return;
+      const t = e.target;
+      if (toggle === t || toggle.contains(t)) return;
+      if (panel.contains(t)) return;
+      if (backdrop && (backdrop === t || backdrop.contains(t))) return;
+      setPanelOpen(false);
     });
 
     document.addEventListener("keydown", (e) => {
@@ -513,8 +573,11 @@
     return true;
   }
 
+  portalNotifOverlay();
+
   if (!bindNotificationUi()) {
     document.addEventListener("DOMContentLoaded", function () {
+      portalNotifOverlay();
       bindNotificationUi();
     });
   }

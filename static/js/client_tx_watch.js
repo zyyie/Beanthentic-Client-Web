@@ -5,39 +5,28 @@
 (function () {
   "use strict";
 
-  const STORAGE_KEY_LEGACY = "beanthentic_client_pending_tx";
-  const POLL_MS = 8000;
-
-  function apiBase() {
-    return String(window.__BEANTHENTIC_APP_SERVER_BASE__ || "").replace(/\/+$/, "");
-  }
+  const STORAGE_KEY_LEGACY =
+    (window.BeanthenticTxStorage && window.BeanthenticTxStorage.STORAGE_KEY_LEGACY) ||
+    "beanthentic_client_pending_tx";
+  const POLL_MS = 5000;
 
   function pendingStorageKey(farmerId) {
+    if (window.BeanthenticTxStorage && window.BeanthenticTxStorage.pendingStorageKey) {
+      return window.BeanthenticTxStorage.pendingStorageKey(farmerId);
+    }
     const fid = String(farmerId || "").trim();
     return fid ? STORAGE_KEY_LEGACY + "_f" + fid : STORAGE_KEY_LEGACY;
   }
 
-  function loadPending() {
-    try {
-      const tryRaw = function (key) {
-        const raw =
-          sessionStorage.getItem(key) || localStorage.getItem(key);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed || !parsed.reference_no) return null;
-        return parsed;
-      };
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.indexOf(STORAGE_KEY_LEGACY) === 0) {
-          const hit = tryRaw(k);
-          if (hit) return hit;
-        }
-      }
-      return tryRaw(STORAGE_KEY_LEGACY);
-    } catch {
-      return null;
-    }
+  function loadAllPending() {
+    const list =
+      window.BeanthenticTxStorage && window.BeanthenticTxStorage.readAllPendingTx
+        ? window.BeanthenticTxStorage.readAllPendingTx()
+        : [];
+    return list.filter(function (pending) {
+      const status = String(pending.status || "pending");
+      return status !== "dismissed" && status !== "sent_to_client";
+    });
   }
 
   function savePending(state) {
@@ -51,14 +40,13 @@
     }
   }
 
-  function notify(type, ref) {
+  function notify(type, ref, extra) {
     const N = window.BeanthenticNotifs;
     if (!N || !N.notifyTransactionEvent) return;
-    N.notifyTransactionEvent(type, ref);
+    N.notifyTransactionEvent(type, ref, extra);
   }
 
-  function pollOnce() {
-    const pending = loadPending();
+  function pollPending(pending) {
     if (!pending || !pending.reference_no) return;
 
     const ref = String(pending.reference_no).trim();
@@ -77,12 +65,24 @@
           reference_no: ref,
           status: pending.status || "pending",
         });
+        if (body.farmer_name) {
+          next.farmer_name = String(body.farmer_name).trim();
+        }
+        if (body.farmer_id != null && body.farmer_id !== "") {
+          next.farmer_id = String(body.farmer_id);
+        }
+        if (body.buyer_name) {
+          next.client_name = String(body.buyer_name).trim();
+        }
+        const notifyExtra = {
+          farmer_name: next.farmer_name || pending.farmer_name || "",
+        };
 
         if (body.is_sent_to_client) {
           if (next.status !== "sent_to_client") {
             next.status = "sent_to_client";
             savePending(next);
-            notify("receipt", ref);
+            notify("receipt", ref, notifyExtra);
           }
           return;
         }
@@ -91,7 +91,7 @@
           if (next.status !== "approved" && next.status !== "sent_to_client") {
             next.status = "approved";
             savePending(next);
-            notify("approved", ref);
+            notify("approved", ref, notifyExtra);
           }
           return;
         }
@@ -102,6 +102,12 @@
         }
       })
       .catch(function () {});
+  }
+
+  function pollOnce() {
+    const pendings = loadAllPending();
+    if (!pendings.length) return;
+    pendings.forEach(pollPending);
   }
 
   function start() {

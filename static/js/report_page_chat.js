@@ -8,12 +8,15 @@
   const reporterNameEl = document.getElementById("report-reporter-name");
   const reporterContactEl = document.getElementById("report-reporter-contact");
   const farmerSelectEl = document.getElementById("report-farmer-select");
+  const reportStatusCard = document.getElementById("report-status-card");
+  const reportStatusValue = document.getElementById("report-status-value");
+  const reportStatusNote = document.getElementById("report-status-note");
+  const reportStatusId = document.getElementById("report-status-id");
 
   if (!form || !input || !body || !details || !quickOptions) return;
 
   const reasonsList = document.querySelector(".report-reasons");
   const DETAILS_ANIM_MS = 320;
-  const STORAGE_KEY = "beanthentic_client_pending_tx";
   const SUBMIT_URL =
     window.BEANTHENTIC_REPORT_SUBMIT_URL || "/api/client-report/submit";
   const FARMERS_URL =
@@ -31,6 +34,7 @@
   };
 
   let farmersLoadTimer = null;
+  let reportStatusTimer = null;
 
   const PRESET_OPTIONS = {
     "Overcharged or unfair pricing": [
@@ -66,21 +70,25 @@
   };
 
   function readTxStorage() {
-    try {
-      const raw =
-        sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
+    if (window.BeanthenticTxStorage && window.BeanthenticTxStorage.readLatestPendingTx) {
+      return window.BeanthenticTxStorage.readLatestPendingTx();
     }
+    return null;
+  }
+
+  function clientNameFromTx(tx) {
+    if (window.BeanthenticTxStorage && window.BeanthenticTxStorage.clientNameFromPending) {
+      return window.BeanthenticTxStorage.clientNameFromPending(tx);
+    }
+    if (!tx) return "";
+    return String(tx.client_name || tx.buyer_name || tx.buyer || "").trim();
   }
 
   function prefillReporterFields() {
     const tx = readTxStorage();
     if (reporterNameEl && !reporterNameEl.value.trim()) {
-      const name =
-        (tx && (tx.client_name || tx.buyer || tx.buyer_name)) || "";
-      if (name) reporterNameEl.value = String(name).trim();
+      const name = clientNameFromTx(tx);
+      if (name) reporterNameEl.value = name;
     }
     scheduleLoadTransactionFarmers();
   }
@@ -281,12 +289,22 @@
         throw new Error(data.error || `HTTP ${res.status}`);
       }
       state.submitted = true;
+      if (data.report_id) {
+        showReportStatus(data.report_id, data.status || "under review", "Your report is in the Beanthentic moderation queue.");
+      }
       body.lastElementChild?.remove();
-      addMessage(
+      const successText =
         data.message ||
-          "Your report was submitted. Our team will review it. Thank you.",
-        "bot"
-      );
+        "Your report was submitted. Our team will review it. Thank you.";
+      addMessage(successText, "bot");
+      if (window.BeanthenticNotifs && window.BeanthenticNotifs.showToast) {
+        window.BeanthenticNotifs.showToast({
+          title: "Report submitted",
+          text: successText,
+          type: "success",
+          durationMs: 6000,
+        });
+      }
       setTypingEnabled(false);
       return true;
     } catch (err) {
@@ -300,6 +318,25 @@
       state.submitting = false;
       if (!state.submitted && sendBtn) sendBtn.disabled = input.disabled;
     }
+  }
+
+  function showReportStatus(reportId, status, note) {
+    if (!reportStatusCard) return;
+    reportStatusCard.hidden = false;
+    if (reportStatusId) reportStatusId.textContent = String(reportId);
+    if (reportStatusValue) reportStatusValue.textContent = String(status || "under review").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    if (reportStatusNote) reportStatusNote.textContent = note || "Your report is in the Beanthentic moderation queue.";
+    window.clearInterval(reportStatusTimer);
+    reportStatusTimer = window.setInterval(function () {
+      fetch("/api/client-report/status?report_id=" + encodeURIComponent(reportId), { headers: { Accept: "application/json" } })
+        .then(function (res) { return res.json(); })
+        .then(function (body) {
+          if (!body || body.ok !== true) return;
+          showReportStatus(body.report_id, body.status, body.resolution_note || "Your report is in the Beanthentic moderation queue.");
+          if (body.status === "resolved" || body.status === "dismissed") window.clearInterval(reportStatusTimer);
+        })
+        .catch(function () {});
+    }, 5000);
   }
 
   function setTypingEnabled(enabled) {

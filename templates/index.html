@@ -77,7 +77,7 @@
         </svg>
         <h3>MISSION &amp; VISION</h3>
       </a>
-      <a class="card transaction-card" href="{{ url_for('transaction') }}" aria-label="Open Transaction">
+      <a class="card transaction-card" href="{{ url_for('transaction') }}?new=1" aria-label="Open Transaction">
         <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round">
           <rect x="2" y="4" width="20" height="16" rx="2" />
@@ -145,11 +145,13 @@
     </section>
 
   </main>
+  {% include 'partials/header_notif_panel.html' %}
   <script>
     window.__BEANTHENTIC_APP_SERVER_BASE__ = {{ app_server_base | tojson }};
   </script>
-  <script src="{{ url_for('static', filename='js/notifications.js') }}?v=20260604-notif-icon-design"></script>
-  <script src="{{ url_for('static', filename='js/client_tx_watch.js') }}?v=20260524-txnotif3"></script>
+  <script src="{{ url_for('static', filename='js/client_tx_storage.js') }}?v=20260610-actions"></script>
+  <script src="{{ url_for('static', filename='js/notifications.js') }}?v=20260610-actions"></script>
+  <script src="{{ url_for('static', filename='js/client_tx_watch.js') }}?v=20260610-actions"></script>
   {% include 'partials/page_loading.html' %}
 </body>
 

@@ -17,9 +17,29 @@ _FARMER_UPLOADS_DIR = _BASE_DIR / "uploads" / "farmers"
 _IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".gif")
 
 
+def _app_server_bases() -> list[str]:
+    bases: list[str] = []
+    settings_path = _BASE_DIR / "settings.json"
+    settings_base = ""
+    try:
+        import json
+
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+        settings_base = str((data.get("connection") or {}).get("app_server_base") or "").strip()
+    except (OSError, json.JSONDecodeError, AttributeError):
+        settings_base = ""
+    for raw in (os.getenv("BEANTHENTIC_APP_SERVER_BASE", "").strip(), settings_base):
+        if not raw:
+            continue
+        base = raw.rstrip("/")
+        if base and base not in bases:
+            bases.append(base)
+    return bases
+
+
 def _app_server_base() -> str:
-    base = (os.getenv("BEANTHENTIC_APP_SERVER_BASE") or "").strip()
-    return base.rstrip("/") if base else ""
+    bases = _app_server_bases()
+    return bases[0] if bases else ""
 
 
 def _app_assets_roots() -> list[Path]:
@@ -256,19 +276,16 @@ def _read_http_image(url: str, farmer_id: int = 0) -> tuple[bytes, str] | None:
 
 
 def _supabase_public_urls(profile_photo: str, farmer_id: int) -> list[str]:
-    raw = str(profile_photo or "").strip()
     urls: list[str] = []
+    for name in _profile_storage_object_names(profile_photo, farmer_id):
+        public = beanthentic_env.supabase_storage_public_url(name)
+        if public:
+            urls.append(public)
+    raw = str(profile_photo or "").strip()
     if raw.startswith(("http://", "https://")):
-        urls.append(raw)
-    name = Path(raw).name if raw else ""
-    fid = int(farmer_id or 0)
-    if not name and fid > 0:
-        name = f"farmer_{fid}.jpg"
-    if name:
-        for suffix in (name, f"farmers/{name}", f"uploads/farmers/{name}"):
-            public = beanthentic_env.supabase_storage_public_url(suffix)
-            if public:
-                urls.append(public)
+        cleaned = raw.split("?")[0]
+        if cleaned and cleaned not in urls:
+            urls.append(cleaned)
     seen: set[str] = set()
     out: list[str] = []
     for url in urls:
@@ -276,6 +293,59 @@ def _supabase_public_urls(profile_photo: str, farmer_id: int) -> list[str]:
             seen.add(url)
             out.append(url)
     return out
+
+
+def _profile_storage_object_names(profile_photo: str, farmer_id: int) -> list[str]:
+    """Supabase Storage object keys to try for a farmer (DB path + standard layouts)."""
+    fid = int(farmer_id or 0)
+    raw = str(profile_photo or "").strip()
+    names: list[str] = []
+
+    if raw.startswith(("http://", "https://")):
+        cleaned = raw.split("?")[0]
+        marker = "/storage/v1/object/public/"
+        if marker in cleaned:
+            after = cleaned.split(marker, 1)[1]
+            parts = after.split("/", 1)
+            if len(parts) == 2:
+                names.append(parts[1].lstrip("/"))
+        basename = Path(cleaned).name
+        if basename:
+            names.append(basename)
+            if "/farmers/" in cleaned:
+                names.append(f"farmers/{basename}")
+    elif raw:
+        cleaned = raw.lstrip("/").replace("\\", "/")
+        if cleaned:
+            names.append(cleaned)
+            basename = Path(cleaned).name
+            if basename:
+                names.append(basename)
+                if not cleaned.startswith("farmers/"):
+                    names.append(f"farmers/{basename}")
+
+    if fid > 0:
+        for ext in _IMAGE_EXTS:
+            names.extend(
+                (
+                    f"farmers/farmer_{fid}{ext}",
+                    f"uploads/farmers/farmer_{fid}{ext}",
+                    f"farmer_{fid}{ext}",
+                )
+            )
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for name in names:
+        key = str(name or "").strip().lstrip("/")
+        if key and key not in seen:
+            seen.add(key)
+            out.append(key)
+    return out
+
+
+def _object_names_from_profile(profile_photo: str, farmer_id: int) -> list[str]:
+    return _profile_storage_object_names(profile_photo, farmer_id)
 
 
 def _fetch_supabase_storage_photo(profile_photo: str, farmer_id: int) -> tuple[bytes, str] | None:
@@ -286,24 +356,111 @@ def _fetch_supabase_storage_photo(profile_photo: str, farmer_id: int) -> tuple[b
     return None
 
 
-def _fetch_remote_photo(profile_photo: str, farmer_id: int) -> tuple[bytes, str] | None:
-    base = _app_server_base()
-    fid = int(farmer_id or 0)
-    if not base and not str(profile_photo or "").startswith(("http://", "https://")):
+def _download_supabase_object(object_name: str, farmer_id: int = 0) -> tuple[bytes, str] | None:
+    base = beanthentic_env.supabase_project_url()
+    key = beanthentic_env.supabase_service_role_key()
+    bucket = beanthentic_env.supabase_storage_bucket()
+    name = str(object_name or "").strip().lstrip("/")
+    if not base or not key or not bucket or not name:
+        return None
+    url = f"{base}/storage/v1/object/{bucket}/{name}"
+    try:
+        req = Request(
+            url,
+            headers={"Authorization": f"Bearer {key}", "apikey": key, "Accept": "image/*"},
+        )
+        with urlopen(req, timeout=12) as resp:
+            data = resp.read()
+            if len(data) < 64:
+                return None
+            ctype = str(resp.headers.get("Content-Type") or _mime_from_bytes(data)).split(";")[0].strip()
+            if farmer_id > 0:
+                _cache_remote_photo(farmer_id, data, ctype)
+            return data, ctype
+    except (HTTPError, URLError, TimeoutError, OSError, ValueError):
         return None
 
-    if base and fid > 0:
-        admin = _read_http_image(f"{base}/api/admin_farmer_profile_photo.php?farmer_id={fid}", fid)
-        if admin:
-            return admin
 
+_storage_names_cache: set[str] | None = None
+
+
+def refresh_supabase_storage_cache(names: set[str] | None = None) -> set[str]:
+    """Cache Storage object names to avoid HTTP probes on every page view."""
+    global _storage_names_cache
+    if names is not None:
+        _storage_names_cache = set(names)
+        return _storage_names_cache
+    try:
+        from config.farmer_photo_sync import _storage_object_names
+
+        _storage_names_cache = _storage_object_names()
+    except Exception:
+        _storage_names_cache = set()
+    return _storage_names_cache
+
+
+def supabase_public_photo_url(farmer_id: int, profile_photo: str = "") -> str:
+    """Return public Supabase Storage URL when the object exists for this farmer."""
+    fid = int(farmer_id or 0)
+    if fid <= 0:
+        return ""
     raw = str(profile_photo or "").strip()
+    stored = refresh_supabase_storage_cache()
+    for name in _profile_storage_object_names(raw, fid):
+        if name in stored:
+            return beanthentic_env.supabase_storage_public_url(name) or ""
+    if raw.startswith(("http://", "https://")) and "supabase.co/storage/" in raw:
+        return raw.split("?")[0]
+    return ""
+
+
+_app_server_reachable_cache: bool | None = None
+
+
+def _any_app_server_reachable() -> bool:
+    global _app_server_reachable_cache
+    if _app_server_reachable_cache is not None:
+        return _app_server_reachable_cache
+    ok = False
+    for base in _app_server_bases():
+        try:
+            req = Request(f"{base}/", headers={"Accept": "*/*"})
+            with urlopen(req, timeout=2) as resp:
+                if resp.status < 500:
+                    ok = True
+                    break
+        except (HTTPError, URLError, TimeoutError, OSError, ValueError):
+            continue
+    _app_server_reachable_cache = ok
+    return ok
+
+
+def _fetch_remote_photo(profile_photo: str, farmer_id: int) -> tuple[bytes, str] | None:
+    fid = int(farmer_id or 0)
+    bases = _app_server_bases()
+    raw = str(profile_photo or "").strip()
+
+    for base in bases:
+        if fid > 0:
+            admin = _read_http_image(
+                f"{base}/api/admin_farmer_profile_photo.php?farmer_id={fid}", fid
+            )
+            if admin:
+                return admin
+        if raw and not raw.startswith(("http://", "https://", "data:image/")):
+            got = _read_http_image(f"{base}/{raw.lstrip('/')}", fid)
+            if got:
+                return got
+        if fid > 0:
+            for ext in _IMAGE_EXTS:
+                got = _read_http_image(f"{base}/uploads/farmers/farmer_{fid}{ext}", fid)
+                if got:
+                    return got
+
     if raw.startswith(("http://", "https://")):
-        return _read_http_image(raw, fid)
-    if base and raw:
-        return _read_http_image(f"{base}/{raw.lstrip('/')}", fid)
-    if base and fid > 0:
-        return _read_http_image(f"{base}/uploads/farmers/farmer_{fid}.jpg", fid)
+        got = _read_http_image(raw, fid)
+        if got:
+            return got
     return None
 
 
@@ -316,7 +473,27 @@ def get_farmer_profile_photo(farmer_id: int) -> tuple[bytes, str] | None:
     profile_photo = str((row or {}).get("profile_photo") or "").strip()
     first, last = _split_name(row or {})
 
+    # Legacy DB path with no Supabase file — skip slow network probes.
+    if profile_photo.startswith("/uploads/") and not supabase_public_photo_url(
+        fid, profile_photo
+    ):
+        for path in _local_candidate_paths(fid, profile_photo):
+            if not path.is_file() or _is_stale_local_file(path, row):
+                continue
+            data = path.read_bytes()
+            if len(data) > 32:
+                return data, _guess_mimetype(path)
+        return build_farmer_avatar_svg(first, last), "image/svg+xml"
+
+    if not profile_photo:
+        return build_farmer_avatar_svg(first, last), "image/svg+xml"
+
     # 1) Supabase Storage / public URL stored in farmers.profile_photo
+    canonical = supabase_public_photo_url(fid, profile_photo)
+    if canonical:
+        remote_url = _read_http_image(canonical, fid)
+        if remote_url:
+            return remote_url
     if profile_photo.startswith(("http://", "https://")):
         remote_url = _read_http_image(profile_photo, fid)
         if remote_url:
@@ -326,10 +503,21 @@ def get_farmer_profile_photo(farmer_id: int) -> tuple[bytes, str] | None:
     if supabase:
         return supabase
 
-    # 2) App server (same path saved in Supabase during farmer registration)
-    remote = _fetch_remote_photo(profile_photo, fid)
-    if remote:
-        return remote
+    for name in _profile_storage_object_names(profile_photo, fid):
+        authed = _download_supabase_object(name, fid)
+        if authed:
+            return authed
+
+    # Skip slow offline app-server lookups when DB already points at Supabase or legacy paths.
+    raw = profile_photo
+    if raw.startswith(("http://", "https://")) and "supabase.co/storage/" in raw:
+        pass
+    elif raw.startswith("/uploads/") or not raw:
+        pass
+    else:
+        remote = _fetch_remote_photo(profile_photo, fid)
+        if remote:
+            return remote
 
     # 3) Local files only when they match this farmer's registration time
     for path in _local_candidate_paths(fid, profile_photo):

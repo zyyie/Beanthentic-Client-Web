@@ -179,6 +179,7 @@ def submit_client_report(body: dict) -> tuple[dict, int]:
             "ok": True,
             "report_id": report_id,
             "id": report_id,
+            "status": "under review",
             "message": "Your report was submitted. Our team will review it.",
         }, 200
     except Exception as exc:
@@ -188,6 +189,66 @@ def submit_client_report(body: dict) -> tuple[dict, int]:
             except Exception:
                 pass
         return {"ok": False, "error": f"client_report_submit failed: {exc}"}, 500
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_client_report_status(report_id: int) -> tuple[dict, int]:
+    rid = int(report_id or 0)
+    if rid <= 0:
+        return {"ok": False, "error": "report_id is required."}, 400
+
+    conn = None
+    try:
+        conn = beanthentic_env.connect()
+        cur = conn.cursor()
+        if beanthentic_env.is_postgresql():
+            cur.execute(
+                """
+                SELECT column_name FROM information_schema.columns
+                WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'client_misconduct_report'
+                """
+            )
+        else:
+            cur.execute(
+                """
+                SELECT COLUMN_NAME AS column_name FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'client_misconduct_report'
+                """
+            )
+        columns = {
+            str(row.get("column_name") or row.get("COLUMN_NAME") or "").lower()
+            for row in cur.fetchall() or []
+        }
+        note_columns = [
+            name for name in ("resolution_note", "resolution_notes", "admin_note", "review_note")
+            if name in columns
+        ]
+        select_columns = ["report_id", "status"] + note_columns
+        cur.execute(
+            f"SELECT {', '.join(select_columns)} FROM client_misconduct_report WHERE report_id = %s LIMIT 1",
+            (rid,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return {"ok": False, "error": "Report not found."}, 404
+        status = str(row.get("status") or "under review").strip().lower().replace("_", " ")
+        if status not in ("pending", "under review", "resolved", "dismissed"):
+            status = "under review"
+        note = ""
+        for name in note_columns:
+            note = str(row.get(name) or "").strip()
+            if note:
+                break
+        return {
+            "ok": True,
+            "report_id": rid,
+            "status": status,
+            "resolution_note": note,
+        }, 200
+    except Exception as exc:
+        return {"ok": False, "error": f"client_report_status failed: {exc}"}, 500
     finally:
         if conn:
             conn.close()

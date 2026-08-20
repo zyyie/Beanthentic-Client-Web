@@ -5,11 +5,13 @@ import html
 import json
 import random
 import re
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import beanthentic_env
+from config.client_valid_id import display_url_for_stored, valid_id_from_row
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
 _CLIENT_ID_UPLOADS_DIR = _BASE_DIR / "uploads" / "client_ids"
@@ -50,13 +52,118 @@ def _customer_tx_columns(cur) -> set[str]:
     return out
 
 
+_BEAN_FORM_LABELS = {"gcb": "Green Coffee Bean (GCB)", "roasted": "Roasted Beans"}
+
+_ORDER_DETAIL_COLUMNS: dict[str, tuple[str, str]] = {
+    "coffee_variety": ("VARCHAR(32)", "VARCHAR(32)"),
+    "bean_form": ("VARCHAR(20)", "VARCHAR(20)"),
+    "bean_form_label": ("VARCHAR(80)", "VARCHAR(80)"),
+    "classification": ("VARCHAR(80)", "VARCHAR(80)"),
+    "quantity_pack": ("VARCHAR(20)", "VARCHAR(20)"),
+    "quantity_label": ("VARCHAR(40)", "VARCHAR(40)"),
+}
+
+
+def ensure_customer_transaction_order_columns(cur) -> set[str]:
+    """Add order-detail columns if missing; return current column names."""
+    cols = _customer_tx_columns(cur)
+    pg = beanthentic_env.is_postgresql()
+    for name, (pg_type, mysql_type) in _ORDER_DETAIL_COLUMNS.items():
+        if name in cols:
+            continue
+        col_type = pg_type if pg else mysql_type
+        if pg:
+            cur.execute(f"ALTER TABLE customer_transaction ADD COLUMN IF NOT EXISTS {name} {col_type}")
+        else:
+            cur.execute(f"ALTER TABLE customer_transaction ADD COLUMN {name} {col_type} NULL")
+        cols.add(name)
+    return cols
+
+
+def _order_details_from_form_json(raw: Any) -> dict:
+    if not raw:
+        return {}
+    try:
+        payload = json.loads(raw) if isinstance(raw, str) else dict(raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    selections = payload.get("order_selections")
+    if not isinstance(selections, dict):
+        return {}
+    return _normalize_order_selections(selections)
+
+
+def _normalize_order_selections(raw: dict) -> dict:
+    s = dict(raw or {})
+    if not s.get("product") and s.get("coffee_type"):
+        s["product"] = s["coffee_type"]
+    if not s.get("coffee_variety") and s.get("product"):
+        s["coffee_variety"] = s["product"]
+    if not s.get("bean_form") and s.get("bean_type"):
+        s["bean_form"] = s["bean_type"]
+    if not s.get("bean_form_label") and s.get("bean_type_label"):
+        s["bean_form_label"] = s["bean_type_label"]
+    bean_form = str(s.get("bean_form") or "").strip()
+    if bean_form and not s.get("bean_form_label"):
+        s["bean_form_label"] = _BEAN_FORM_LABELS.get(bean_form, "")
+    return {
+        "coffee_variety": str(s.get("coffee_variety") or s.get("product") or "").strip() or None,
+        "product": str(s.get("product") or s.get("coffee_variety") or "").strip() or None,
+        "bean_form": bean_form or None,
+        "bean_form_label": str(s.get("bean_form_label") or "").strip() or None,
+        "classification": str(s.get("classification") or "").strip() or None,
+        "quantity_pack": str(s.get("quantity_pack") or "").strip() or None,
+        "quantity_kg": s.get("quantity_kg"),
+        "quantity_label": str(s.get("quantity_label") or "").strip() or None,
+        "price": s.get("price"),
+    }
+
+
+def _order_row_fields(order: dict) -> dict[str, Any]:
+    normalized = _normalize_order_selections(order)
+    out: dict[str, Any] = {}
+    for key in _ORDER_DETAIL_COLUMNS:
+        val = normalized.get(key)
+        if val is not None and str(val).strip() != "":
+            out[key] = str(val).strip()
+    return out
+
+
+def _order_details_from_row(row: dict) -> dict:
+    from_cols = _normalize_order_selections(
+        {
+            "coffee_variety": row.get("coffee_variety"),
+            "product": row.get("coffee_variety"),
+            "bean_form": row.get("bean_form"),
+            "bean_form_label": row.get("bean_form_label"),
+            "classification": row.get("classification"),
+            "quantity_pack": row.get("quantity_pack"),
+            "quantity_label": row.get("quantity_label"),
+            "quantity_kg": row.get("quantity"),
+        }
+    )
+    if from_cols.get("coffee_variety") or from_cols.get("bean_form"):
+        return from_cols
+    return _normalize_order_selections(_order_details_from_form_json(row.get("client_form_json")))
+
+
 def _parse_pickup_date(raw: str) -> tuple[str | None, str]:
     s = str(raw or "").strip()
     if not s:
         return None, datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     m = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})$", s)
     if m:
-        d = f"{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}"
+        first = int(m.group(1))
+        second = int(m.group(2))
+        if first > 12:
+            day, month = first, second
+        elif second > 12:
+            month, day = first, second
+        else:
+            day, month = first, second
+        if not 1 <= month <= 12 or not 1 <= day <= 31:
+            return None, datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        d = f"{m.group(3)}-{month:02d}-{day:02d}"
         return d, f"{d} 09:00:00"
     m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", s)
     if m:
@@ -98,6 +205,84 @@ def _resolve_farmer_id_for_client_tx(cur, form) -> int:
     return 0
 
 
+def _farmer_sale_is_available(cur, farmer_id: int) -> tuple[bool, str]:
+    """Read the admin-controlled farmer sale lock without assuming one schema version."""
+    if farmer_id <= 0:
+        return False, "Select an available farmer."
+    if beanthentic_env.is_postgresql():
+        cur.execute(
+            """
+            SELECT column_name FROM information_schema.columns
+            WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'farmers'
+            """
+        )
+    else:
+        cur.execute(
+            """
+            SELECT COLUMN_NAME AS column_name FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'farmers'
+            """
+        )
+    columns = {
+        str(row.get("column_name") or row.get("COLUMN_NAME") or "").lower()
+        for row in cur.fetchall() or []
+    }
+    candidates = (
+        "self_sale_locked",
+        "self_sale_frozen",
+        "records_frozen",
+        "records_locked",
+        "self_sale_status",
+        "records_status",
+    )
+    present = [name for name in candidates if name in columns]
+    if not present:
+        return True, ""
+    cur.execute(
+        f"SELECT {', '.join(present)} FROM farmers WHERE farmer_id = %s LIMIT 1",
+        (farmer_id,),
+    )
+    row = cur.fetchone() or {}
+    for name in present:
+        raw = row.get(name)
+        text = str(raw or "").strip().lower()
+        if name.endswith("_locked") or name.endswith("_frozen"):
+            blocked = raw in (True, 1, "1") or text in ("true", "yes", "locked", "frozen", "blocked")
+        else:
+            blocked = text in ("locked", "frozen", "blocked", "suspended", "disabled", "inactive", "off", "0")
+        if blocked:
+            return False, "This farmer's Records are temporarily frozen. Self-sale is unavailable until the farmer is cleared by admin."
+    return True, ""
+
+
+def _catalog_amount_for_order(cur, selections: dict, quantity_kg: float) -> float | None:
+    cur.execute("SELECT * FROM coffee_pricelist LIMIT 200")
+    rows = cur.fetchall() or []
+    product = str(selections.get("product") or "").strip().lower()
+    bean_form = str(selections.get("bean_form") or "").strip().lower()
+    classification = str(selections.get("classification") or "").strip().lower()
+    for row in rows:
+        normalized = {str(key).lower(): value for key, value in row.items()}
+        def pick(*names):
+            for name in names:
+                if normalized.get(name) not in (None, ""):
+                    return normalized[name]
+            return ""
+        row_product = str(pick("product", "coffee_variety", "variety", "coffee_type", "name") or "").strip().lower()
+        row_form = str(pick("bean_form", "bean_type", "form") or "").strip().lower()
+        row_classification = str(pick("classification", "grade", "quality") or "").strip().lower()
+        if row_product != product or (row_form and row_form != bean_form) or (row_classification and row_classification != classification):
+            continue
+        try:
+            unit_price = float(pick("price", "unit_price", "price_per_kg", "amount"))
+        except (TypeError, ValueError):
+            continue
+        if unit_price <= 0:
+            continue
+        return round(unit_price * quantity_kg, 2)
+    return None
+
+
 def _save_client_valid_id_file(tx_id: int, upload) -> tuple[str | None, str | None]:
     if not upload or not str(getattr(upload, "filename", "") or "").strip():
         return None, None
@@ -110,8 +295,18 @@ def _save_client_valid_id_file(tx_id: int, upload) -> tuple[str | None, str | No
     _CLIENT_ID_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     fname = f"tx_{tx_id}_{int(datetime.now().timestamp())}.{ext}"
     path = _CLIENT_ID_UPLOADS_DIR / fname
-    upload.save(path)
-    return f"/uploads/client_ids/{fname}", filename
+    raw = upload.read()
+    if not raw:
+        upload.stream.seek(0)
+        raw = upload.stream.read()
+    if not raw:
+        return None, None
+    path.write_bytes(raw)
+    local_path = f"/uploads/client_ids/{fname}"
+    ctype = str(getattr(upload, "mimetype", "") or "").strip()
+    if not ctype or ctype == "application/octet-stream":
+        ctype = f"image/{ext}" if ext != "jpg" else "image/jpeg"
+    return local_path, filename
 
 
 def _insert_farmer_pending_notif(farmer_id: int, message: str) -> None:
@@ -152,6 +347,57 @@ def _insert_farmer_pending_notif(farmer_id: int, message: str) -> None:
             conn.close()
 
 
+def _parse_order_selections(form) -> dict:
+    raw = str(form.get("order_selections_json") or "").strip()
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                return parsed
+        except (TypeError, ValueError):
+            pass
+
+    product = str(form.get("product") or form.get("coffee_type") or "").strip()
+    bean_form = str(form.get("bean_form") or form.get("bean_type") or "").strip()
+    classification = str(form.get("classification") or "").strip()
+    quantity_pack = str(form.get("product_quantity_pack") or form.get("quantity_pack") or "").strip()
+    quantity_kg = None
+    try:
+        qty_kg_raw = form.get("product_quantity_kg")
+        if qty_kg_raw is not None and str(qty_kg_raw).strip() != "":
+            quantity_kg = float(str(qty_kg_raw))
+    except (TypeError, ValueError):
+        quantity_kg = None
+    price = None
+    try:
+        price_raw = form.get("payment_amount")
+        if price_raw is not None and str(price_raw).strip() != "":
+            price = float(str(price_raw))
+    except (TypeError, ValueError):
+        price = None
+    selections = _normalize_order_selections(
+        {
+            "product": product or None,
+            "coffee_variety": product or None,
+            "bean_form": bean_form or None,
+            "classification": classification or None,
+            "quantity_pack": quantity_pack or None,
+            "quantity_kg": quantity_kg if quantity_kg and quantity_kg > 0 else None,
+            "price": price,
+        }
+    )
+    if not selections.get("quantity_label"):
+        if selections.get("quantity_pack"):
+            selections["quantity_label"] = selections["quantity_pack"]
+        elif selections.get("quantity_kg"):
+            try:
+                kg = float(selections["quantity_kg"])
+                selections["quantity_label"] = f"{kg:g} kg"
+            except (TypeError, ValueError):
+                pass
+    return selections
+
+
 def submit_client_transaction(form, upload) -> tuple[dict, int]:
     buyer = str(form.get("client_name") or form.get("buyer_name") or "").strip()
     product = str(form.get("product_type") or form.get("product") or "").strip()
@@ -182,6 +428,7 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
 
     pickup_date, txn_date = _parse_pickup_date(pickup_display)
     ref = str(form.get("reference_no") or "").strip() or _new_client_ref()
+    order_selections = _parse_order_selections(form)
 
     form_payload = {
         "transaction_type": transaction_type,
@@ -195,6 +442,7 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
         "payment_amount": amount,
         "reference_no": ref,
         "submitted_from": "client_web",
+        "order_selections": order_selections,
     }
     form_json = json.dumps(form_payload, ensure_ascii=False)
 
@@ -208,6 +456,13 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
                 "ok": False,
                 "error": "farmer_id is required. Select a farmer from the dropdown.",
             }, 400
+        sale_available, sale_message = _farmer_sale_is_available(cur, farmer_id)
+        if not sale_available:
+            return {"ok": False, "error": sale_message}, 409
+        catalog_amount = _catalog_amount_for_order(cur, order_selections, qty)
+        if catalog_amount is None:
+            return {"ok": False, "error": "The selected product has no current price in the Beanthentic price list. Please refresh and try again."}, 409
+        amount = catalog_amount
 
         cols = _customer_tx_columns(cur)
         base_row = {
@@ -231,6 +486,9 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
         }
         row = {**base_row}
         for key, val in optional.items():
+            if key in cols:
+                row[key] = val
+        for key, val in _order_row_fields(order_selections).items():
             if key in cols:
                 row[key] = val
 
@@ -299,7 +557,12 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
         rec_msg += ". Open Records to review."
 
         conn.commit()
-        _insert_farmer_pending_notif(farmer_id, rec_msg)
+        threading.Thread(
+            target=_insert_farmer_pending_notif,
+            args=(farmer_id, rec_msg),
+            daemon=True,
+            name="client-transaction-notification",
+        ).start()
         return {
             "ok": True,
             "customer_transaction_id": tx_id,
@@ -336,12 +599,37 @@ def _status_payload_from_row(row: dict, status: str) -> dict:
     ref_no = str(row.get("reference_no") or "")
     buyer_name = str(row.get("buyer_name") or "")
     product_name = str(row.get("product") or "")
+    farmer_id = int(row.get("farmer_id") or 0)
+    farmer_name = " ".join(
+        str(row.get("farmer_name") or row.get("farmer_full_name") or "").split()
+    ).strip()
     cid = int(row.get("customer_transaction_id") or 0)
     status = str(status or "pending").strip().lower()
+    stored_valid_id = valid_id_from_row(row)
+    valid_display = display_url_for_stored(stored_valid_id)
+    order_details = _order_details_from_row(row)
+    order_selections = {
+        k: order_details.get(k)
+        for k in (
+            "product",
+            "coffee_variety",
+            "bean_form",
+            "bean_form_label",
+            "classification",
+            "quantity_pack",
+            "quantity_kg",
+            "quantity_label",
+        )
+    }
     return {
         "ok": True,
         "customer_transaction_id": cid,
         "reference_no": ref_no,
+        "farmer_id": farmer_id,
+        "farmer_name": farmer_name,
+        "valid_id_path": stored_valid_id,
+        "valid_id_url": valid_display,
+        "valid_id_filename": str(row.get("valid_id_filename") or "").strip(),
         "status": status,
         "is_pending": status == "pending",
         "is_approved": status == "approved",
@@ -349,6 +637,13 @@ def _status_payload_from_row(row: dict, status: str) -> dict:
         "is_sent_to_client": status == "sent_to_client",
         "buyer_name": buyer_name,
         "product": product_name,
+        "coffee_variety": order_details.get("coffee_variety") or order_details.get("product"),
+        "bean_form": order_details.get("bean_form"),
+        "bean_form_label": order_details.get("bean_form_label"),
+        "classification": order_details.get("classification"),
+        "quantity_pack": order_details.get("quantity_pack"),
+        "quantity_label": order_details.get("quantity_label"),
+        "order_selections": order_selections,
         "quantity": qty,
         "quantity_kg": qty,
         "amount": amt,
@@ -367,6 +662,13 @@ def _status_payload_from_row(row: dict, status: str) -> dict:
             "buyer_name": buyer_name,
             "pickup_date": pickup_label,
             "product": product_name,
+            "coffee_variety": order_details.get("coffee_variety") or order_details.get("product"),
+            "bean_form": order_details.get("bean_form"),
+            "bean_form_label": order_details.get("bean_form_label"),
+            "classification": order_details.get("classification"),
+            "quantity_pack": order_details.get("quantity_pack"),
+            "quantity_label": order_details.get("quantity_label"),
+            "order_selections": order_selections,
             "qty": qty,
             "quantity_kg": qty,
             "unit": unit,
@@ -393,6 +695,19 @@ def get_client_transaction_status(reference_no: str = "", customer_transaction_i
         conn = beanthentic_env.connect()
         cur = conn.cursor()
         select_full = """
+            SELECT ct.customer_transaction_id, ct.reference_no, ct.buyer_name, ct.product,
+                   ct.quantity, ct.amount, ct.payment_amount, ct.payment_method,
+                   ct.transaction_date, ct.pickup_date, ct.pickup_date_display,
+                   ct.quantity_unit, ct.farmer_id,
+                   ct.coffee_variety, ct.bean_form, ct.bean_form_label,
+                   ct.classification, ct.quantity_pack, ct.quantity_label,
+                   ct.valid_id_path, ct.valid_id, ct.valid_id_filename, ct.client_form_json,
+                   TRIM(CONCAT(COALESCE(pi.first_name, ''), ' ', COALESCE(pi.last_name, '')))
+                     AS farmer_name
+            FROM customer_transaction ct
+            LEFT JOIN personal_information pi ON pi.farmer_id = ct.farmer_id
+            WHERE """
+        select_no_farmer = """
             SELECT customer_transaction_id, reference_no, buyer_name, product, quantity,
                    amount, payment_amount, payment_method, transaction_date,
                    pickup_date, pickup_date_display, quantity_unit
@@ -404,16 +719,23 @@ def get_client_transaction_status(reference_no: str = "", customer_transaction_i
         row = None
         try:
             if tx_id > 0:
-                cur.execute(select_full + "customer_transaction_id = %s LIMIT 1", (tx_id,))
+                cur.execute(select_full + "ct.customer_transaction_id = %s LIMIT 1", (tx_id,))
             else:
-                cur.execute(select_full + "reference_no = %s LIMIT 1", (ref,))
+                cur.execute(select_full + "ct.reference_no = %s LIMIT 1", (ref,))
             row = cur.fetchone()
         except Exception:
-            if tx_id > 0:
-                cur.execute(select_base + "customer_transaction_id = %s LIMIT 1", (tx_id,))
-            else:
-                cur.execute(select_base + "reference_no = %s LIMIT 1", (ref,))
-            row = cur.fetchone()
+            try:
+                if tx_id > 0:
+                    cur.execute(select_no_farmer + "customer_transaction_id = %s LIMIT 1", (tx_id,))
+                else:
+                    cur.execute(select_no_farmer + "reference_no = %s LIMIT 1", (ref,))
+                row = cur.fetchone()
+            except Exception:
+                if tx_id > 0:
+                    cur.execute(select_base + "customer_transaction_id = %s LIMIT 1", (tx_id,))
+                else:
+                    cur.execute(select_base + "reference_no = %s LIMIT 1", (ref,))
+                row = cur.fetchone()
         if not row:
             return {"ok": False, "error": "Transaction not found."}, 404
 

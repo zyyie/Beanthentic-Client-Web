@@ -220,7 +220,7 @@
     }
 
     if (stepLabel) {
-      stepLabel.textContent = step.isOverview ? "Quick guide" : "";
+      stepLabel.textContent = step.isOverview ? "QUICK GUIDE" : "";
       stepLabel.hidden = !step.isOverview;
     }
     if (titleEl) {
@@ -287,9 +287,12 @@
 
   function nextStep() {
     endTour(true);
-    var farmerSelect = document.getElementById("farmer-select");
-    if (farmerSelect) {
-      farmerSelect.focus();
+    var farmerSearch = document.getElementById("farmer-search");
+    if (farmerSearch) {
+      farmerSearch.focus();
+    } else {
+      var farmerSelect = document.getElementById("farmer-select");
+      if (farmerSelect) farmerSelect.focus();
     }
   }
 

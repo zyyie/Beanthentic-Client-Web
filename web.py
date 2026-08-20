@@ -3,7 +3,9 @@ import os
 import re
 import socket
 import subprocess
+import threading
 from datetime import date, datetime
+from http.client import RemoteDisconnected
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -12,21 +14,21 @@ from urllib.request import Request, urlopen
 from flask import Flask, Response, jsonify, redirect, render_template, request, url_for
 
 import beanthentic_env
-from config.client_reports import get_transaction_farmers, submit_client_report
+from config.client_reports import (
+    get_client_report_status,
+    get_transaction_farmers,
+    submit_client_report,
+)
 from config.client_transactions import (
     get_client_transaction_status,
     get_receipt_download,
     submit_client_transaction,
 )
+from config.client_qr import ensure_client_qr_files, resolve_client_web_url
 from config.farmer_photo_sync import bootstrap_farmer_photos
 from config.farmer_profile_photo import get_farmer_profile_photo
 
 app = Flask(__name__)
-
-try:
-    bootstrap_farmer_photos()
-except Exception:
-    pass
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 SETTINGS_PATH = PROJECT_ROOT / "settings.json"
@@ -38,6 +40,39 @@ def _env_flag(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in ("1", "true", "yes")
+
+
+if _env_flag("BEANTHENTIC_BEHIND_PROXY", True):
+    try:                                       
+        from werkzeug.middleware.proxy_fix import ProxyFix
+
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+    except ImportError:
+        pass
+
+def _bootstrap_photos_background() -> None:
+    def _run() -> None:
+        try:
+            result = bootstrap_farmer_photos()
+            from config.farmer_profile_photo import refresh_supabase_storage_cache
+
+            refresh_supabase_storage_cache()
+            if isinstance(result, dict) and result.get("missing_farmer_ids"):
+                print(
+                    "  Farmer photos missing from Supabase for IDs:",
+                    result.get("missing_farmer_ids"),
+                    "- turn on app server then POST /api/farmer-photos/sync",
+                )
+        except Exception as photo_boot_err:
+            print("  Farmer photo bootstrap skipped:", photo_boot_err)
+
+    threading.Thread(
+        target=_run, daemon=True, name="farmer-photo-bootstrap"
+    ).start()
+
+
+if _env_flag("BEANTHENTIC_PHOTO_BOOTSTRAP", True):
+    _bootstrap_photos_background()
 
 
 # Default on so template/CSS edits show up without stale cache (waitress + debug off caches otherwise).
@@ -93,6 +128,7 @@ CLIENT_FARMERS_SQL = """
   LEFT JOIN personal_information pi ON pi.farmer_id = f.farmer_id
   LEFT JOIN farm_information fi ON fi.farmer_id = f.farmer_id
   LEFT JOIN affiliation_information ai ON ai.farmer_id = f.farmer_id
+  WHERE LOWER(TRIM(COALESCE(f.status, ''))) = 'active'
   ORDER BY COALESCE(f.updated_at, f.created_at) DESC, f.farmer_id DESC
   LIMIT %s
 """
@@ -117,6 +153,7 @@ CLIENT_FARMERS_SQL_NO_COOP = """
   LEFT JOIN personal_information pi ON pi.farmer_id = f.farmer_id
   LEFT JOIN farm_information fi ON fi.farmer_id = f.farmer_id
   LEFT JOIN affiliation_information ai ON ai.farmer_id = f.farmer_id
+  WHERE LOWER(TRIM(COALESCE(f.status, ''))) = 'active'
   ORDER BY COALESCE(f.updated_at, f.created_at) DESC, f.farmer_id DESC
   LIMIT %s
 """
@@ -133,16 +170,43 @@ FARMER_DETAIL_SQL = """
     pi.first_name,
     pi.last_name,
     pi.birthday,
+    pi.province,
+    pi.municipality,
     COALESCE(pi.barangay, fi.barangay) AS barangay,
     fi.ownership_status,
+    fi.farm_size_ha,
     ai.federation_assoc,
+    ai.coop_name,
+    ai.ncfrs,
     ai.rsbsa_registered,
-    ai.rsbsa_number
+    ai.rsbsa_number,
+    ai.rsbsa_status,
+    tc.liberica_bearing,
+    tc.liberica_non_bearing,
+    tc.robusta_bearing,
+    tc.robusta_non_bearing,
+    tc.excelsa_bearing,
+    tc.excelsa_non_bearing,
+    tc.record_year AS tree_record_year,
+    prod.liberica_qty_kg,
+    prod.robusta_qty_kg,
+    prod.excelsa_qty_kg,
+    prod.production_year
   FROM farmers f
   INNER JOIN users u ON u.user_id = f.user_id
   LEFT JOIN personal_information pi ON pi.farmer_id = f.farmer_id
   LEFT JOIN farm_information fi ON fi.farmer_id = f.farmer_id
   LEFT JOIN affiliation_information ai ON ai.farmer_id = f.farmer_id
+  LEFT JOIN tree_counts tc
+    ON tc.farmer_id = f.farmer_id
+   AND tc.record_year = (
+      SELECT MAX(t2.record_year) FROM tree_counts t2 WHERE t2.farmer_id = f.farmer_id
+    )
+  LEFT JOIN production_information prod
+    ON prod.farmer_id = f.farmer_id
+   AND prod.production_year = (
+      SELECT MAX(p2.production_year) FROM production_information p2 WHERE p2.farmer_id = f.farmer_id
+    )
   WHERE f.farmer_id = %s
   LIMIT 1
 """
@@ -179,6 +243,46 @@ def _app_server_base() -> str:
     cfg = _read_connection_settings()
     base = str(cfg.get("app_server_base") or "").strip()
     return base.rstrip("/") if base else ""
+
+
+_app_server_reachable_cache: bool | None = None
+
+
+def _app_server_is_reachable() -> bool:
+    """Quick check so offline app server does not crash page loads."""
+    global _app_server_reachable_cache
+    if _app_server_reachable_cache is not None:
+        return _app_server_reachable_cache
+    base = _app_server_base()
+    if not base:
+        _app_server_reachable_cache = False
+        return False
+    try:
+        req = Request(f"{base}/", headers={"Accept": "*/*"})
+        with urlopen(req, timeout=3) as resp:
+            _app_server_reachable_cache = resp.status < 500
+    except (HTTPError, URLError, TimeoutError, OSError, RemoteDisconnected, ValueError):
+        _app_server_reachable_cache = False
+    return bool(_app_server_reachable_cache)
+
+
+def _http_get_text(url: str, timeout: int = 8) -> tuple[str | None, str | None]:
+    try:
+        req = Request(url, headers={"Accept": "application/json, */*"})
+        with urlopen(req, timeout=timeout) as resp:
+            return resp.read().decode("utf-8", errors="replace"), None
+    except HTTPError as e:
+        detail = ""
+        try:
+            detail = e.read().decode("utf-8", errors="replace").strip()[:400]
+        except Exception:
+            pass
+        msg = f"HTTP {e.code}"
+        if detail:
+            msg += f" — {detail}"
+        return None, f"Request failed ({url}): {msg}"
+    except (URLError, TimeoutError, OSError, RemoteDisconnected, ValueError) as e:
+        return None, f"Request failed ({url}): {e}"
 
 
 def _connection_hint(exc: Exception | None = None) -> str:
@@ -272,6 +376,17 @@ def _normalize_farmer_row(row: dict) -> dict:
     return out
 
 
+def _farmer_is_registered(row: dict | None) -> bool:
+    """Only show farmers who finished registration (status active in DB)."""
+    if not row:
+        return False
+    return str(row.get("status") or "").strip().lower() == "active"
+
+
+def _filter_registered_farmers(rows: list[dict]) -> list[dict]:
+    return [row for row in rows if _farmer_is_registered(row)]
+
+
 def _fetch_farmer_rows_mysql(limit: int = 500) -> tuple[list[dict], str | None]:
     conn, err = _app_db_connect()
     if not conn:
@@ -285,10 +400,55 @@ def _fetch_farmer_rows_mysql(limit: int = 500) -> tuple[list[dict], str | None]:
                 if "coop_name" not in str(e).lower():
                     raise
                 cur.execute(CLIENT_FARMERS_SQL_NO_COOP, (limit,))
-            rows = [_normalize_farmer_row(r) for r in (cur.fetchall() or [])]
+            rows = _filter_registered_farmers(
+                [_normalize_farmer_row(r) for r in (cur.fetchall() or [])]
+            )
             return rows, None
     except Exception as e:
         return [], _connection_hint(e)
+    finally:
+        conn.close()
+
+
+def _decorate_farmer_sale_flags(rows: list[dict]) -> list[dict]:
+    ids = [int(row.get("farmer_id") or 0) for row in rows if int(row.get("farmer_id") or 0) > 0]
+    if not ids or _use_demo_data():
+        return rows
+    conn, _ = _app_db_connect()
+    if not conn:
+        return rows
+    try:
+        with conn.cursor() as cur:
+            if beanthentic_env.is_postgresql():
+                cur.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA() AND table_name = 'farmers'")
+            else:
+                cur.execute("SELECT COLUMN_NAME AS column_name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'farmers'")
+            columns = {str(row.get("column_name") or row.get("COLUMN_NAME") or "").lower() for row in cur.fetchall() or []}
+            candidates = [name for name in ("self_sale_locked", "self_sale_frozen", "records_frozen", "records_locked", "self_sale_status", "records_status") if name in columns]
+            if not candidates:
+                return rows
+            marks = ",".join(["%s"] * len(ids))
+            cur.execute(f"SELECT farmer_id, {', '.join(candidates)} FROM farmers WHERE farmer_id IN ({marks})", ids)
+            flags = {}
+            for record in cur.fetchall() or []:
+                locked = False
+                for name in candidates:
+                    raw = record.get(name)
+                    text = str(raw or "").strip().lower()
+                    if name.endswith("_locked") or name.endswith("_frozen"):
+                        locked = raw in (True, 1, "1") or text in ("true", "yes", "locked", "frozen", "blocked")
+                    else:
+                        locked = text in ("locked", "frozen", "blocked", "suspended", "disabled", "inactive", "off", "0")
+                    if locked:
+                        break
+                flags[int(record.get("farmer_id") or 0)] = locked
+            for row in rows:
+                locked = flags.get(int(row.get("farmer_id") or 0), False)
+                row["sale_locked"] = locked
+                row["sale_lock_message"] = "Records frozen by admin; self-sale is temporarily unavailable." if locked else ""
+            return rows
+    except Exception:
+        return rows
     finally:
         conn.close()
 
@@ -297,30 +457,24 @@ def _fetch_farmer_rows_http() -> tuple[list[dict], str | None]:
     base = _app_server_base()
     if not base:
         return [], "app_server_base is not set in settings.json (e.g. http://192.168.x.x:8080)."
+    if not _app_server_is_reachable():
+        return [], "App server is offline. Using database only."
     url = base + "/api/client_farmers.php"
+    raw, err = _http_get_text(url, timeout=8)
+    if err:
+        return [], err
     try:
-        req = Request(url, headers={"Accept": "application/json"})
-        with urlopen(req, timeout=12) as resp:
-            raw = resp.read().decode("utf-8", errors="replace")
-        data = json.loads(raw) if raw else {}
+        data = json.loads(raw or "{}")
+    except ValueError as e:
+        return [], f"HTTP fallback failed ({url}): {e}"
         if not isinstance(data, dict) or data.get("ok") is not True:
             return [], "App server returned an invalid farmer list."
         items = data.get("farmers")
         if not isinstance(items, list):
             return [], None
-        return [_normalize_farmer_row(x) for x in items if isinstance(x, dict)], None
-    except HTTPError as e:
-        detail = ""
-        try:
-            detail = e.read().decode("utf-8", errors="replace").strip()[:400]
-        except Exception:
-            pass
-        msg = f"HTTP fallback failed ({url}): HTTP {e.code}"
-        if detail:
-            msg += f" — {detail}"
-        return [], msg
-    except (URLError, TimeoutError, ValueError) as e:
-        return [], f"HTTP fallback failed ({url}): {e}"
+        return _filter_registered_farmers(
+            [_normalize_farmer_row(x) for x in items if isinstance(x, dict)]
+        ), None
 
 
 def _use_demo_data() -> bool:
@@ -381,10 +535,15 @@ def _fetch_farmer_rows(limit: int = 500) -> tuple[list[dict], str | None, bool]:
     rows, err = _fetch_farmer_rows_mysql(limit)
     if rows:
         return rows, None, False
-    rows_http, err_http = _fetch_farmer_rows_http()
-    if rows_http:
-        return rows_http, None, False
-    return _default_farmer_rows(), None, True
+    if _app_server_is_reachable():
+        rows_http, err_http = _fetch_farmer_rows_http()
+        if rows_http:
+            return rows_http, None, False
+        if err_http and not err:
+            err = err_http
+    if err:
+        return _default_farmer_rows(), err, True
+    return rows, None, False
 
 
 def _map_http_farmer_payload(data: dict) -> dict:
@@ -415,47 +574,44 @@ def _fetch_farmer_details_http(farmer_id: int) -> tuple[dict | None, str | None]
     base = _app_server_base()
     if not base:
         return None, "app_server_base is not set in settings.json (e.g. http://192.168.x.x:8080)."
+    if not _app_server_is_reachable():
+        return None, "App server is offline."
     url = f"{base}/api/client_farmer_profile.php?farmer_id={int(farmer_id)}"
+    raw, err = _http_get_text(url, timeout=8)
+    if err:
+        return None, err
     try:
-        req = Request(url, headers={"Accept": "application/json"})
-        with urlopen(req, timeout=12) as resp:
-            raw = resp.read().decode("utf-8", errors="replace")
-        data = json.loads(raw) if raw else {}
-        if not isinstance(data, dict) or data.get("ok") is not True:
-            err = str(data.get("error") or "App server returned an invalid farmer profile.")
-            return None, err
-        row = _map_http_farmer_payload(data)
-        if not row:
-            return None, "Farmer profile not found."
-        return _normalize_farmer_row(row), None
-    except HTTPError as e:
-        detail = ""
-        try:
-            detail = e.read().decode("utf-8", errors="replace").strip()[:400]
-        except Exception:
-            pass
-        msg = f"HTTP profile fallback failed: HTTP {e.code}"
-        if detail:
-            msg += f" — {detail}"
-        return None, msg
-    except (URLError, TimeoutError, ValueError) as e:
+        data = json.loads(raw or "{}")
+    except ValueError as e:
         return None, f"HTTP profile fallback failed ({url}): {e}"
+    if not isinstance(data, dict) or data.get("ok") is not True:
+        err_msg = str(data.get("error") or "App server returned an invalid farmer profile.")
+        return None, err_msg
+    row = _map_http_farmer_payload(data)
+    if not row:
+        return None, "Farmer profile not found."
+    return _normalize_farmer_row(row), None
 
 
 def _fetch_farmer_details(farmer_id: int) -> tuple[dict | None, str | None]:
     conn, err = _app_db_connect()
     if not conn:
-        http_row, http_err = _fetch_farmer_details_http(farmer_id)
-        if http_row:
-            return http_row, None
-        return None, err or http_err
+        if _app_server_is_reachable():
+            http_row, http_err = _fetch_farmer_details_http(farmer_id)
+            if http_row:
+                return http_row, None
+            return None, err or http_err
+        return None, err
     try:
         with conn.cursor() as cur:
             cur.execute(FARMER_DETAIL_SQL, (int(farmer_id),))
             row = cur.fetchone()
             if not row:
                 return None, None
-            return _normalize_farmer_row(row), None
+            farmer = _normalize_farmer_row(row)
+            if not _farmer_is_registered(farmer):
+                return None, None
+            return farmer, None
     except Exception as e:
         return None, _connection_hint(e)
     finally:
@@ -463,15 +619,19 @@ def _fetch_farmer_details(farmer_id: int) -> tuple[dict | None, str | None]:
 
 
 def _fetch_farmer_profile(farmer_id: int) -> tuple[dict | None, str | None]:
-    """MySQL first, then HTTP via app server on XAMPP PC."""
+    """Database first, then HTTP via app server when online."""
     if _use_demo_data():
         return _demo_farmer_profile(farmer_id), None
     farmer, err = _fetch_farmer_details(farmer_id)
     if farmer:
         return farmer, None
-    farmer, http_err = _fetch_farmer_details_http(farmer_id)
-    if farmer:
-        return farmer, None
+    http_err = None
+    if _app_server_is_reachable():
+        farmer, http_err = _fetch_farmer_details_http(farmer_id)
+        if farmer and _farmer_is_registered(farmer):
+            return farmer, None
+        if farmer:
+            farmer = None
     demo = _demo_farmer_profile(farmer_id)
     if demo:
         return demo, None
@@ -502,7 +662,7 @@ def _post_app_json(path: str, payload: dict) -> tuple[dict | None, str | None]:
         except Exception:
             pass
         return None, f"App API error HTTP {e.code}" + (f": {detail}" if detail else "")
-    except (URLError, TimeoutError, ValueError) as e:
+    except (URLError, TimeoutError, OSError, RemoteDisconnected, ValueError) as e:
         return None, str(e)
 
 
@@ -544,6 +704,140 @@ def _fmt_birthday(value) -> str:
     return str(value).strip()
 
 
+def _fmt_birthday_registration(value) -> str:
+    """MM/DD/YYYY — same as Farmer Registration summary."""
+    if value is None or value == "":
+        return ""
+    if isinstance(value, datetime):
+        value = value.date()
+    if isinstance(value, date):
+        return value.strftime("%m/%d/%Y")
+    raw = str(value).strip()
+    if not raw:
+        return ""
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", raw)
+    if m:
+        return f"{m.group(2)}/{m.group(3)}/{m.group(1)}"
+    return raw
+
+
+def _display_or_dash(value) -> str:
+    text = str(value or "").strip()
+    return text if text else "—"
+
+
+def _rsbsa_registered_label(val) -> str:
+    try:
+        iv = int(val or 0)
+    except (TypeError, ValueError):
+        return "No"
+    if iv == 1:
+        return "Yes"
+    if iv == 2:
+        return "Pending"
+    return "No"
+
+
+def _rsbsa_status_label(raw) -> str:
+    s = str(raw or "").strip().lower()
+    if s == "not_yet_applied":
+        return "Not Yet Applied"
+    if s == "pending_rsbsa":
+        return "Pending RSBSA"
+    text = str(raw or "").strip()
+    return text if text else "—"
+
+
+def _ncfrs_label(val) -> str:
+    try:
+        return "Yes" if int(val or 0) == 1 else "No"
+    except (TypeError, ValueError):
+        return "No"
+
+
+def _ownership_label(raw) -> str:
+    s = str(raw or "").strip().lower()
+    if not s:
+        return "—"
+    mapping = {
+        "landowner": "Landowner",
+        "cloa_holder": "CLOA holder",
+        "list_holder": "LIST holder",
+        "sessional_farm_worker": "Seasonal farm worker",
+        "others": "Others",
+        "owner": "Landowner",
+        "tenant": "Seasonal farm worker",
+        "co-owner": "CLOA holder",
+        "co_owner": "CLOA holder",
+        "coowner": "CLOA holder",
+        "other": "Others",
+    }
+    label = mapping.get(s)
+    if label:
+        return label
+    return str(raw).strip().title()
+
+
+def _fmt_farm_size_ha(val) -> str:
+    if val is None or val == "":
+        return "—"
+    try:
+        return f"{float(val):.4f} Ha"
+    except (TypeError, ValueError):
+        text = str(val).strip()
+        return text if text else "—"
+
+
+def _fmt_prod_qty(val) -> str:
+    if val is None or val == "":
+        return "—"
+    try:
+        return f"{float(val):.2f}"
+    except (TypeError, ValueError):
+        text = str(val).strip()
+        return text if text else "—"
+
+
+def _fmt_tree_count(val) -> str:
+    if val is None or val == "":
+        return "—"
+    try:
+        return str(int(val))
+    except (TypeError, ValueError):
+        text = str(val).strip()
+        return text if text else "—"
+
+
+def _apply_registration_display_fields(farmer: dict) -> None:
+    """Format farmer registration DB fields for personal_information.html."""
+    farmer["birthday_display"] = _display_or_dash(_fmt_birthday_registration(farmer.get("birthday")))
+    farmer["province_display"] = _display_or_dash(farmer.get("province") or "Batangas")
+    farmer["municipality_display"] = _display_or_dash(farmer.get("municipality") or "Lipa City")
+    farmer["barangay_display"] = _display_or_dash(farmer.get("barangay"))
+    farmer["federation_display"] = _display_or_dash(farmer.get("federation_assoc"))
+    farmer["ncfrs_display"] = _ncfrs_label(farmer.get("ncfrs"))
+    farmer["rsbsa_registered_display"] = _rsbsa_registered_label(farmer.get("rsbsa_registered"))
+    rsbsa_num = str(farmer.get("rsbsa_number") or "").strip()
+    farmer["rsbsa_number_display"] = rsbsa_num if rsbsa_num else "N/A"
+    farmer["rsbsa_status_display"] = _rsbsa_status_label(farmer.get("rsbsa_status"))
+    farmer["ownership_display"] = _ownership_label(farmer.get("ownership_status"))
+    farmer["farm_size_display"] = _fmt_farm_size_ha(farmer.get("farm_size_ha"))
+    farmer["liberica_bearing_display"] = _fmt_tree_count(farmer.get("liberica_bearing"))
+    farmer["liberica_non_bearing_display"] = _fmt_tree_count(farmer.get("liberica_non_bearing"))
+    farmer["robusta_bearing_display"] = _fmt_tree_count(farmer.get("robusta_bearing"))
+    farmer["robusta_non_bearing_display"] = _fmt_tree_count(farmer.get("robusta_non_bearing"))
+    farmer["excelsa_bearing_display"] = _fmt_tree_count(farmer.get("excelsa_bearing"))
+    farmer["excelsa_non_bearing_display"] = _fmt_tree_count(farmer.get("excelsa_non_bearing"))
+    farmer["prod_liberica_display"] = _fmt_prod_qty(farmer.get("liberica_qty_kg"))
+    farmer["prod_robusta_display"] = _fmt_prod_qty(farmer.get("robusta_qty_kg"))
+    farmer["prod_excelsa_display"] = _fmt_prod_qty(farmer.get("excelsa_qty_kg"))
+    prod_year = farmer.get("production_year")
+    try:
+        farmer["production_year_display"] = int(prod_year) if prod_year else datetime.now().year
+    except (TypeError, ValueError):
+        farmer["production_year_display"] = datetime.now().year
+
+
 def _farmer_has_profile_photo(photo_path) -> bool:
     path = str(photo_path or "").strip()
     if not path:
@@ -551,19 +845,59 @@ def _farmer_has_profile_photo(photo_path) -> bool:
     return "farmer-profile-photo.png" not in path.lower()
 
 
+def _photo_cache_token(farmer: dict | None = None, farmer_id: int = 0) -> str:
+    row = farmer or {}
+    fid = int(farmer_id or row.get("farmer_id") or 0)
+    stamp = row.get("updated_at") or row.get("created_at")
+    if stamp is not None:
+        if hasattr(stamp, "timestamp"):
+            return f"{fid}-{int(stamp.timestamp())}"
+        text = str(stamp).strip()
+        if text:
+            return f"{fid}-{abs(hash(text)) % 100000000}"
+    return str(fid or 0)
+
+
 def _apply_farmer_photo_fields(farmer: dict) -> None:
+    from config.farmer_profile_photo import supabase_public_photo_url
+
     fid = int(farmer.get("farmer_id") or 0)
-    farmer["has_photo"] = fid > 0 or _farmer_has_profile_photo(farmer.get("profile_photo"))
-    farmer["photo_url"] = _get_photo_url(farmer.get("profile_photo"), farmer_id=fid)
+    profile_photo = str(farmer.get("profile_photo") or "").strip()
+    farmer["has_photo"] = bool(
+        fid > 0
+        and (
+            bool(profile_photo)
+            or profile_photo.startswith(("http://", "https://"))
+            or bool(supabase_public_photo_url(fid, profile_photo))
+        )
+    )
+    farmer["photo_url"] = _get_photo_url(
+        farmer.get("profile_photo"),
+        farmer_id=fid,
+        farmer=farmer,
+    )
 
 
-def _get_photo_url(photo_path: str, farmer_id: int = 0) -> str:
-    fid = int(farmer_id or 0)
+def _get_photo_url(
+    photo_path: str,
+    farmer_id: int = 0,
+    farmer: dict | None = None,
+) -> str:
+    from config.farmer_profile_photo import supabase_public_photo_url
+
+    fid = int(farmer_id or (farmer or {}).get("farmer_id") or 0)
+    cache_v = _photo_cache_token(farmer, fid)
     if fid > 0:
         photo_path = str(photo_path or "").strip()
+        direct = ""
         if photo_path.startswith(("http://", "https://")):
-            return photo_path
-        return url_for("farmer_profile_photo", farmer_id=fid, v=fid)
+            direct = photo_path.split("?")[0]
+        else:
+            direct = supabase_public_photo_url(fid, photo_path)
+        if direct:
+            sep = "&" if "?" in direct else "?"
+            return f"{direct}{sep}v={cache_v}"
+        return url_for("farmer_profile_photo", farmer_id=fid, v=cache_v)
 
     if str(photo_path or "").startswith(("http://", "https://", "data:image/")):
         return str(photo_path)
@@ -580,12 +914,27 @@ def _default_farmer_profile(farmer_id: int = 0) -> dict:
         "farmer_id": farmer_id,
         "first_name": "Juan",
         "last_name": "Dela Cruz",
-        "birthday": "March 15, 1985",
-        "barangay": "San Miguel, Jordan, Guimaras",
-        "ownership_status": "owned",
-        "federation_assoc": "SAMAHAN NG MAGKAKAPE",
-        "rsbsa_registered": 1,
-        "rsbsa_number": "RSBSA-GUIM-2024-001",
+        "birthday": "1985-03-15",
+        "province": "Batangas",
+        "municipality": "Lipa City",
+        "barangay": "Adya",
+        "ownership_status": "landowner",
+        "farm_size_ha": 2.5,
+        "federation_assoc": "Member",
+        "ncfrs": 0,
+        "rsbsa_registered": 0,
+        "rsbsa_number": "",
+        "rsbsa_status": "pending_rsbsa",
+        "liberica_bearing": 20,
+        "liberica_non_bearing": 300,
+        "robusta_bearing": 75,
+        "robusta_non_bearing": 150,
+        "excelsa_bearing": 50,
+        "excelsa_non_bearing": 220,
+        "liberica_qty_kg": 260.0,
+        "robusta_qty_kg": 550.0,
+        "excelsa_qty_kg": 60.0,
+        "production_year": datetime.now().year,
         "profile_photo": None,
         "photo_url": url_for("static", filename="images/farmer-profile-photo.png"),
         "has_photo": False,
@@ -596,6 +945,55 @@ def _default_farmer_profile(farmer_id: int = 0) -> dict:
 @app.route("/")
 def home():
     return render_template("index.html")
+
+
+@app.route("/client-qr")
+def client_qr_page():
+    """Preview and download the client-website QR code."""
+    url = resolve_client_web_url(request.args.get("url"))
+    files = ensure_client_qr_files(url)
+    query = urlencode({"url": files["target_url"]})
+    return render_template(
+        "client_qr.html",
+        client_url=files["target_url"],
+        preview_url=url_for("static", filename="images/client-website-qr.png")
+        + f"?v={_static_asset_version('images/client-website-qr.png')}",
+        download_print_url=url_for("download_client_website_qr", kind="print") + f"?{query}",
+        download_plain_url=url_for("download_client_website_qr") + f"?{query}",
+    )
+
+
+@app.route("/download/client-website-qr")
+@app.route("/download/client-website-qr/<kind>")
+def download_client_website_qr(kind: str = "plain"):
+    """Download the client website QR as a PNG file."""
+    from flask import send_file
+
+    target_url = resolve_client_web_url(request.args.get("url"))
+    files = ensure_client_qr_files(target_url)
+    if kind == "print":
+        path = files["print"]
+        filename = "beanthentic-client-website-qr-print.png"
+    else:
+        path = files["plain"]
+        filename = "beanthentic-client-website-qr.png"
+    if not path.is_file():
+        return "QR file not found", 404
+    return send_file(
+        path,
+        mimetype="image/png",
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+@app.route("/api/public-url", methods=["GET"])
+def public_url():
+    """Public HTTPS URL for QR codes (Cloudflare Tunnel or BEANTHENTIC_PUBLIC_URL)."""
+    from config.client_qr import resolve_client_web_url
+
+    url = resolve_client_web_url()
+    return jsonify({"ok": True, "url": url, "https": url.startswith("https://")})
 
 
 @app.route("/api/lan-ping", methods=["GET", "OPTIONS"])
@@ -644,7 +1042,7 @@ def _render_farmer_profile_page(farmer_id: int) -> str:
         _apply_farmer_photo_fields(farmer)
         _apply_registration_number(farmer)
         _apply_transaction_link(farmer)
-        farmer["birthday"] = _fmt_birthday(farmer.get("birthday"))
+        _apply_registration_display_fields(farmer)
         if not demo_mode and not farmer.get("is_default"):
             farmer["is_default"] = False
         farmer["profile_not_found"] = False
@@ -720,6 +1118,7 @@ def farmer_detail(farmer_id):
 @app.route("/farmer-profiles")
 def farmer_profiles():
     farmers, db_error, demo_mode = _fetch_farmer_rows()
+    farmers = _decorate_farmer_sale_flags(farmers)
     for f in farmers:
         _apply_farmer_photo_fields(f)
     return render_template(
@@ -764,10 +1163,11 @@ def api_app_db_status():
     except Exception as e:
         out["error"] = str(e)
         out["hint"] = _connection_hint(e)
-        http_rows, http_err = _fetch_farmer_rows_http()
-        out["http_fallback_count"] = len(http_rows)
-        if http_err:
-            out["http_fallback_error"] = http_err
+        if _app_server_is_reachable():
+            http_rows, http_err = _fetch_farmer_rows_http()
+            out["http_fallback_count"] = len(http_rows)
+            if http_err:
+                out["http_fallback_error"] = http_err
         return jsonify(out), 200
     finally:
         if conn:
@@ -798,7 +1198,7 @@ def _farmer_transaction_url(farmer: dict | None) -> str:
     row = farmer if isinstance(farmer, dict) else {}
     fid = int(row.get("farmer_id") or 0)
     name = _farmer_display_name(row)
-    params: dict[str, str | int] = {}
+    params: dict[str, str | int] = {"new": "1"}
     if fid > 0:
         params["farmer_id"] = fid
     if name:
@@ -826,10 +1226,13 @@ def transaction():
                 farmer_name = db_name
             farmer_id = int(farmer_row.get("farmer_id") or farmer_id)
     farmer_rows, farmers_error, _demo_mode = _fetch_farmer_rows()
+    farmer_rows = _decorate_farmer_sale_flags(farmer_rows)
     farmers_for_select = []
     for row in farmer_rows:
         fid = int(row.get("farmer_id") or 0)
         if fid <= 0:
+            continue
+        if row.get("sale_locked"):
             continue
         farmers_for_select.append(
             {
@@ -875,7 +1278,13 @@ def _proxy_client_transaction_submit():
             "farmer_id",
             "farmer_name",
             "pickup_date",
+            "product",
             "product_type",
+            "bean_form",
+            "classification",
+            "product_quantity_pack",
+            "product_quantity_kg",
+            "order_selections_json",
             "quantity_kg",
             "quantity_unit",
             "payment_amount",
@@ -935,8 +1344,7 @@ def client_transaction_submit_proxy():
 
     if beanthentic_env.get_db_url():
         data, status = submit_client_transaction(request.form, request.files.get("valid_id"))
-        if data.get("ok") or status < 500:
-            return jsonify(data), status
+        return jsonify(data), status
 
     return _proxy_client_transaction_submit()
 
@@ -1008,14 +1416,55 @@ def client_transaction_status():
 
 @app.route("/uploads/client_ids/<path:filename>")
 def serve_client_id_upload(filename):
-    """Serve valid-ID uploads saved with client transactions."""
-    safe = Path(filename).name
-    path = PROJECT_ROOT / "uploads" / "client_ids" / safe
-    if not path.is_file():
-        return "Not found", 404
-    from flask import send_file
+    """Serve valid-ID uploads from local disk or Supabase Storage."""
+    from config.client_valid_id import get_valid_id_bytes
 
-    return send_file(path)
+    safe = Path(filename).name
+    local = PROJECT_ROOT / "uploads" / "client_ids" / safe
+    stored = f"/uploads/client_ids/{safe}"
+    if local.is_file():
+        from flask import send_file
+
+        return send_file(local)
+    result = get_valid_id_bytes(stored)
+    if not result:
+        return "Not found", 404
+    data, mimetype = result
+    return Response(
+        data,
+        mimetype=mimetype,
+        headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@app.route("/api/client-valid-id", methods=["GET"])
+def client_valid_id_image():
+    """Serve a transaction valid-ID image by reference number."""
+    from config.client_transactions import get_client_transaction_status
+
+    ref = str(request.args.get("reference_no") or "").strip()
+    tx_id = request.args.get("customer_transaction_id", type=int) or 0
+    if not ref and tx_id <= 0:
+        return jsonify({"ok": False, "error": "reference_no or customer_transaction_id is required."}), 400
+
+    if beanthentic_env.get_db_url():
+        payload, status = get_client_transaction_status(reference_no=ref, customer_transaction_id=tx_id)
+        if status != 200 or not payload.get("ok"):
+            return jsonify(payload), status if status != 200 else 404
+        stored = str(payload.get("valid_id_path") or "").strip()
+        from config.client_valid_id import get_valid_id_bytes
+
+        result = get_valid_id_bytes(stored)
+        if not result:
+            return jsonify({"ok": False, "error": "Valid ID image not found."}), 404
+        data, mimetype = result
+        return Response(
+            data,
+            mimetype=mimetype,
+            headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"},
+        )
+
+    return jsonify({"ok": False, "error": "Database is not configured."}), 503
 
 
 @app.route("/uploads/farmers/<path:filename>")
@@ -1049,13 +1498,22 @@ def farmer_profile_photo(farmer_id: int):
 
 @app.route("/api/farmer-photos/sync", methods=["POST"])
 def farmer_photos_sync():
-    """Upload local farmer photos to Supabase Storage and update farmers.profile_photo."""
-    from config.farmer_photo_sync import sync_farmer_photos_to_supabase
+    """Pull farmer photos and save Supabase Storage public URLs in farmers.profile_photo."""
+    from config.farmer_photo_sync import backfill_farmer_photos_to_supabase
 
-    result = sync_farmer_photos_to_supabase()
-    status = 200 if result.get("ok") else 503
-    if result.get("skipped"):
-        status = 200
+    result = backfill_farmer_photos_to_supabase()
+    ok = bool(result.get("ok"))
+    status = 200 if ok else 503
+    return jsonify(result), status
+
+
+@app.route("/api/farmer-photos/pull-server", methods=["POST"])
+def farmer_photos_pull_server():
+    """Pull farmer photos from Beanthentic-App on the LAN and upload to Supabase."""
+    from config.farmer_photo_sync import backfill_farmer_photos_to_supabase
+
+    result = backfill_farmer_photos_to_supabase()
+    status = 200 if result.get("ok") or result.get("skipped") else 503
     return jsonify(result), status
 
 
@@ -1216,6 +1674,52 @@ def client_report_submit_proxy():
             return jsonify(data), status
 
     return _proxy_client_report_submit(payload)
+
+
+@app.route("/api/client-report/status", methods=["GET", "OPTIONS"])
+def client_report_status_proxy():
+    if request.method == "OPTIONS":
+        return jsonify({"ok": True}), 204
+    report_id = request.args.get("report_id", type=int) or 0
+    if beanthentic_env.get_db_url():
+        data, status = get_client_report_status(report_id)
+        if data.get("ok") or status != 500:
+            return jsonify(data), status
+    return jsonify({"ok": False, "error": "Report status is unavailable."}), 503
+
+
+@app.route("/api/client-pricelist", methods=["GET", "OPTIONS"])
+def client_pricelist():
+    if request.method == "OPTIONS":
+        return jsonify({"ok": True}), 204
+    conn, err = _app_db_connect()
+    if not conn:
+        return jsonify({"ok": False, "error": err or "Database unavailable.", "items": []}), 503
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM coffee_pricelist ORDER BY 1 LIMIT 200")
+            rows = cur.fetchall() or []
+        items = []
+        for row in rows:
+            normalized = {str(key).lower(): value for key, value in row.items()}
+            def pick(*names):
+                for name in names:
+                    if normalized.get(name) not in (None, ""):
+                        return normalized[name]
+                return ""
+            items.append({
+                "product": str(pick("product", "coffee_variety", "variety", "coffee_type", "name") or "").strip(),
+                "bean_form": str(pick("bean_form", "bean_type", "form") or "").strip(),
+                "classification": str(pick("classification", "grade", "quality") or "").strip(),
+                "price": pick("price", "unit_price", "price_per_kg", "amount"),
+                "unit": str(pick("unit", "price_unit", "quantity_unit") or "KG").strip(),
+                "updated_at": str(pick("updated_at", "modified_at", "created_at") or ""),
+            })
+        return jsonify({"ok": True, "items": items, "count": len(items)}), 200
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Could not load coffee prices: {exc}", "items": []}), 503
+    finally:
+        conn.close()
 
 
 @app.route("/news-updates")
@@ -1428,11 +1932,27 @@ def _print_lan_access_help(port: int) -> None:
         primary = ips[0]
         print(f"  Phone URL:         http://{primary}:{port}/")
         print(f"  Phone test:        http://{primary}:{port}/phone-test")
+        print(f"  Download QR:       http://{primary}:{port}/download/client-website-qr")
+        print(f"  QR preview page:   http://{primary}:{port}/client-qr")
         subnet = _ipv4_subnet(primary) or "192.168.0"
         print(f"  Phone IP must be:  {subnet}.???  (check phone Wi-Fi settings)")
     else:
         print(f"  Phone URL:         http://<Wi-Fi_IP>:{port}/")
         print("  Connect laptop to home Wi-Fi first (not hotspot).")
+    public_url = (
+        os.getenv("BEANTHENTIC_PUBLIC_URL", "").strip()
+        or (
+            (PROJECT_ROOT / "public-url.txt").read_text(encoding="utf-8").strip()
+            if (PROJECT_ROOT / "public-url.txt").is_file()
+            else ""
+        )
+    )
+    if public_url:
+        print(f"  Public URL (QR):   {public_url}")
+        print(f"  Public QR download: {public_url.rstrip('/')}/download/client-website-qr")
+    else:
+        print("  Public URL:        https://beanthentic.com/ (run scripts\\run-beanthentic-cloudflare.bat)")
+        print("  Quick tunnel:      scripts\\run-cloudflare-tunnel.bat (random URL, testing only)")
     print(f"  Laptop only:       http://127.0.0.1:{port}/")
     print(f"  Project folder:    {PROJECT_ROOT}")
     index_path = PROJECT_ROOT / "templates" / "index.html"

@@ -329,11 +329,12 @@ def upload_to_supabase_storage(
             method="POST",
             headers={
                 "Authorization": f"Bearer {key}",
+                "apikey": key,
                 "Content-Type": content_type,
                 "x-upsert": "true",
             },
         )
-        with urlopen(req, timeout=30) as resp:
+        with urlopen(req, timeout=8) as resp:
             if resp.status >= 400:
                 return None
         return supabase_storage_public_url(object_name)

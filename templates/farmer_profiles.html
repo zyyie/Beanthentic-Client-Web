@@ -18,6 +18,7 @@
         </svg>
       </a>
       <div class="nav-title">Farmer Registered Profiles</div>
+      {% include 'partials/header_notif.html' %}
     </div>
   </header>
 
@@ -53,25 +54,18 @@
             {% for farmer in farmers %}
             <a href="{{ url_for('farmer_detail', farmer_id=farmer.farmer_id) }}" class="farmer-profile-item">
               <div class="home-circle">
-                {% if farmer.has_photo %}
                 <img class="farmer-circle-photo" src="{{ farmer.photo_url }}"
-                  alt="{{ farmer.first_name }} {{ farmer.last_name }}" loading="lazy"
-                  onerror="this.remove();var el=this.parentElement.querySelector('.default-user-icon');if(el)el.removeAttribute('hidden');" />
+                  alt="{{ farmer.first_name }} {{ farmer.last_name }}" loading="lazy" decoding="async"
+                  data-farmer-photo="{{ farmer.farmer_id }}" />
                 <svg class="default-user-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
                   stroke-linecap="round" stroke-linejoin="round" hidden aria-hidden="true">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
-                {% else %}
-                <svg class="default-user-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                {% endif %}
               </div>
               <div class="farmer-info-bottom">
                 <span class="farmer-name">{{ farmer.first_name }} {{ farmer.last_name }}</span>
+                {% if farmer.sale_locked %}<span class="farmer-sale-lock" title="{{ farmer.sale_lock_message }}">Self-sale paused</span>{% endif %}
               </div>
             </a>
             {% endfor %}
@@ -84,7 +78,30 @@
     </div>
   </main>
 
+  {% include 'partials/header_notif_panel.html' %}
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/client_tx_storage.js') }}?v=20260610-actions"></script>
+  <script src="{{ url_for('static', filename='js/notifications.js') }}?v=20260610-actions"></script>
+  <script src="{{ url_for('static', filename='js/client_tx_watch.js') }}?v=20260610-actions"></script>
+  <script>
+    (function () {
+      document.querySelectorAll(".farmer-circle-photo").forEach(function (img) {
+        var fid = img.getAttribute("data-farmer-photo");
+        img.addEventListener("error", function () {
+          if (!fid) return;
+          var retries = parseInt(img.getAttribute("data-photo-retries") || "0", 10);
+          if (retries < 1) {
+            img.setAttribute("data-photo-retries", String(retries + 1));
+            img.src = "/api/farmer-profile-photo/" + encodeURIComponent(fid) + "?v=" + Date.now();
+            return;
+          }
+          img.remove();
+          var icon = img.parentElement && img.parentElement.querySelector(".default-user-icon");
+          if (icon) icon.removeAttribute("hidden");
+        });
+      });
+    })();
+  </script>
   {% include 'partials/page_loading.html' %}
 </body>
 

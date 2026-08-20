@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Personal Information | Beanthentic</title>
+  <title>Farmer's Profile | Beanthentic</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ asset_version }}" />
 </head>
 
@@ -17,7 +17,7 @@
           <path d="M15 18l-6-6 6-6" />
         </svg>
       </a>
-      <div class="nav-title">Personal Information</div>
+      <div class="nav-title">Farmer's Profile</div>
     </div>
   </header>
 
@@ -28,7 +28,7 @@
     <p class="pi-demo-notice">Sample profile — preview design (no database record).</p>
     {% endif %}
     <div class="pi-card pi-resume" {% if farmer.profile_not_found %} hidden{% endif %}>
-      <header class="pi-resume-head">
+      <header class="pi-resume-head pi-resume-head--reg">
         <div class="pi-avatar">
           {% if farmer.has_photo %}
           <img src="{{ farmer.photo_url }}" alt="Profile Photo"
@@ -46,56 +46,148 @@
           </svg>
           {% endif %}
         </div>
-        <div class="pi-resume-identity">
-          <p class="pi-label">Full Name</p>
-          <h1 class="pi-resume-name">{{ farmer.first_name }} {{ farmer.last_name }}</h1>
-          {% if farmer.registration_no_display %}
-          <p class="pi-resume-reg">{{ farmer.registration_no_display }}</p>
-          {% endif %}
-        </div>
+        {% if farmer.registration_no_display %}
+        <p class="pi-resume-reg">{{ farmer.registration_no_display }}</p>
+        {% endif %}
       </header>
 
-      <section class="pi-resume-section" aria-labelledby="pi-section-personal">
-        <h2 class="pi-section-title" id="pi-section-personal">Personal Details</h2>
-        <div class="pi-resume-grid">
+      <section class="pi-section-block" aria-labelledby="pi-section-personal">
+        <h2 class="pi-section-title" id="pi-section-personal">Personal na Impormasyon</h2>
+        <div class="pi-grid-2">
           <div class="pi-field">
-            <p class="pi-label">Date of Birth</p>
-            <p class="pi-value">{{ farmer.birthday or 'N/A' }}</p>
+            <p class="pi-label">Apelyido</p>
+            <p class="pi-value">{{ farmer.last_name or '—' }}</p>
           </div>
           <div class="pi-field">
-            <p class="pi-label">Current Address</p>
-            <p class="pi-value">{{ farmer.barangay }}</p>
+            <p class="pi-label">Pangalan</p>
+            <p class="pi-value">{{ farmer.first_name or '—' }}</p>
+          </div>
+        </div>
+        <div class="pi-field pi-field--spaced">
+          <p class="pi-label">Kaarawan</p>
+          <p class="pi-value">{{ farmer.birthday_display or '—' }}</p>
+        </div>
+        <div class="pi-grid-3">
+          <div class="pi-field">
+            <p class="pi-label">Probinsya</p>
+            <p class="pi-value">{{ farmer.province_display or '—' }}</p>
           </div>
           <div class="pi-field">
-            <p class="pi-label">Ownership</p>
-            <p class="pi-value pi-value--cap">{{ farmer.ownership_status or 'N/A' }}</p>
+            <p class="pi-label">Munisipalidad</p>
+            <p class="pi-value">{{ farmer.municipality_display or '—' }}</p>
+          </div>
+          <div class="pi-field">
+            <p class="pi-label">Barangay</p>
+            <p class="pi-value">{{ farmer.barangay_display or '—' }}</p>
           </div>
         </div>
       </section>
 
-      <section class="pi-resume-section" aria-labelledby="pi-section-affiliation">
-        <h2 class="pi-section-title" id="pi-section-affiliation">Affiliation</h2>
-        <div class="pi-resume-grid">
+      <section class="pi-section-block" aria-labelledby="pi-section-affiliation">
+        <h2 class="pi-section-title" id="pi-section-affiliation">Afilasyon</h2>
+        <div class="pi-grid-2 pi-grid-affiliation">
           <div class="pi-field">
-            <p class="pi-label">Association</p>
-            <p class="pi-value">{{ farmer.federation_assoc or 'None' }}</p>
+            <p class="pi-label">Tungkulin sa Afilasyon</p>
+            <p class="pi-value">{{ farmer.federation_display or '—' }}</p>
           </div>
           <div class="pi-field">
-            <p class="pi-label">RSBSA Registered</p>
-            <p class="pi-value">{% if farmer.rsbsa_registered == 1 or farmer.rsbsa_registered == '1' %}Yes{% elif
-              farmer.rsbsa_registered == 2 or farmer.rsbsa_registered == '2' %}Pending{% else %}No{% endif %}</p>
+            <p class="pi-label">NCFRS</p>
+            <p class="pi-value">{{ farmer.ncfrs_display or '—' }}</p>
           </div>
-          {% if farmer.rsbsa_number %}
           <div class="pi-field">
-            <p class="pi-label">RSBSA Number</p>
-            <p class="pi-value">{{ farmer.rsbsa_number }}</p>
+            <p class="pi-label">Nakarehistro sa RSBSA</p>
+            <p class="pi-value">{{ farmer.rsbsa_registered_display or '—' }}</p>
           </div>
-          {% else %}
           <div class="pi-field">
-            <p class="pi-label">RSBSA Number</p>
-            <p class="pi-value">N/A</p>
+            <p class="pi-label">Numero ng RSBSA</p>
+            <p class="pi-value">{{ farmer.rsbsa_number_display or 'N/A' }}</p>
           </div>
-          {% endif %}
+          <div class="pi-field">
+            <p class="pi-label">Status ng RSBSA</p>
+            <p class="pi-value">{{ farmer.rsbsa_status_display or '—' }}</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="pi-section-block" aria-labelledby="pi-section-farm">
+        <h2 class="pi-section-title" id="pi-section-farm">Impormasyon ng Bukid</h2>
+        <div class="pi-grid-2">
+          <div class="pi-field">
+            <p class="pi-label">Status ng Pagmamay-ari</p>
+            <p class="pi-value">{{ farmer.ownership_display or '—' }}</p>
+          </div>
+          <div class="pi-field">
+            <p class="pi-label">Kabuuang Lawak ng Taniman</p>
+            <p class="pi-value">{{ farmer.farm_size_display or '—' }}</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="pi-section-block" aria-labelledby="pi-section-trees">
+        <h2 class="pi-section-title" id="pi-section-trees">Bilang ng Puno</h2>
+        <div class="pi-grid-2">
+          <div class="pi-field">
+            <p class="pi-label">Liberica (Kapeng Barako) Bilang ng Bearing</p>
+            <p class="pi-value">{{ farmer.liberica_bearing_display or '—' }}</p>
+          </div>
+          <div class="pi-field">
+            <p class="pi-label">Liberica (Kapeng Barako) Bilang ng Non Bearing</p>
+            <p class="pi-value">{{ farmer.liberica_non_bearing_display or '—' }}</p>
+          </div>
+        </div>
+        <div class="pi-grid-2 pi-grid-2--spaced">
+          <div class="pi-field">
+            <p class="pi-label">Robusta Bilang ng Bearing</p>
+            <p class="pi-value">{{ farmer.robusta_bearing_display or '—' }}</p>
+          </div>
+          <div class="pi-field">
+            <p class="pi-label">Robusta Bilang ng Non Bearing</p>
+            <p class="pi-value">{{ farmer.robusta_non_bearing_display or '—' }}</p>
+          </div>
+        </div>
+        <div class="pi-grid-2 pi-grid-2--spaced">
+          <div class="pi-field">
+            <p class="pi-label">Excelsa Bilang ng Bearing</p>
+            <p class="pi-value">{{ farmer.excelsa_bearing_display or '—' }}</p>
+          </div>
+          <div class="pi-field">
+            <p class="pi-label">Excelsa Bilang ng Non Bearing</p>
+            <p class="pi-value">{{ farmer.excelsa_non_bearing_display or '—' }}</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="pi-section-block" aria-labelledby="pi-section-production">
+        <h2 class="pi-section-title" id="pi-section-production">Produksyon ({{ farmer.production_year_display }})</h2>
+        <div class="pi-grid-2">
+          <div class="pi-field">
+            <p class="pi-label">Liberica (Kapeng Barako)</p>
+            <p class="pi-value">{{ farmer.prod_liberica_display or '—' }}</p>
+          </div>
+          <div class="pi-field">
+            <p class="pi-label">Yunit</p>
+            <p class="pi-value">Kg</p>
+          </div>
+        </div>
+        <div class="pi-grid-2 pi-grid-2--spaced">
+          <div class="pi-field">
+            <p class="pi-label">Robusta</p>
+            <p class="pi-value">{{ farmer.prod_robusta_display or '—' }}</p>
+          </div>
+          <div class="pi-field">
+            <p class="pi-label">Yunit</p>
+            <p class="pi-value">Kg</p>
+          </div>
+        </div>
+        <div class="pi-grid-2 pi-grid-2--spaced">
+          <div class="pi-field">
+            <p class="pi-label">Excelsa</p>
+            <p class="pi-value">{{ farmer.prod_excelsa_display or '—' }}</p>
+          </div>
+          <div class="pi-field">
+            <p class="pi-label">Yunit</p>
+            <p class="pi-value">Kg</p>
+          </div>
         </div>
       </section>
 
