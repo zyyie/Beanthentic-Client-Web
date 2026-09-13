@@ -19,6 +19,7 @@
         </svg>
       </a>
       <div class="nav-title">Transaction Process</div>
+      {% include 'partials/header_notif.html' %}
     </div>
   </header>
 
@@ -53,8 +54,9 @@
             <div class="form-group full-width txn-farmer-select-wrap" id="txn-farmer-select-wrap"
               data-txn-tour="farmer-name">
               <label for="farmer-select">Farmer name</label>
-              <select id="farmer-select" class="txn-farmer-select" required aria-describedby="txn-farmer-select-hint">
-                <option value="">Select a farmer…</option>
+              <select id="farmer-select" name="farmer_select" class="txn-farmer-select custom-select" required
+                aria-describedby="txn-farmer-select-hint">
+                <option value="" disabled {% if not farmer_id %}selected{% endif %} hidden>Select a farmer…</option>
                 {% for farmer in farmers %}
                 <option value="{{ farmer.farmer_id }}" data-farmer-name="{{ farmer.display_name }}"
                   {% if farmer_id and farmer.farmer_id == farmer_id %}selected{% endif %}>
@@ -75,7 +77,7 @@
                 {% if farmers_error and not farmers %}
                 {{ farmers_error }}
                 {% else %}
-                Choose who you want to buy from. You can also view full profiles first.
+                Select who you want to buy from. You can also view full profiles first.
                 {% endif %}
               </p>
             </div>
@@ -110,21 +112,51 @@
             </div>
 
             <div class="form-group" data-txn-tour="product-type">
-              <label for="product-type">Product</label>
-              <select id="product-type" name="product_type" class="custom-select" required>
-                <option value="" disabled selected>Select a product</option>
+              <label for="txn-product">Product</label>
+              <select id="txn-product" name="product" class="custom-select" required>
+                <option value="" disabled selected hidden>Select product</option>
                 <option value="Liberica">Liberica</option>
-                <option value="Excelsa">Excelsa</option>
                 <option value="Robusta">Robusta</option>
+                <option value="Excelsa">Excelsa</option>
               </select>
             </div>
 
-            <div class="form-group" data-txn-tour="quantity-kg">
-              <label for="quantity-kg">Quantity (KG)</label>
-              <input type="number" id="quantity-kg" name="quantity_kg" min="1" step="0.1" placeholder="0.0" required />
+            <div class="form-group" data-txn-tour="bean-form">
+              <label for="txn-bean-form">Coffee Bean Type</label>
+              <select id="txn-bean-form" name="bean_form" class="custom-select" required>
+                <option value="" disabled selected hidden>Select coffee bean type</option>
+                <option value="gcb">Green Coffee Bean (GCB)</option>
+                <option value="roasted">Roasted Beans</option>
+              </select>
             </div>
 
-            <div class="form-group" data-txn-tour="payment-method">
+            <div class="form-group" data-txn-tour="classification">
+              <label for="txn-classification">Classification</label>
+              <select id="txn-classification" name="classification" class="custom-select" required disabled>
+                <option value="" disabled selected hidden>Select classification</option>
+              </select>
+            </div>
+
+            <div class="form-group" data-txn-tour="quantity">
+              <label for="txn-quantity-pack" id="txn-quantity-label">Quantity</label>
+              <select id="txn-quantity-pack" name="product_quantity_pack" class="custom-select" disabled>
+                <option value="" disabled selected hidden>Select quantity</option>
+              </select>
+              <input type="number" id="txn-quantity-kg" name="product_quantity_kg" class="txn-qty-input" min="0.01"
+                step="0.01" placeholder="Enter kilos (e.g. 2)" hidden disabled />
+            </div>
+
+            <div class="form-group" data-txn-tour="fixed-price">
+              <label for="txn-fixed-price">Fixed Price</label>
+              <div class="txn-fixed-price-display" id="txn-fixed-price" aria-live="polite">—</div>
+              <p class="form-help" id="txn-fixed-price-help">Auto-calculated after you select quantity.</p>
+            </div>
+
+            <input type="hidden" name="product_type" id="product-type" value="" />
+            <input type="hidden" name="quantity_kg" id="quantity-kg" value="" />
+            <input type="hidden" name="order_selections_json" id="order-selections-json" value="" />
+
+            <div class="form-group full-width" data-txn-tour="payment-method">
               <label>Payment Method</label>
               <div class="payment-method-wrapper">
                 <div class="clickable-payment-method" id="cash-payment-option">
@@ -141,7 +173,8 @@
                 <div id="amount-input-group" class="payment-dropdown-field" style="display: none;">
                   <label for="payment-amount">Amount to Pay (₱)</label>
                   <input type="number" id="payment-amount" name="payment_amount" min="1" step="0.01"
-                    placeholder="Enter amount" required />
+                    placeholder="Auto-calculated from product price" readonly required />
+                  <p class="form-help txn-price-pay-help">Total is computed automatically from official product prices.</p>
                 </div>
               </div>
             </div>
@@ -150,11 +183,54 @@
       </div>
 
       <div id="txn-status-panel" class="txn-status-panel" hidden aria-live="polite">
-        <div class="txn-status-panel__badge" id="txn-status-badge">Waiting for approval</div>
-        <p class="txn-status-panel__ref">Reference: <strong id="txn-status-ref">—</strong></p>
+        <div class="txn-status-panel__badge" id="txn-status-badge">Pending</div>
+        <p class="txn-status-panel__ref">Transaction ID: <strong id="txn-status-ref">—</strong></p>
+        <div class="txn-status-details" id="txn-status-details" hidden>
+          <dl class="txn-status-details__grid">
+            <div class="txn-status-details__row">
+              <dt>Client</dt>
+              <dd id="txn-detail-client">—</dd>
+            </div>
+            <div class="txn-status-details__row">
+              <dt>Farmer</dt>
+              <dd id="txn-detail-farmer">—</dd>
+            </div>
+            <div class="txn-status-details__row">
+              <dt>Product</dt>
+              <dd id="txn-detail-product">—</dd>
+            </div>
+            <div class="txn-status-details__row">
+              <dt>Quantity</dt>
+              <dd id="txn-detail-quantity">—</dd>
+            </div>
+            <div class="txn-status-details__row">
+              <dt>Amount</dt>
+              <dd id="txn-detail-amount">—</dd>
+            </div>
+            <div class="txn-status-details__row">
+              <dt>Pickup date</dt>
+              <dd id="txn-detail-pickup">—</dd>
+            </div>
+            <div class="txn-status-details__row">
+              <dt>Payment</dt>
+              <dd id="txn-detail-payment">—</dd>
+            </div>
+          </dl>
+          <p class="txn-status-panel__status-line">Status: <strong id="txn-detail-status">Approved</strong></p>
+        </div>
         <p class="txn-status-panel__hint" id="txn-status-hint">
           Your request was sent. Please wait while the farmer reviews it.
         </p>
+        <div class="txn-status-panel__actions" id="txn-status-actions" hidden>
+          <button type="button" id="approved-view-receipt-btn" class="txn-receipt-action-btn txn-receipt-action-btn--outline"
+            aria-label="View receipt">
+            View Receipt
+          </button>
+          <button type="button" id="approved-download-receipt-btn" class="txn-receipt-action-btn txn-receipt-action-btn--primary"
+            aria-label="Download receipt">
+            Download Receipt
+          </button>
+        </div>
       </div>
 
       <div id="txn-receipt-ready-card" class="txn-receipt-ready-card" hidden aria-live="polite">
@@ -169,11 +245,11 @@
             <span class="txn-receipt-ready-icon__doc">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                 stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-              </svg>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
             </span>
           </div>
           <h2 class="txn-receipt-ready-title">Receipt Ready!</h2>
@@ -240,7 +316,7 @@
           </button>
           <span class="receipt-modal-topbar-title" id="receipt-modal-title">View Receipt</span>
         </div>
-        <div class="receipt-modal-container">
+      <div class="receipt-modal-container">
         <div class="txn-receipt-card" id="client-receipt-print-area">
           <div class="txn-rcpt-brand">
             <img class="txn-rcpt-logo" src="{{ url_for('static', filename='images/beanthentic-logo.png') }}"
@@ -327,10 +403,14 @@
     </div>
 
     <!-- Image Preview Modal -->
-    <div id="image-preview-modal" class="receipt-modal-overlay" style="display: none;">
+    <div id="image-preview-modal" class="receipt-modal-overlay image-preview-modal" style="display: none;"
+      role="dialog" aria-modal="true" aria-label="Valid ID preview">
       <div class="image-preview-container">
-        <button type="button" class="close-receipt-modal" id="close-preview">&times;</button>
+        <button type="button" class="close-receipt-modal image-preview-close" id="close-preview"
+          aria-label="Close valid ID preview">&times;</button>
+        <div class="image-preview-scroll">
         <img id="id-preview-img" src="" alt="Valid ID Preview" class="full-id-preview" />
+        </div>
       </div>
     </div>
     <!-- Custom Calendar Modal -->
@@ -362,12 +442,33 @@
         </div>
       </div>
     </div>
+
+    <!-- Waiting for approval modal -->
+    <div id="txn-waiting-modal" class="receipt-modal-overlay txn-waiting-modal" style="display: none;" role="dialog"
+      aria-modal="true" aria-labelledby="txn-waiting-modal-title">
+      <div class="txn-waiting-modal__card">
+        <div class="txn-waiting-modal__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </div>
+        <h2 id="txn-waiting-modal-title" class="txn-waiting-modal__title">Waiting for approval</h2>
+        <p class="txn-waiting-modal__text">
+          Your transaction was sent successfully. Please wait while the farmer reviews your request.
+        </p>
+        <p class="txn-waiting-modal__ref">Reference: <strong id="txn-waiting-modal-ref">—</strong></p>
+        <button type="button" class="txn-waiting-modal__btn" id="txn-waiting-modal-close">OK</button>
+      </div>
+    </div>
   </main>
 
   <div id="beanthentic-toast-host" class="beanthentic-toast-host" aria-live="polite" aria-atomic="true"></div>
 
   <script>
     window.__BEANTHENTIC_APP_SERVER_BASE__ = {{ app_server_base | tojson }};
+    window.__TX_PRODUCT_PRICES__ = {{ product_prices | tojson }};
   </script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -390,16 +491,577 @@
       const amountGroup = document.getElementById('amount-input-group');
       const amountInput = document.getElementById('payment-amount');
 
-      // ID Preview Logic
+      var TX_BEAN_FORM_LABELS = {
+        gcb: 'Green Coffee Bean (GCB)',
+        roasted: 'Roasted Beans'
+      };
+
+      var TX_ROASTED = {
+        classifications: ['Ground Beans', 'Whole Beans'],
+        packs: [
+          { value: '250g', kg: 0.25 },
+          { value: '500g', kg: 0.5 },
+          { value: '1kg', kg: 1 }
+        ]
+      };
+
+      var TX_GCB = {
+        classifications: ['Small', 'Medium', 'Large']
+      };
+
+      var TX_PRODUCT_PRICES = Array.isArray(window.__TX_PRODUCT_PRICES__) ? window.__TX_PRODUCT_PRICES__ : [];
+      var txnPricingState = { ready: false, unitPrice: null, quantityKg: null, total: null };
+
+      function normalizePriceKey(raw) {
+        return String(raw || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      }
+
+      function normalizeBeanTypeKey(raw) {
+        var text = normalizePriceKey(raw);
+        if (text === 'green coffee bean (gcb)' || text === 'green coffee bean') return 'gcb';
+        if (text === 'roasted beans') return 'roasted';
+        return text;
+      }
+
+      function normalizeClassificationKey(raw) {
+        var text = normalizePriceKey(raw);
+        if (!text) return '';
+        var map = {
+          small: 'small_beans',
+          medium: 'medium_beans',
+          large: 'large_beans',
+          'small beans': 'small_beans',
+          'medium beans': 'medium_beans',
+          'large beans': 'large_beans',
+          'ground beans': 'ground_beans',
+          'whole beans': 'whole_beans'
+        };
+        return map[text] || text.replace(/\s+/g, '_');
+      }
+
+      function loadProductPrices() {
+        return fetch('/api/client-transaction/product-prices', {
+          method: 'GET',
+          headers: { Accept: 'application/json' }
+        })
+          .then(function (res) {
+            if (!res.ok) throw new Error('price fetch failed');
+            return res.json();
+          })
+          .then(function (body) {
+            if (body && body.ok && Array.isArray(body.prices) && body.prices.length) {
+              TX_PRODUCT_PRICES = body.prices;
+            }
+            updatePriceSummary();
+            return TX_PRODUCT_PRICES;
+          })
+          .catch(function () {
+            updatePriceSummary();
+            return TX_PRODUCT_PRICES;
+          });
+      }
+
+      function lookupUnitPricePerKg(product, beanForm, classification) {
+        var variety = normalizePriceKey(product);
+        var beanType = normalizeBeanTypeKey(beanForm);
+        var classKey = normalizeClassificationKey(classification);
+        if (!variety || !beanType || !TX_PRODUCT_PRICES.length) return null;
+
+        var exact = null;
+        var beanMatch = null;
+        var varietyMatch = null;
+        TX_PRODUCT_PRICES.forEach(function (row) {
+          var rowVariety = normalizePriceKey(row.variety);
+          var rowBean = normalizeBeanTypeKey(row.bean_type);
+          var rowClass = normalizeClassificationKey(row.classification);
+          var price = Number(row.price_per_kg);
+          if (!isFinite(price) || rowVariety !== variety) return;
+          varietyMatch = price;
+          if (rowBean !== beanType) return;
+          beanMatch = price;
+          if (rowClass && classKey && rowClass !== classKey) return;
+          if (rowClass === classKey || !rowClass || !classKey) {
+            exact = price;
+          }
+        });
+        if (exact != null) return exact;
+        if (beanMatch != null) return beanMatch;
+        return varietyMatch;
+      }
+
+      function pesoLabel(amount) {
+        var n = Number(amount);
+        if (!isFinite(n)) return '—';
+        return '₱' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
+      function currentQuantityKgFromForm() {
+        var beanFormEl = document.getElementById('txn-bean-form');
+        var packEl = document.getElementById('txn-quantity-pack');
+        var kgEl = document.getElementById('txn-quantity-kg');
+        var beanForm = beanFormEl ? String(beanFormEl.value || '').trim() : '';
+        if (beanForm === 'roasted') {
+          return packToKg(packEl ? String(packEl.value || '').trim() : '');
+        }
+        if (beanForm === 'gcb') {
+          var kg = Number(kgEl ? kgEl.value : 0);
+          return isFinite(kg) && kg > 0 ? kg : 0;
+        }
+        return 0;
+      }
+
+      function currentQuantityLabelFromForm() {
+        var beanFormEl = document.getElementById('txn-bean-form');
+        var packEl = document.getElementById('txn-quantity-pack');
+        var kgEl = document.getElementById('txn-quantity-kg');
+        var beanForm = beanFormEl ? String(beanFormEl.value || '').trim() : '';
+        if (beanForm === 'roasted') {
+          var pack = packEl ? String(packEl.value || '').trim() : '';
+          return pack || '—';
+        }
+        if (beanForm === 'gcb') {
+          var kg = Number(kgEl ? kgEl.value : 0);
+          return isFinite(kg) && kg > 0 ? kg + ' kg' : '—';
+        }
+        return '—';
+      }
+
+      function updatePriceSummary() {
+        var fixedPriceEl = document.getElementById('txn-fixed-price');
+        var helpEl = document.getElementById('txn-fixed-price-help');
+        var productEl = document.getElementById('txn-product');
+        var beanFormEl = document.getElementById('txn-bean-form');
+        var classEl = document.getElementById('txn-classification');
+
+        var product = productEl ? String(productEl.value || '').trim() : '';
+        var beanForm = beanFormEl ? String(beanFormEl.value || '').trim() : '';
+        var classification = classEl ? String(classEl.value || '').trim() : '';
+        var qtyKg = currentQuantityKgFromForm();
+        var unitPrice = lookupUnitPricePerKg(product, beanForm, classification);
+
+        txnPricingState = { ready: false, unitPrice: unitPrice, quantityKg: qtyKg, total: null };
+
+        function setFixedPriceDisplay(totalText, helpText) {
+          if (fixedPriceEl) fixedPriceEl.textContent = totalText;
+          if (helpEl) helpEl.textContent = helpText;
+        }
+
+        if (!TX_PRODUCT_PRICES.length) {
+          setFixedPriceDisplay('—', 'Could not load official prices. Please refresh the page.');
+          if (amountInput) amountInput.value = '';
+          return;
+        }
+
+        if (!product || !beanForm || !classification) {
+          setFixedPriceDisplay('—', 'Select product, bean type, and classification first.');
+          if (amountInput) amountInput.value = '';
+          return;
+        }
+
+        if (qtyKg <= 0) {
+          setFixedPriceDisplay('—', 'Select quantity to see fixed price.');
+          if (amountInput) amountInput.value = '';
+          return;
+        }
+
+        if (unitPrice == null) {
+          setFixedPriceDisplay('—', 'No official price found for this product selection.');
+          if (amountInput) amountInput.value = '';
+          return;
+        }
+
+        var total = Math.round(unitPrice * qtyKg * 100) / 100;
+        txnPricingState = { ready: true, unitPrice: unitPrice, quantityKg: qtyKg, total: total };
+
+        setFixedPriceDisplay(
+          pesoLabel(total),
+          pesoLabel(unitPrice) + ' / kg · ' + currentQuantityLabelFromForm()
+        );
+        if (amountInput) amountInput.value = String(total);
+        if (cashOption.classList.contains('selected') && amountGroup) {
+          amountGroup.style.display = 'block';
+        }
+      }
+
+      function setQuantityMode(mode) {
+        var packEl = document.getElementById('txn-quantity-pack');
+        var kgEl = document.getElementById('txn-quantity-kg');
+        var labelEl = document.getElementById('txn-quantity-label');
+        if (mode === 'gcb') {
+          if (packEl) {
+            packEl.hidden = true;
+            packEl.disabled = true;
+            packEl.removeAttribute('required');
+            packEl.selectedIndex = 0;
+          }
+          if (kgEl) {
+            kgEl.hidden = false;
+            kgEl.disabled = false;
+            kgEl.setAttribute('required', 'required');
+          }
+          if (labelEl) labelEl.textContent = 'Quantity (kg)';
+        } else if (mode === 'roasted') {
+          if (packEl) {
+            packEl.hidden = false;
+            packEl.disabled = false;
+            packEl.setAttribute('required', 'required');
+          }
+          if (kgEl) {
+            kgEl.hidden = true;
+            kgEl.disabled = true;
+            kgEl.removeAttribute('required');
+            kgEl.value = '';
+          }
+          if (labelEl) labelEl.textContent = 'Quantity';
+        } else {
+          if (packEl) {
+            packEl.hidden = false;
+            packEl.disabled = true;
+            packEl.removeAttribute('required');
+            packEl.selectedIndex = 0;
+          }
+          if (kgEl) {
+            kgEl.hidden = true;
+            kgEl.disabled = true;
+            kgEl.removeAttribute('required');
+            kgEl.value = '';
+          }
+          if (labelEl) labelEl.textContent = 'Quantity';
+        }
+      }
+
+      function fillSelectOptions(selectEl, placeholder, items, labelFn) {
+        if (!selectEl) return;
+        selectEl.innerHTML = '';
+        var ph = document.createElement('option');
+        ph.value = '';
+        ph.textContent = placeholder || 'Select…';
+        ph.disabled = true;
+        ph.selected = true;
+        ph.hidden = true;
+        selectEl.appendChild(ph);
+        items.forEach(function (item) {
+          var opt = document.createElement('option');
+          if (typeof item === 'string') {
+            opt.value = item;
+            opt.textContent = labelFn ? labelFn(item) : item;
+          } else {
+            opt.value = item.value;
+            opt.textContent = labelFn ? labelFn(item) : item.label || item.value;
+          }
+          selectEl.appendChild(opt);
+        });
+      }
+
+      function packToKg(pack) {
+        if (pack === '250g') return 0.25;
+        if (pack === '500g') return 0.5;
+        if (pack === '1kg' || pack === '1kl') return 1;
+        if (pack === '200g') return 0.2;
+        return 0;
+      }
+
+      function syncBeanFormFields(preserve) {
+        var beanFormEl = document.getElementById('txn-bean-form');
+        var classEl = document.getElementById('txn-classification');
+        var packEl = document.getElementById('txn-quantity-pack');
+        var kgEl = document.getElementById('txn-quantity-kg');
+        var beanForm = beanFormEl ? String(beanFormEl.value || '').trim() : '';
+        var prevClass = preserve && classEl ? classEl.value : '';
+        var prevPack = preserve && packEl ? packEl.value : '';
+        var prevKg = preserve && kgEl ? kgEl.value : '';
+
+        if (!beanForm) {
+          fillSelectOptions(classEl, 'Select classification', []);
+          fillSelectOptions(packEl, 'Select quantity', []);
+          if (classEl) classEl.disabled = true;
+          setQuantityMode('');
+          return;
+        }
+
+        if (beanForm === 'roasted') {
+          fillSelectOptions(classEl, 'Select classification', TX_ROASTED.classifications);
+          fillSelectOptions(packEl, 'Select quantity', TX_ROASTED.packs, function (item) {
+            return item.value;
+          });
+          setQuantityMode('roasted');
+        } else if (beanForm === 'gcb') {
+          fillSelectOptions(classEl, 'Select classification', TX_GCB.classifications);
+          setQuantityMode('gcb');
+        }
+
+        if (classEl) {
+          classEl.disabled = false;
+          if (prevClass) classEl.value = prevClass;
+        }
+        if (packEl && beanForm === 'roasted' && prevPack) packEl.value = prevPack;
+        if (kgEl && beanForm === 'gcb' && prevKg) kgEl.value = prevKg;
+        updatePriceSummary();
+      }
+
+      function normalizeOrderSelections(raw) {
+        if (!raw || typeof raw !== 'object') return raw;
+        var s = Object.assign({}, raw);
+        if (!s.product && s.coffee_type) s.product = s.coffee_type;
+        if (!s.bean_form && s.bean_type) s.bean_form = s.bean_type;
+        if (!s.bean_form_label && s.bean_type_label) s.bean_form_label = s.bean_type_label;
+        if (s.bean_form && !s.bean_form_label) {
+          s.bean_form_label = TX_BEAN_FORM_LABELS[s.bean_form] || '';
+        }
+        return s;
+      }
+
+      function readOrderSelections() {
+        var productEl = document.getElementById('txn-product');
+        var beanFormEl = document.getElementById('txn-bean-form');
+        var classEl = document.getElementById('txn-classification');
+        var packEl = document.getElementById('txn-quantity-pack');
+        var kgEl = document.getElementById('txn-quantity-kg');
+        var product = productEl ? String(productEl.value || '').trim() : '';
+        var beanForm = beanFormEl ? String(beanFormEl.value || '').trim() : '';
+        var classification = classEl ? String(classEl.value || '').trim() : '';
+        var quantityPack = null;
+        var quantityKg = null;
+        var quantityLabel = '';
+
+        if (beanForm === 'roasted') {
+          quantityPack = packEl ? String(packEl.value || '').trim() : '';
+          quantityKg = packToKg(quantityPack);
+          quantityLabel = quantityPack;
+        } else if (beanForm === 'gcb') {
+          var kg = kgEl ? parseFloat(String(kgEl.value || '0')) : 0;
+          if (isFinite(kg) && kg > 0) {
+            quantityKg = kg;
+            quantityLabel = kg + ' kg';
+          }
+        }
+
+        return {
+          product: product || null,
+          bean_form: beanForm || null,
+          bean_form_label: TX_BEAN_FORM_LABELS[beanForm] || '',
+          classification: classification || null,
+          quantity_pack: quantityPack || null,
+          quantity_kg: quantityKg != null && quantityKg > 0 ? quantityKg : null,
+          quantity_label: quantityLabel || null
+        };
+      }
+
+      function buildOrderSummary() {
+        var s = readOrderSelections();
+        if (!s.product) {
+          throw new Error('Select product (Liberica, Robusta, or Excelsa).');
+        }
+        if (!s.bean_form) {
+          throw new Error('Select coffee bean type (Green Coffee Bean or Roasted Beans).');
+        }
+        if (!s.classification) {
+          throw new Error('Select classification.');
+        }
+        if (s.bean_form === 'roasted' && !s.quantity_pack) {
+          throw new Error('Select quantity.');
+        }
+        if (s.bean_form === 'gcb' && (!s.quantity_kg || s.quantity_kg <= 0)) {
+          throw new Error('Enter quantity in kilos.');
+        }
+        updatePriceSummary();
+        if (txnPricingState.ready) {
+          s.unit_price_per_kg = txnPricingState.unitPrice;
+          s.computed_total = txnPricingState.total;
+          s.price = txnPricingState.total;
+        }
+        return {
+          product_type:
+            s.product +
+            ' · ' +
+            s.bean_form_label +
+            ' · ' +
+            s.classification +
+            ' · ' +
+            s.quantity_label,
+          quantity_kg: s.quantity_kg,
+          order_selections: s
+        };
+      }
+
+      function applyOrderSummaryToForm(summary) {
+        var productEl = document.getElementById('product-type');
+        var qtyEl = document.getElementById('quantity-kg');
+        var jsonEl = document.getElementById('order-selections-json');
+        var unitHidden = form.querySelector('input[name="quantity_unit"]');
+        if (productEl) productEl.value = summary.product_type || '';
+        if (qtyEl) qtyEl.value = summary.quantity_kg != null ? String(summary.quantity_kg) : '';
+        if (jsonEl) {
+          jsonEl.value = JSON.stringify(summary.order_selections || readOrderSelections());
+        }
+        if (unitHidden) {
+          unitHidden.value = 'KG';
+        }
+      }
+
+      function clearOrderSelectionFields() {
+        var productEl = document.getElementById('txn-product');
+        var beanFormEl = document.getElementById('txn-bean-form');
+        if (productEl) productEl.selectedIndex = 0;
+        if (beanFormEl) beanFormEl.selectedIndex = 0;
+        syncBeanFormFields(false);
+        applyOrderSummaryToForm({ product_type: '', quantity_kg: '', order_selections: readOrderSelections() });
+        updatePriceSummary();
+      }
+
+      function restoreOrderSelectionFields(state) {
+        if (!state || !state.order_selections) return;
+        var s = normalizeOrderSelections(state.order_selections);
+        if (s.varieties) {
+          var keys = ['liberica', 'robusta', 'excelsa'];
+          for (var i = 0; i < keys.length; i++) {
+            var row = s.varieties[keys[i]];
+            if (!row || !row.bean_type) continue;
+            s = normalizeOrderSelections({
+              product: keys[i].charAt(0).toUpperCase() + keys[i].slice(1),
+              bean_form: row.bean_type,
+              classification: row.classification,
+              quantity_pack: row.quantity_pack || row.pack || null
+            });
+            break;
+          }
+        }
+        var productEl = document.getElementById('txn-product');
+        var beanFormEl = document.getElementById('txn-bean-form');
+        var classEl = document.getElementById('txn-classification');
+        var packEl = document.getElementById('txn-quantity-pack');
+        var kgEl = document.getElementById('txn-quantity-kg');
+        if (productEl && s.product) productEl.value = s.product;
+        if (beanFormEl && s.bean_form) {
+          beanFormEl.value = s.bean_form;
+          syncBeanFormFields(true);
+        }
+        if (classEl && s.classification) classEl.value = s.classification;
+        if (s.bean_form === 'gcb' && kgEl && s.quantity_kg != null) {
+          kgEl.value = String(s.quantity_kg);
+        } else if (packEl && s.quantity_pack) {
+          var packVal = s.quantity_pack === '1kl' ? '1kg' : s.quantity_pack;
+          packEl.value = packVal;
+        } else if (packEl && s.quantity != null && s.unit) {
+          var legacy = String(s.quantity) + String(s.unit);
+          if (legacy === '250g' || legacy === '500g' || legacy === '1kg' || legacy === '1kl' || legacy === '200g') {
+            packEl.value = legacy === '1kl' ? '1kg' : legacy;
+          }
+        }
+        updatePriceSummary();
+      }
+
+      var beanFormElInit = document.getElementById('txn-bean-form');
+      if (beanFormElInit) {
+        beanFormElInit.addEventListener('change', function () {
+          syncBeanFormFields(false);
+        });
+      }
+      ['txn-product', 'txn-classification', 'txn-quantity-pack', 'txn-quantity-kg'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('change', updatePriceSummary);
+        el.addEventListener('input', updatePriceSummary);
+      });
+      syncBeanFormFields(false);
+      updatePriceSummary();
+      loadProductPrices();
+
       const validIdInput = document.getElementById('valid-id');
       const viewIdBtn = document.getElementById('view-id-btn');
       const previewModal = document.getElementById('image-preview-modal');
       const previewImg = document.getElementById('id-preview-img');
       const closePreview = document.getElementById('close-preview');
+      var validIdSavedOnServer = false;
 
-      viewIdBtn.addEventListener('click', () => {
+      function validIdServeUrl(pathOrUrl) {
+        if (!pathOrUrl) return '';
+        var s = String(pathOrUrl).trim();
+        if (!s) return '';
+        if (s.indexOf('data:image') === 0 || s.indexOf('http://') === 0 || s.indexOf('https://') === 0) {
+          return s;
+        }
+        if (s.indexOf('/uploads/client_ids/') === 0) return s;
+        if (s.indexOf('/') === -1) return '/uploads/client_ids/' + s;
+        var parts = s.split('/');
+        return '/uploads/client_ids/' + parts[parts.length - 1];
+      }
+
+      function openValidIdPreviewModal() {
+        if (!previewImg || !previewImg.src) return;
+        var scrollEl = previewModal.querySelector('.image-preview-scroll');
+        if (scrollEl) scrollEl.scrollTop = 0;
         previewModal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+      }
+
+      function clearValidIdPreview() {
+        validIdSavedOnServer = false;
+        if (validIdInput) {
+          validIdInput.value = '';
+          validIdInput.setAttribute('required', 'required');
+        }
+        if (previewImg) previewImg.src = '';
+        if (viewIdBtn) viewIdBtn.style.display = 'none';
+      }
+
+      function setValidIdPreview(src, opts) {
+        opts = opts || {};
+        var url = validIdServeUrl(src);
+        if (!url) {
+          clearValidIdPreview();
+          return;
+        }
+        validIdSavedOnServer = !!opts.fromDb;
+        if (previewImg) previewImg.src = url;
+        if (viewIdBtn) viewIdBtn.style.display = 'flex';
+        if (validIdInput && opts.fromDb) validIdInput.removeAttribute('required');
+      }
+
+      function restoreValidIdFromState(saved) {
+        if (!saved) return;
+        if (saved.valid_id_preview) {
+          setValidIdPreview(saved.valid_id_preview, { fromDb: true });
+          return;
+        }
+        if (saved.valid_id_url) {
+          setValidIdPreview(saved.valid_id_url, { fromDb: true });
+          return;
+        }
+        if (saved.valid_id_path) {
+          setValidIdPreview(saved.valid_id_path, { fromDb: true });
+          return;
+        }
+        if (saved.reference_no) {
+          fetchValidIdForRef(saved.reference_no);
+        }
+      }
+
+      function fetchValidIdForRef(ref) {
+        if (!ref) return;
+        fetch('/api/client-transaction/status?reference_no=' + encodeURIComponent(ref), {
+          method: 'GET',
+          headers: { Accept: 'application/json' }
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (body) {
+            if (!body || body.ok !== true) return;
+            var url = body.valid_id_url || body.valid_id_path;
+            if (!url) return;
+            setValidIdPreview(url, { fromDb: true });
+            var fidVid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+            var pending = loadPendingState(fidVid);
+            if (pending) {
+              pending.valid_id_url = url;
+              pending.valid_id_path = body.valid_id_path || url;
+              savePendingState(pending, fidVid);
+            }
+          })
+          .catch(function () { });
+      }
+
+      viewIdBtn.addEventListener('click', () => {
+        openValidIdPreviewModal();
       });
 
       closePreview.addEventListener('click', () => {
@@ -419,6 +1081,21 @@
       const statusBadge = document.getElementById('txn-status-badge');
       const statusRef = document.getElementById('txn-status-ref');
       const statusHint = document.getElementById('txn-status-hint');
+      const statusDetails = document.getElementById('txn-status-details');
+      const statusActions = document.getElementById('txn-status-actions');
+      const detailClient = document.getElementById('txn-detail-client');
+      const detailFarmer = document.getElementById('txn-detail-farmer');
+      const detailProduct = document.getElementById('txn-detail-product');
+      const detailQuantity = document.getElementById('txn-detail-quantity');
+      const detailAmount = document.getElementById('txn-detail-amount');
+      const detailPickup = document.getElementById('txn-detail-pickup');
+      const detailPayment = document.getElementById('txn-detail-payment');
+      const detailStatus = document.getElementById('txn-detail-status');
+      const approvedViewReceiptBtn = document.getElementById('approved-view-receipt-btn');
+      const approvedDownloadReceiptBtn = document.getElementById('approved-download-receipt-btn');
+      const waitingModal = document.getElementById('txn-waiting-modal');
+      const waitingModalRef = document.getElementById('txn-waiting-modal-ref');
+      const waitingModalClose = document.getElementById('txn-waiting-modal-close');
 
       var submittedRef = '';
       var approvedNotifiedForRef = '';
@@ -494,6 +1171,24 @@
         updateFarmerGuideVisibility();
       }
 
+      function clearFarmerSelection() {
+        if (farmerIdInput) farmerIdInput.value = '';
+        if (farmerNameHidden) farmerNameHidden.value = '';
+        try {
+          sessionStorage.removeItem(FARMER_CTX_KEY);
+        } catch (_clearCtx) { }
+        if (farmerSelectEl) {
+          farmerSelectEl.value = '';
+          farmerSelectEl.classList.remove('txn-farmer-select--invalid');
+        }
+        updateFarmerGuideVisibility();
+      }
+
+      function focusFarmerSelect() {
+        if (!farmerSelectEl) return;
+        farmerSelectEl.focus();
+      }
+
       function onFarmerSelectChange() {
         if (!farmerSelectEl) return;
         var fid = String(farmerSelectEl.value || '').trim();
@@ -506,6 +1201,16 @@
         var opt = farmerSelectEl.selectedOptions[0];
         var name = farmerNameFromSelectOption(opt);
         applyFarmerContext({ farmer_id: fid, farmer_name: name });
+      }
+
+      function initFarmerSelect() {
+        if (!farmerSelectEl) return;
+        farmerSelectEl.addEventListener('change', function () {
+          farmerSelectEl.classList.remove('txn-farmer-select--invalid');
+          onFarmerSelectChange();
+        });
+        syncFarmerSelectFromContext();
+        onFarmerSelectChange();
       }
 
       function pendingStorageKey(farmerId) {
@@ -560,10 +1265,65 @@
         });
       }
 
+      function archiveCompletedPending(farmerId) {
+        /* Keep approved/receipt transactions in storage so clients can revisit them. */
+      }
+
+      function resetForFreshTransaction(farmerId) {
+        stopPoll();
+        submittedRef = '';
+        clearPendingStorage(farmerId);
+        hideWaitingApprovalModal();
+        hidePendingStatusPanel();
+        hideReceiptReadyCard();
+        unlockFormControls();
+      }
+
+      function hideWaitingApprovalModal() {
+        if (!waitingModal) return;
+        waitingModal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+
+      function showWaitingApprovalModal(ref) {
+        if (!waitingModal) return;
+        if (waitingModalRef) waitingModalRef.textContent = ref || '—';
+        waitingModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      }
+
+      if (waitingModalClose) {
+        waitingModalClose.addEventListener('click', hideWaitingApprovalModal);
+      }
+      if (waitingModal) {
+        waitingModal.addEventListener('click', function (e) {
+          if (e.target === waitingModal) hideWaitingApprovalModal();
+        });
+      }
+
+      function getFarmerKeepContext(state) {
+        var s = state || {};
+        return {
+          farmer_id: s.farmer_id || (farmerIdInput ? farmerIdInput.value : ''),
+          farmer_name: s.farmer_name || farmerNameValue()
+        };
+      }
+
+      function resetToNormalTransactionForm(state) {
+        hideWaitingApprovalModal();
+        hideReceiptReadyCard();
+        if (statusPanel) statusPanel.hidden = true;
+        unlockFormControls();
+        clearTransactionFormFields();
+        applyFarmerContext(getFarmerKeepContext(state));
+      }
+
       function hidePendingStatusPanel() {
         stopPoll();
         submittedRef = '';
+        hideWaitingApprovalModal();
         if (statusPanel) statusPanel.hidden = true;
+        setStatusPanelReceiptControls('pending');
         hideReceiptReadyCard();
       }
 
@@ -580,6 +1340,8 @@
             control !== downloadReceiptBtn &&
             control !== viewReceiptBtn &&
             control !== orderAgainBtn &&
+            control !== approvedViewReceiptBtn &&
+            control !== approvedDownloadReceiptBtn &&
             control.id !== 'view-id-btn' &&
             control.id !== 'close-receipt' &&
             control.id !== 'close-receipt-back' &&
@@ -610,15 +1372,11 @@
       function clearTransactionFormFields() {
         document.getElementById('client-name').value = '';
         document.getElementById('pickup-date').value = '';
-        var productEl = document.getElementById('product-type');
-        if (productEl) productEl.selectedIndex = 0;
-        document.getElementById('quantity-kg').value = '';
+        clearOrderSelectionFields();
         amountInput.value = '';
         cashOption.classList.remove('selected');
         amountGroup.style.display = 'none';
-        validIdInput.value = '';
-        viewIdBtn.style.display = 'none';
-        if (previewImg) previewImg.src = '';
+        clearValidIdPreview();
         selectedDate = null;
       }
 
@@ -656,21 +1414,118 @@
         return '';
       }
 
-      function formatReceiptDateTime(iso) {
-        var d = new Date(iso);
-        if (isNaN(d.getTime())) {
+      function parsePickupDateLabel(raw) {
+        var s = String(raw || '').trim();
+        if (!s) return '-';
+        var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (m) {
+          var d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+          if (!isNaN(d.getTime())) {
+            return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+          }
+        }
+        m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (m) {
+          var d2 = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+          if (!isNaN(d2.getTime())) {
+            return d2.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+          }
+        }
+        var parsed = new Date(s);
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        return s;
+      }
+
+      var RECEIPT_TZ = 'Asia/Manila';
+
+      function parseTransactionDateTime(raw) {
+        var s = String(raw || '').trim();
+        if (!s) return null;
+        if (/^\d{4}-\d{2}-\d{2} /.test(s)) {
+          s = s.replace(' ', 'T');
+        }
+        var d = new Date(s);
+        if (!isNaN(d.getTime())) return d;
+        return null;
+      }
+
+      function formatTransactionTimeOnly(iso) {
+        var d = parseTransactionDateTime(iso);
+        if (!d) return '-';
+        return d.toLocaleTimeString('en-PH', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: RECEIPT_TZ
+        });
+      }
+
+      function receiptTimeFromState(state) {
+        var s = state && typeof state === 'object' ? state : {};
+        var rc = s.receipt || {};
+        return String(s.receipt_time || rc.receipt_time || rc.time || '').trim();
+      }
+
+      function receiptDateFromState(state) {
+        var s = state && typeof state === 'object' ? state : {};
+        var rc = s.receipt || {};
+        var dateLabel = String(s.receipt_date || rc.receipt_date || '').trim();
+        if (dateLabel) return dateLabel;
+        var pickup = s.pickup_date_display || s.pickup_date || rc.pickup_date || rc.pickup_date_display || '';
+        return parsePickupDateLabel(pickup);
+      }
+
+      function transactionAtFromState(state) {
+        var s = state && typeof state === 'object' ? state : {};
+        var rc = s.receipt || {};
+        return String(
+          s.transaction_at || s.at || rc.transaction_at || rc.at || ''
+        ).trim();
+      }
+
+      function formatReceiptDateTime(state) {
+        if (typeof state === 'string') {
+          return formatReceiptDateTimeLegacy(state);
+        }
+        var s = state && typeof state === 'object' ? state : {};
+        var receiptTime = receiptTimeFromState(s);
+        var receiptDate = receiptDateFromState(s);
+        if (receiptTime) {
+          return { date: receiptDate, time: receiptTime };
+        }
+        return {
+          date: receiptDate,
+          time: formatTransactionTimeOnly(transactionAtFromState(s))
+        };
+      }
+
+      function formatReceiptDateTimeLegacy(iso) {
+        var d = parseTransactionDateTime(iso);
+        if (!d) {
           return { date: '-', time: '-' };
         }
         return {
-          date: d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }),
-          time: d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+          date: d.toLocaleDateString('en-PH', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            timeZone: RECEIPT_TZ
+          }),
+          time: d.toLocaleTimeString('en-PH', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+            timeZone: RECEIPT_TZ
+          })
         };
       }
 
       function stateToReceiptRecord(state) {
         var s = state || {};
         var rc = s.receipt || {};
-        var merged = Object.assign({}, rc, s);
+        var merged = Object.assign({}, s, rc);
         var amountNum = firstNumber(merged, ['amount', 'total', 'totalAmount']);
         var paymentAmtNum = firstNumber(merged, ['paymentAmount', 'payment_amount', 'paidAmount']);
         var totalNum = firstNumber(merged, ['total', 'amount']);
@@ -680,7 +1535,6 @@
         }
         if (amountNum == null && totalNum != null) amountNum = totalNum;
         if (totalNum == null && amountNum != null) totalNum = amountNum;
-        if (paymentAmtNum == null && amountNum != null) paymentAmtNum = amountNum;
         var qtyVal = merged.qty != null ? merged.qty : merged.quantity_kg != null ? merged.quantity_kg : merged.quantity;
         return {
           ref: merged.ref || merged.reference_no || submittedRef || '',
@@ -693,7 +1547,11 @@
           paymentAmount: paymentAmtNum,
           total: totalNum,
           change: changeNum,
-          at: merged.at || merged.transaction_at || merged.submitted_at || ''
+          pickup_date: merged.pickup_date_display || merged.pickup_date || s.pickup_date || '',
+          transaction_at: merged.transaction_at || merged.at || s.transaction_at || '',
+          receipt_date: merged.receipt_date || s.receipt_date || '',
+          receipt_time: merged.receipt_time || s.receipt_time || '',
+          at: merged.transaction_at || merged.at || s.transaction_at || s.submitted_at || ''
         };
       }
 
@@ -721,7 +1579,16 @@
         s.amount = body.amount != null ? body.amount : rc.amount != null ? rc.amount : rc.total != null ? rc.total : s.amount;
         s.total = body.total != null ? body.total : rc.total != null ? rc.total : s.total;
         s.change = body.change != null ? body.change : rc.change != null ? rc.change : s.change;
-        s.transaction_at = body.transaction_at || rc.at || s.transaction_at || s.submitted_at;
+        s.transaction_at = body.transaction_at || rc.at || rc.transaction_at || s.transaction_at || '';
+        s.receipt_date = body.receipt_date || rc.receipt_date || s.receipt_date || '';
+        s.receipt_time = body.receipt_time || rc.receipt_time || s.receipt_time || '';
+        if (body.farmer_name) s.farmer_name = String(body.farmer_name).trim();
+        if (body.farmer_id != null && body.farmer_id !== '') s.farmer_id = String(body.farmer_id);
+        if (body.buyer_name) s.client_name = String(body.buyer_name).trim();
+        if (body.valid_id_url) s.valid_id_url = String(body.valid_id_url).trim();
+        if (body.valid_id_path) s.valid_id_path = String(body.valid_id_path).trim();
+        if (body.order_selections) s.order_selections = body.order_selections;
+        if (body.status) s.db_status = body.status;
         s.receipt = rc;
         return s;
       }
@@ -732,7 +1599,7 @@
       function fillReceiptCard(prefix, state) {
         if (!state) return;
         var r = stateToReceiptRecord(state);
-        var dt = formatReceiptDateTime(r.at);
+        var dt = formatReceiptDateTime(state);
         var qtyStr =
           r.qty != null && String(r.qty) !== '' ? String(r.qty) : '-';
         qtyStr += r.unit ? String(r.unit).toUpperCase() : '';
@@ -827,40 +1694,111 @@
       }
 
       function receiptDownloadUrl(ref) {
-        return '/api/client-transaction/receipt/download?reference_no=' + encodeURIComponent(ref);
+        return '/api/client-transaction/receipt/download?reference_no=' +
+          encodeURIComponent(ref) + '&format=pdf';
+      }
+
+      function quantityLabelFromState(state) {
+        var s = state || {};
+        var order = s.order_selections || {};
+        if (order.quantity_label) return String(order.quantity_label);
+        if (order.quantity_pack) return String(order.quantity_pack);
+        if (s.quantity_kg) return String(s.quantity_kg) + ' kg';
+        return '—';
+      }
+
+      function populateTransactionDetailsPanel(state, statusLabel) {
+        var s = state || {};
+        if (detailClient) detailClient.textContent = s.client_name || s.buyer_name || '—';
+        if (detailFarmer) detailFarmer.textContent = s.farmer_name || '—';
+        if (detailProduct) detailProduct.textContent = s.product_type || s.product || '—';
+        if (detailQuantity) detailQuantity.textContent = quantityLabelFromState(s);
+        if (detailAmount) {
+          var amt = s.payment_amount != null ? s.payment_amount : s.amount;
+          detailAmount.textContent = amt != null ? '₱' + moneyLike(amt) : '—';
+        }
+        if (detailPickup) detailPickup.textContent = s.pickup_date || '—';
+        if (detailPayment) detailPayment.textContent = s.payment_method || 'Cash';
+        if (detailStatus) detailStatus.textContent = statusLabel || 'Approved';
+      }
+
+      function showApprovedTransactionPanel(ref, state) {
+        hideWaitingApprovalModal();
+        hideReceiptReadyCard();
+        var s = state || {};
+        currentReceiptState = s;
+        fillReceiptModal(s);
+        showStatusPanel('approved', ref, 'Your transaction was approved. You can view or download your receipt below.');
+        populateTransactionDetailsPanel(s, 'Approved');
+        if (statusPanel) statusPanel.hidden = false;
+        btn.style.display = 'none';
+        lockFormControls();
+      }
+
+      function refreshTransactionFromApi(ref, onReady) {
+        if (!ref) return Promise.resolve(null);
+        return fetch('/api/client-transaction/status?reference_no=' + encodeURIComponent(ref), {
+          method: 'GET',
+          headers: { Accept: 'application/json' }
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (body) {
+            if (!body || body.ok !== true) return null;
+            var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+            var saved = mergeStatusFromApi(body, loadPendingState(fid) || buildStateFromForm());
+            saved.reference_no = ref;
+            if (body.is_sent_to_client) saved.status = 'sent_to_client';
+            else if (body.is_approved) saved.status = 'approved';
+            else if (body.is_dismissed) saved.status = 'dismissed';
+            else saved.status = 'pending';
+            savePendingState(saved, saved.farmer_id || fid);
+            if (typeof onReady === 'function') onReady(body, saved);
+            return saved;
+          })
+          .catch(function () { return null; });
+      }
+
+      function dismissReceiptDownloadUi() {
+        if (window.BeanthenticPageLoading && window.BeanthenticPageLoading.hide) {
+          window.BeanthenticPageLoading.hide();
+        }
+        closeReceiptModal();
       }
 
       function triggerReceiptAttachmentDownload(url, filename) {
         var link = document.createElement('a');
         link.href = url;
+        link.setAttribute('data-no-page-loading', '');
         if (filename) link.setAttribute('download', filename);
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
-
-        var frame = document.createElement('iframe');
-        frame.setAttribute('aria-hidden', 'true');
-        frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none';
-        frame.src = url;
-        document.body.appendChild(frame);
-
         setTimeout(function () {
           if (link.parentNode) link.parentNode.removeChild(link);
-          if (frame.parentNode) frame.parentNode.removeChild(frame);
-        }, 120000);
+        }, 2000);
         showReceiptDownloadToast();
+        dismissReceiptDownloadUi();
       }
 
       function saveReceiptBlob(blob, filename) {
+        var name = String(filename || 'Beanthentic-Receipt.pdf');
+        var outBlob = blob;
+        if (/\.pdf$/i.test(name)) {
+          var pdfType = 'application/pdf';
+          if (!outBlob || outBlob.type !== pdfType) {
+            outBlob = new Blob([outBlob || ''], { type: pdfType });
+          }
+        }
         if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function') {
-          window.navigator.msSaveOrOpenBlob(blob, filename);
+          window.navigator.msSaveOrOpenBlob(outBlob, name);
           showReceiptDownloadToast();
           return;
         }
-        var objUrl = URL.createObjectURL(blob);
+        var objUrl = URL.createObjectURL(outBlob);
         var link = document.createElement('a');
         link.href = objUrl;
-        link.download = filename;
+        link.download = name;
+        link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
@@ -871,6 +1809,12 @@
         showReceiptDownloadToast();
       }
 
+      function isLikelyPdfBlob(blob) {
+        if (!blob || !blob.size) return false;
+        if (String(blob.type || '').indexOf('pdf') >= 0) return true;
+        return blob.size > 512;
+      }
+
       function hydrateReceiptStateFromApi(ref) {
         return fetch('/api/client-transaction/status?reference_no=' + encodeURIComponent(ref))
           .then(function (res) { return res.json(); })
@@ -878,6 +1822,7 @@
             if (!body || body.ok !== true) throw new Error('status failed');
             var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
             currentReceiptState = mergeStatusFromApi(body, loadPendingState(fid) || {});
+            savePendingState(currentReceiptState, currentReceiptState.farmer_id || fid);
             fillReceiptModal(currentReceiptState);
             return currentReceiptState;
           });
@@ -905,67 +1850,109 @@
         if (!state) return false;
         currentReceiptState = state;
         var r = stateToReceiptRecord(currentReceiptState);
-        var dt = formatReceiptDateTime(r.at);
+        var dt = formatReceiptDateTime(currentReceiptState);
         var qtyStr = r.qty != null && String(r.qty) !== '' ? String(r.qty) : '-';
         qtyStr += r.unit ? String(r.unit).toUpperCase() : '';
         var refSafe = (r.ref || 'receipt').replace(/[^\w-]+/g, '_');
+        var row = function (label, value) {
+          return '<tr><td class="label">' + escapeHtml(label) + '</td><td class="value">' +
+            escapeHtml(value) + '</td></tr>';
+        };
+        var section = function (title) {
+          return '<div class="section">' + escapeHtml(title) + '</div>';
+        };
         var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Beanthentic Receipt ' +
           escapeHtml(r.ref) + '</title><style>' +
-          'body{margin:0;padding:24px;background:#f1f5f9;font-family:system-ui,-apple-system,Segoe UI,sans-serif;}' +
-          '.card{max-width:420px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:1.35rem 1.15rem;box-shadow:0 2px 12px rgba(15,23,42,.06);}' +
-          '.brand{text-align:center;margin-bottom:.85rem}.logo{width:128px;height:auto;display:block;margin:0 auto .65rem}' +
-          'h1{margin:0 0 .2rem;font-size:1.35rem;color:#1a2b4b} .sub{margin:0;font-size:.82rem;color:#94a3b8;font-weight:600}' +
-          'hr{border:0;margin:.85rem 0}.solid{border-top:1px solid #e2e8f0}.dash{border-top:1px dashed #cbd5e1}' +
-          '.section{margin:0 0 .55rem;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8}' +
-          '.row{display:flex;justify-content:space-between;gap:.75rem;margin:.42rem 0;font-size:.9rem}' +
-          '.label{color:#64748b;font-weight:600}.value{color:#1a2b4b;font-weight:800;text-align:right}' +
-          '.product{display:flex;justify-content:space-between;font-size:.92rem;font-weight:700;color:#1a2b4b}' +
-          '.thanks{margin-top:.95rem;text-align:center;font-size:.88rem;font-weight:700;color:#64748b}' +
-          '</style></head><body><div class="card"><div class="brand"><img class="logo" src="' + escapeHtml(logoUrl) +
-          '" alt="Beanthentic"><h1>Beanthentic Coffee</h1><p class="sub">Official Transaction Receipt</p></div>' +
-          '<hr class="solid"><div class="row"><span class="label">Ref. No.</span><span class="value">#' +
-          escapeHtml(r.ref || '-') + '</span></div><div class="row"><span class="label">Date</span><span class="value">' +
-          escapeHtml(dt.date) + '</span></div><div class="row"><span class="label">Time</span><span class="value">' +
-          escapeHtml(dt.time) + '</span></div><hr class="dash"><p class="section">Buyer Details</p><div class="row"><span class="label">Buyer Name</span><span class="value">' +
-          escapeHtml(r.buyer || '-') + '</span></div><hr class="dash"><p class="section">Product Info</p><div class="product"><span>' +
-          escapeHtml(r.product || '-') + '</span><span>' + escapeHtml(qtyStr) + '</span></div><hr class="dash"><p class="section">Payment Details</p>' +
-          '<div class="row"><span class="label">Amount</span><span class="value">' + escapeHtml(r.amount == null ? '0.00' : moneyLike(r.amount)) + '</span></div>' +
-          '<div class="row"><span class="label">Payment</span><span class="value">' + escapeHtml(r.payment || 'Cash') + '</span></div>' +
-          '<div class="row"><span class="label">Payment Amt</span><span class="value">' + escapeHtml(r.paymentAmount == null ? '0.00' : moneyLike(r.paymentAmount)) + '</span></div>' +
-          '<div class="row"><span class="label">Total</span><span class="value">' + escapeHtml(r.total == null ? '0.00' : moneyLike(r.total)) + '</span></div>' +
-          '<div class="row"><span class="label">Change</span><span class="value">' + escapeHtml(r.change == null ? '0.00' : moneyLike(r.change)) + '</span></div>' +
-          '<p class="thanks">Thank you for using Beanthentic!</p></div></body></html>';
+          'body{margin:0;padding:0;background:#fff;font-family:Helvetica,Arial,sans-serif;color:#1a2b4b;}' +
+          '.canvas{max-width:420px;margin:0 auto;padding:14px 16px 16px;background:#fff;}' +
+          '.brand{text-align:center;margin-bottom:10px}.logo{width:80px;height:80px;display:block;margin:0 auto 8px}' +
+          'h1{margin:0 0 3px;font-size:19px;line-height:1.15;font-weight:bold;color:#1a2b4b}' +
+          '.sub{margin:0;font-size:11px;color:#94a3b8;font-weight:600}' +
+          '.meta{border-top:1px solid #e2e8f0;padding-top:10px;margin-top:8px}' +
+          '.section{margin:0;padding:9px 0 5px;font-size:9px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;border-top:1px dashed #cbd5e1}' +
+          'table{width:100%}td{padding:4px 0;font-size:12px;line-height:1.35;vertical-align:top}' +
+          '.label{color:#64748b;font-weight:600;width:46%}.value{color:#1a2b4b;font-weight:bold;text-align:right}' +
+          '.product-name{color:#1a2b4b;font-weight:700}.thanks{margin:14px 0 0;text-align:center;font-size:12px;font-weight:bold;color:#64748b}' +
+          '</style></head><body><div class="canvas"><div class="brand"><img class="logo" src="' + escapeHtml(logoUrl) +
+          '" alt="Beanthentic" width="80" height="80"><h1>Beanthentic Coffee</h1><p class="sub">Official Transaction Receipt</p></div>' +
+          '<div class="meta"><table>' + row('Ref. No.', '#' + (r.ref || '-')) + row('Date', dt.date) + row('Time', dt.time) +
+          '</table></div>' + section('Buyer Details') + '<table>' + row('Buyer Name', r.buyer || '-') +
+          '</table>' + section('Product Info') + '<table><tr><td class="product-name">' +
+          escapeHtml(r.product || '-') + '</td><td class="value">' + escapeHtml(qtyStr) + '</td></tr></table>' +
+          section('Payment Details') + '<table>' +
+          row('Amount', r.amount == null ? '0.00' : moneyLike(r.amount)) +
+          row('Payment', r.payment || 'Cash') +
+          row('Payment Amt', r.paymentAmount == null ? '0.00' : moneyLike(r.paymentAmount)) +
+          row('Total', r.total == null ? '0.00' : moneyLike(r.total)) +
+          row('Change', r.change == null ? '0.00' : moneyLike(r.change)) +
+          '</table><p class="thanks">Thank you for using Beanthentic!</p></div></body></html>';
         saveReceiptBlob(
           new Blob([html], { type: 'text/html;charset=utf-8' }),
           'Beanthentic-Receipt-' + refSafe + '.html'
         );
+        dismissReceiptDownloadUi();
         return true;
+      }
+
+      function fetchReceiptPdfBlob(ref, pdfName) {
+        var url = receiptDownloadUrl(ref);
+        return fetch(url, { method: 'GET', credentials: 'same-origin' })
+          .then(function (res) {
+            if (!res.ok) throw new Error('download failed');
+            var ctype = String(res.headers.get('content-type') || '');
+            if (ctype.indexOf('application/json') >= 0) throw new Error('download failed');
+            var disp = String(res.headers.get('content-disposition') || '');
+            var filename = pdfName;
+            var match = disp.match(/filename=\"?([^\";]+)\"?/i);
+            if (match && match[1]) filename = match[1];
+            return res.blob().then(function (blob) {
+              if (!isLikelyPdfBlob(blob)) throw new Error('not pdf');
+              return { blob: blob, filename: filename };
+            });
+          });
       }
 
       function downloadReceiptFile() {
         ensureReceiptState();
         var ref = getReceiptReference();
         if (!ref) {
-          alert('Receipt is not ready yet. Please wait for the official receipt.');
+          alert('Receipt is not ready yet. Please wait for farmer approval.');
           return;
         }
 
         var refSafe = String(ref).replace(/[^\w-]+/g, '_');
-        var fallbackName = 'Beanthentic-Receipt-' + refSafe + '.html';
-        var url = receiptDownloadUrl(ref);
+        var pdfName = 'Beanthentic-Receipt-' + refSafe + '.pdf';
+        var htmlName = 'Beanthentic-Receipt-' + refSafe + '.html';
         setReceiptDownloadBusy(true);
 
-        fetch(url)
-          .then(function (res) {
-            if (!res.ok) throw new Error('download failed');
-            var ctype = String(res.headers.get('content-type') || '');
-            if (ctype.indexOf('application/json') >= 0) throw new Error('download failed');
-            triggerReceiptAttachmentDownload(url, fallbackName);
+        Promise.resolve()
+          .then(function () {
+            return hydrateReceiptStateFromApi(ref);
           })
           .catch(function () {
-            return hydrateReceiptStateFromApi(ref).then(function () {
-              if (!downloadReceiptClientBlob()) throw new Error('client blob failed');
-            });
+            return null;
+          })
+          .then(function () {
+            return fetchReceiptPdfBlob(ref, pdfName);
+          })
+          .then(function (result) {
+            saveReceiptBlob(result.blob, result.filename || pdfName);
+            dismissReceiptDownloadUi();
+          })
+          .catch(function () {
+            var htmlUrl = '/api/client-transaction/receipt/download?reference_no=' +
+              encodeURIComponent(ref) + '&format=html';
+            return fetch(htmlUrl, { method: 'GET', credentials: 'same-origin' })
+              .then(function (res) {
+                if (!res.ok) throw new Error('html download failed');
+                return res.blob().then(function (blob) {
+                  saveReceiptBlob(blob, htmlName);
+                  dismissReceiptDownloadUi();
+                });
+              });
+          })
+          .catch(function () {
+            if (!downloadReceiptClientBlob()) throw new Error('client blob failed');
           })
           .catch(function () {
             alert('Could not download receipt. Please try again.');
@@ -977,95 +1964,149 @@
 
       function applyWaitingUI(ref) {
         hideReceiptReadyCard();
-        unlockFormControls();
-        if (statusPanel) {
-          statusPanel.hidden = false;
-          statusPanel.classList.remove(
-            'txn-status-panel--approved',
-            'txn-status-panel--dismissed',
-            'txn-status-panel--receipt'
-          );
-          if (statusRef) statusRef.textContent = ref || '—';
-          if (statusBadge) statusBadge.textContent = 'Waiting for approval';
-          if (statusHint) {
-            statusHint.textContent =
-              'Your request was sent. You will get a notification when the farmer approves it.';
-          }
+        showStatusPanel('pending', ref, 'Your request was sent. Please wait while the farmer reviews it.');
+        lockFormControls();
+        showWaitingApprovalModal(ref);
+      }
+
+      function txNotifyExtra(ref, state) {
+        var s = state || {};
+        var name = String(s.farmer_name || farmerNameValue() || '').trim();
+        return { farmer_name: name, reference_no: ref };
+      }
+
+      function notifyTransactionSubmitted(ref, state) {
+        if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
+          window.BeanthenticNotifs.notifyTransactionEvent('submitted', ref, txNotifyExtra(ref, state));
         }
       }
 
-      function notifyTransactionSubmitted(ref) {
+      function notifyTransactionApproved(ref, state) {
         if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
-          window.BeanthenticNotifs.notifyTransactionEvent('submitted', ref);
+          window.BeanthenticNotifs.notifyTransactionEvent('approved', ref, txNotifyExtra(ref, state));
         }
       }
 
-      function notifyTransactionApproved(ref) {
+      function notifyTransactionReceiptSent(ref, state) {
         if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
-          window.BeanthenticNotifs.notifyTransactionEvent('approved', ref);
-        }
-      }
-
-      function notifyTransactionReceiptSent(ref) {
-        if (window.BeanthenticNotifs && window.BeanthenticNotifs.notifyTransactionEvent) {
-          window.BeanthenticNotifs.notifyTransactionEvent('receipt', ref);
+          window.BeanthenticNotifs.notifyTransactionEvent('receipt', ref, txNotifyExtra(ref, state));
         }
       }
 
       function applyApprovedUI(ref, state) {
-        stopPoll();
         suppressTxQuickGuide();
+        stopPoll();
+        submittedRef = ref;
         var fidPoll = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
         var s = state || loadPendingState(fidPoll) || buildStateFromForm();
-        applyFarmerContext(s);
-        clearTransactionFormFields();
-        showReceiptReadyCard(
-          ref,
-          s,
-          'The farmer approved your transaction.'
-        );
+        s.reference_no = ref;
+        s.status = 'approved';
+        savePendingState(s, s.farmer_id || fidPoll);
+        showApprovedTransactionPanel(ref, s);
+        hydrateReceiptStateFromApi(ref).catch(function () {
+          fillReceiptModal(s);
+        });
         if (approvedNotifiedForRef !== ref) {
           approvedNotifiedForRef = ref;
-          notifyTransactionApproved(ref);
+          notifyTransactionApproved(ref, s);
+        } else if (window.BeanthenticNotifs && window.BeanthenticNotifs.ensureApprovedNotification) {
+          window.BeanthenticNotifs.ensureApprovedNotification(ref, txNotifyExtra(ref, s));
         }
+        maybeOpenReceiptFromUrl();
+      }
+
+      function shouldOpenReceiptFromUrl() {
+        return new URLSearchParams(window.location.search).get('view') === 'receipt';
+      }
+
+      function maybeOpenReceiptFromUrl() {
+        if (!shouldOpenReceiptFromUrl()) return;
+        var ref = String(submittedRef || getReceiptReference() || '').trim();
+        if (!ref) return;
+        hydrateReceiptStateFromApi(ref)
+          .then(function () {
+            openReceiptModal();
+          })
+          .catch(function () {
+            if (!currentReceiptState) {
+              currentReceiptState = { reference_no: ref, receipt: { ref: ref } };
+              fillReceiptModal(currentReceiptState);
+            }
+            openReceiptModal();
+          });
       }
 
       function applyReceiptSentUI(ref, state) {
         stopPoll();
         suppressTxQuickGuide();
+        submittedRef = ref;
         var fidPoll = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
         var s = state || loadPendingState(fidPoll) || buildStateFromForm();
+        s.reference_no = ref;
+        s.status = 'sent_to_client';
+        savePendingState(s, s.farmer_id || fidPoll);
         applyFarmerContext(s);
         clearTransactionFormFields();
         showReceiptReadyCard(ref, s, 'Your payment was successful.');
-        if (receiptNotifiedForRef !== ref) {
-          receiptNotifiedForRef = ref;
-          notifyTransactionReceiptSent(ref);
-        }
+        if (statusPanel) statusPanel.hidden = true;
+        if (statusDetails) statusDetails.hidden = true;
+        if (statusActions) statusActions.hidden = true;
+        hydrateReceiptStateFromApi(ref).catch(function () {
+          fillReceiptModal(s);
+        });
+        maybeOpenReceiptFromUrl();
       }
 
       function resetForOrderAgain() {
         stopPoll();
         hideReceiptReadyCard();
+        hideWaitingApprovalModal();
         submittedRef = '';
-        var farmerKeep = {
-          farmer_id: farmerIdInput ? farmerIdInput.value : '',
-          farmer_name: farmerNameValue()
-        };
-        var fid = farmerKeep.farmer_id || (farmerIdInput ? farmerIdInput.value : '');
+        approvedNotifiedForRef = '';
+        currentReceiptState = null;
+        var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
         clearPendingStorage(fid);
         if (statusPanel) statusPanel.hidden = true;
+        setStatusPanelReceiptControls('pending');
         unlockFormControls();
         clearTransactionFormFields();
-        applyFarmerContext(farmerKeep);
+        clearFarmerSelection();
+        btn.style.display = '';
+        btn.disabled = false;
+        btn.textContent = 'Submit';
+        btn.classList.remove('status-waiting', 'status-approved');
+        if (statusContainer) statusContainer.classList.remove('status-receipt-ready');
+        focusFarmerSelect();
+        try {
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, '', window.location.pathname + '?new=1');
+          }
+        } catch (_url) { }
       }
 
       function applyDismissedUI(ref) {
         stopPoll();
-        hideReceiptReadyCard();
-        unlockFormControls();
-        clearTransactionFormFields();
-        if (statusPanel) statusPanel.hidden = true;
+        submittedRef = '';
+        var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+        clearPendingStorage(fid);
+        resetToNormalTransactionForm();
+        if (window.BeanthenticNotifs && window.BeanthenticNotifs.showToast) {
+          window.BeanthenticNotifs.showToast({
+            title: 'Transaction dismissed',
+            text: ref ? 'Reference ' + ref + ' was dismissed by the farmer.' : 'Your transaction was dismissed.',
+            type: 'error',
+            durationMs: 7000
+          });
+        }
+      }
+
+      function setStatusPanelReceiptControls(mode) {
+        var showReceipt = mode === 'approved' || mode === 'receipt';
+        if (statusDetails) statusDetails.hidden = !showReceipt;
+        if (statusActions) {
+          statusActions.hidden = !showReceipt;
+          statusActions.style.display = showReceipt ? '' : 'none';
+        }
       }
 
       function showStatusPanel(mode, ref, hintText) {
@@ -1074,19 +2115,22 @@
         statusPanel.classList.remove(
           'txn-status-panel--approved',
           'txn-status-panel--dismissed',
-          'txn-status-panel--receipt'
+          'txn-status-panel--receipt',
+          'txn-status-panel--pending'
         );
         if (mode === 'approved') statusPanel.classList.add('txn-status-panel--approved');
         if (mode === 'dismissed') statusPanel.classList.add('txn-status-panel--dismissed');
         if (mode === 'receipt') statusPanel.classList.add('txn-status-panel--receipt');
+        if (mode === 'pending') statusPanel.classList.add('txn-status-panel--pending');
         if (statusRef) statusRef.textContent = ref || '—';
         if (statusBadge) {
           if (mode === 'approved') statusBadge.textContent = 'Approved';
           else if (mode === 'dismissed') statusBadge.textContent = 'Dismissed';
           else if (mode === 'receipt') statusBadge.textContent = 'Receipt ready';
-          else statusBadge.textContent = 'Waiting for approval';
+          else statusBadge.textContent = 'Pending';
         }
-        if (statusHint && hintText) statusHint.innerHTML = hintText;
+        if (statusHint && hintText) statusHint.textContent = hintText;
+        setStatusPanelReceiptControls(mode);
       }
 
       function persistFarmerContext(s) {
@@ -1172,13 +2216,26 @@
       function applyFormFromState(s) {
         if (!s) return;
         applyFarmerContext(s);
+        restoreOrderSelectionFields(s);
+        if (s.product_type || s.quantity_kg) {
+          applyOrderSummaryToForm({
+            product_type: s.product_type || '',
+            quantity_kg: s.quantity_kg || '',
+            order_selections: s.order_selections || readOrderSelections()
+          });
+        }
       }
 
       function buildStateFromForm(extra) {
         var idPreview = '';
+        var idUrl = '';
         try {
-          if (previewImg && previewImg.src && previewImg.src.indexOf('data:image') === 0) {
+          if (previewImg && previewImg.src) {
+            if (previewImg.src.indexOf('data:image') === 0) {
             idPreview = previewImg.src;
+            } else if (validIdSavedOnServer) {
+              idUrl = previewImg.src;
+            }
           }
         } catch (_p) { }
         return Object.assign(
@@ -1189,10 +2246,12 @@
             pickup_date: document.getElementById('pickup-date').value,
             product_type: document.getElementById('product-type').value,
             quantity_kg: document.getElementById('quantity-kg').value,
+            order_selections: readOrderSelections(),
             payment_amount: amountInput.value,
             payment_method: 'Cash',
             transaction_type: 'pickup',
             valid_id_preview: idPreview,
+            valid_id_url: idUrl,
             status: 'pending',
             reference_no: '',
             submitted_at: new Date().toISOString()
@@ -1215,6 +2274,11 @@
             var fidPoll = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
             var saved = mergeStatusFromApi(body, loadPendingState(fidPoll) || buildStateFromForm());
             saved.reference_no = submittedRef || body.reference_no || saved.reference_no;
+            if (body.valid_id_url || body.valid_id_path) {
+              saved.valid_id_url = body.valid_id_url || saved.valid_id_url;
+              saved.valid_id_path = body.valid_id_path || saved.valid_id_path;
+              savePendingState(saved, fidPoll);
+            }
             if (body.is_sent_to_client) {
               saved.status = 'sent_to_client';
               savePendingState(saved, fidPoll);
@@ -1232,15 +2296,19 @@
           .catch(function () { });
       }
 
+      function ensureStatusPolling() {
+        stopPoll();
+        pollApprovalStatus();
+        pollTimer = setInterval(pollApprovalStatus, 5000);
+      }
+
       function startWaitingFlow(ref, state) {
         suppressTxQuickGuide();
         submittedRef = ref;
         if (state) applyFarmerContext(state);
         clearTransactionFormFields();
         applyWaitingUI(ref);
-        stopPoll();
-        pollApprovalStatus();
-        pollTimer = setInterval(pollApprovalStatus, 5000);
+        ensureStatusPolling();
       }
 
       function restorePendingOnLoad(farmerId) {
@@ -1249,28 +2317,30 @@
           hidePendingStatusPanel();
           return;
         }
-        var activeFid = String(farmerId || saved.farmer_id || '').trim();
-        if (activeFid && saved.farmer_id && String(saved.farmer_id).trim() !== activeFid) {
-          hidePendingStatusPanel();
-          return;
-        }
         submittedRef = String(saved.reference_no);
-        clearTransactionFormFields();
-        if (saved.status === 'sent_to_client') {
-          applyReceiptSentUI(submittedRef, saved);
-          pollApprovalStatus();
-          return;
-        }
-        if (saved.status === 'approved') {
-          applyApprovedUI(submittedRef, saved);
-          pollApprovalStatus();
-          return;
-        }
-        if (saved.status === 'dismissed') {
-          applyDismissedUI(submittedRef);
-          return;
-        }
-        startWaitingFlow(submittedRef, saved);
+        refreshTransactionFromApi(submittedRef, function (body, merged) {
+          if (!body || body.ok !== true) {
+            if (saved.status === 'sent_to_client') {
+              applyReceiptSentUI(submittedRef, saved);
+            } else if (saved.status === 'approved') {
+              applyApprovedUI(submittedRef, saved);
+            } else if (saved.status === 'dismissed') {
+              applyDismissedUI(submittedRef);
+            } else {
+              startWaitingFlow(submittedRef, saved);
+            }
+            return;
+          }
+          if (body.is_sent_to_client) {
+            applyReceiptSentUI(submittedRef, merged);
+          } else if (body.is_approved) {
+            applyApprovedUI(submittedRef, merged);
+          } else if (body.is_dismissed) {
+            applyDismissedUI(submittedRef);
+          } else {
+            startWaitingFlow(submittedRef, merged);
+          }
+        });
       }
 
       function mergeFarmerFromUrlIntoState(saved) {
@@ -1282,20 +2352,8 @@
         return next;
       }
 
-      function initTransactionFromLinkOrStorage() {
+      function bootstrapTransactionFromRef(urlRef, activeFid) {
         var ctx = getActiveFarmerContext();
-        if (ctx) applyFarmerContext(ctx);
-        var activeFid = ctx && ctx.farmer_id ? String(ctx.farmer_id).trim() : '';
-
-        var params = new URLSearchParams(window.location.search);
-        var urlRef = params.get('ref');
-        urlRef = urlRef ? String(urlRef).trim() : '';
-        if (!urlRef) {
-          hidePendingStatusPanel();
-          restorePendingOnLoad(activeFid);
-          return;
-        }
-
         var saved = loadPendingState(activeFid);
         if (!saved || String(saved.reference_no) !== urlRef) {
           saved = buildStateFromForm({
@@ -1308,29 +2366,65 @@
           saved.farmer_id = ctx.farmer_id || saved.farmer_id;
           saved.farmer_name = ctx.farmer_name || saved.farmer_name;
         }
-        savePendingState(saved, activeFid);
-
         submittedRef = urlRef;
         clearTransactionFormFields();
+        applyFarmerContext(saved);
 
-        if (saved.status === 'sent_to_client') {
-          applyReceiptSentUI(submittedRef, saved);
-          pollApprovalStatus();
-          pollTimer = setInterval(pollApprovalStatus, 5000);
+        return fetch(
+          '/api/client-transaction/status?reference_no=' +
+          encodeURIComponent(urlRef),
+          { method: 'GET', headers: { Accept: 'application/json' } }
+        )
+          .then(function (r) { return r.json(); })
+          .then(function (body) {
+            if (!body || body.ok !== true) {
+              savePendingState(saved, activeFid);
+              startWaitingFlow(urlRef, saved);
           return;
         }
-        if (saved.status === 'approved') {
-          applyApprovedUI(submittedRef, saved);
-          pollApprovalStatus();
-          return;
-        }
-        if (saved.status === 'dismissed') {
-          applyDismissedUI(submittedRef);
-          pollApprovalStatus();
+            saved = mergeStatusFromApi(body, saved);
+            saved.reference_no = urlRef;
+            savePendingState(saved, activeFid);
+            if (body.is_sent_to_client) {
+              applyReceiptSentUI(urlRef, saved);
+            } else if (body.is_approved) {
+              applyApprovedUI(urlRef, saved);
+            } else if (body.is_dismissed) {
+              applyDismissedUI(urlRef);
+            } else {
+              startWaitingFlow(urlRef, saved);
+            }
+          })
+          .catch(function () {
+            savePendingState(saved, activeFid);
+            startWaitingFlow(urlRef, saved);
+          });
+      }
+
+      function initTransactionFromLinkOrStorage() {
+        var params = new URLSearchParams(window.location.search);
+        var urlRef = params.get('ref');
+        urlRef = urlRef ? String(urlRef).trim() : '';
+        var isNewOrder = params.get('new') === '1';
+
+        if (isNewOrder && !urlRef) {
+          clearFarmerSelection();
+          resetForFreshTransaction('');
+          focusFarmerSelect();
           return;
         }
 
-        startWaitingFlow(submittedRef, saved);
+        var ctx = getActiveFarmerContext();
+        if (ctx) applyFarmerContext(ctx);
+        var activeFid = ctx && ctx.farmer_id ? String(ctx.farmer_id).trim() : '';
+
+        if (!urlRef) {
+          archiveCompletedPending(activeFid);
+          restorePendingOnLoad(activeFid);
+          return;
+        }
+
+        bootstrapTransactionFromRef(urlRef, activeFid);
       }
 
       if (orderAgainBtn) {
@@ -1341,20 +2435,22 @@
 
       validIdInput.addEventListener('change', function () {
         if (this.files && this.files[0]) {
+          validIdSavedOnServer = false;
+          validIdInput.setAttribute('required', 'required');
           const reader = new FileReader();
           reader.onload = function (e) {
-            previewImg.src = e.target.result;
-            viewIdBtn.style.display = 'flex';
+            setValidIdPreview(e.target.result, { fromDb: false });
             var fidVid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
             var pending = loadPendingState(fidVid);
             if (pending && pending.reference_no) {
               pending.valid_id_preview = e.target.result;
+              pending.valid_id_url = '';
               savePendingState(pending, fidVid);
             }
           };
           reader.readAsDataURL(this.files[0]);
-        } else {
-          viewIdBtn.style.display = 'none';
+        } else if (!validIdSavedOnServer) {
+          clearValidIdPreview();
         }
       });
 
@@ -1362,8 +2458,12 @@
       cashOption.addEventListener('click', function () {
         this.classList.toggle('selected');
         if (this.classList.contains('selected')) {
+          updatePriceSummary();
           amountGroup.style.display = 'block';
-          amountInput.focus();
+          if (!txnPricingState.ready && amountInput) {
+            amountInput.value = '';
+            amountInput.placeholder = 'Select quantity first';
+          }
         } else {
           amountGroup.style.display = 'none';
         }
@@ -1373,27 +2473,51 @@
         e.preventDefault();
 
         if (!cashOption.classList.contains('selected')) {
-          alert('Please select Cash payment and enter the amount.');
+          alert('Please select Cash payment to confirm your order total.');
           return;
         }
 
         const buyerName = document.getElementById('client-name').value.trim();
         const sched = document.getElementById('pickup-date').value;
-        const product = document.getElementById('product-type').value;
-        const quantity = document.getElementById('quantity-kg').value;
-        const amount = amountInput.value;
+
+        var orderSummary;
+        try {
+          orderSummary = buildOrderSummary();
+          applyOrderSummaryToForm(orderSummary);
+        } catch (orderErr) {
+          alert(orderErr.message || 'Please complete your product selections.');
+          return;
+        }
+
+        updatePriceSummary();
+        if (!txnPricingState.ready || txnPricingState.total == null) {
+          alert('Could not calculate the official product price. Please check your selections and try again.');
+          return;
+        }
+        const amount = String(txnPricingState.total);
+        amountInput.value = amount;
+
+        const product = orderSummary.product_type;
+        const quantity = String(orderSummary.quantity_kg);
 
         const farmerCtx = getActiveFarmerContext();
         const farmerIdVal = farmerCtx && farmerCtx.farmer_id ? String(farmerCtx.farmer_id).trim() : '';
         if (!farmerIdVal || parseInt(farmerIdVal, 10) <= 0) {
-          alert('Please select a farmer from the dropdown before submitting.');
-          if (farmerSelectEl) farmerSelectEl.focus();
+          alert('Please select a farmer before submitting.');
+          if (farmerSelectEl) {
+            farmerSelectEl.classList.add('txn-farmer-select--invalid');
+            farmerSelectEl.focus();
+          }
           return;
         }
 
         const fd = new FormData(form);
         fd.set('payment_method', 'Cash');
         fd.set('farmer_id', farmerIdVal);
+        fd.set('product_type', product);
+        fd.set('quantity_kg', quantity);
+        fd.set('order_selections_json', JSON.stringify(orderSummary.order_selections));
+        fd.set('payment_amount', amount);
         if (farmerCtx.farmer_name) {
           fd.set('farmer_name', farmerCtx.farmer_name);
         }
@@ -1402,44 +2526,52 @@
         btn.textContent = 'Submitting...';
 
         const postUrl = submitUrl.indexOf('http') === 0 ? submitUrl : submitUrl;
-        const directApi = appApiBase ? (appApiBase + '/api/client_transaction_submit.php') : '';
 
         function onSubmitOk(data) {
           submittedRef = (data && data.reference_no) ? String(data.reference_no) : '';
+          var savedFields = (data && data.saved_fields) || {};
+          var validPath = savedFields.valid_id_path || savedFields.valid_id_url || '';
+          var idPreview = '';
+          try {
+            if (previewImg && previewImg.src && previewImg.src.indexOf('data:image') === 0) {
+              idPreview = previewImg.src;
+            }
+          } catch (_pv) { }
           var state = buildTrackMeta({
             reference_no: submittedRef,
             status: 'pending',
+            farmer_id: farmerIdVal,
+            farmer_name: (farmerCtx && farmerCtx.farmer_name) || farmerNameValue(),
             client_name: buyerName,
             pickup_date: sched,
             product_type: product,
             quantity_kg: quantity,
-            payment_amount: amount
+            order_selections: orderSummary.order_selections,
+            payment_amount: amount,
+            valid_id_preview: idPreview,
+            valid_id_path: validPath,
+            valid_id_url: validPath ? validIdServeUrl(validPath) : ''
           });
           savePendingState(state, farmerIdVal);
           clearTransactionFormFields();
-          notifyTransactionSubmitted(submittedRef);
+          notifyTransactionSubmitted(submittedRef, state);
           startWaitingFlow(submittedRef, state);
         }
 
-        function tryProxy() {
-          return fetch(postUrl, { method: 'POST', body: fd }).then(function (r) { return r.json(); });
-        }
-
-        function tryDirect() {
-          if (!directApi) return Promise.reject(new Error('no direct api'));
-          return fetch(directApi, { method: 'POST', body: fd }).then(function (r) { return r.json(); });
-        }
-
-        tryProxy()
-          .catch(function () { return tryDirect(); })
-          .then(function (data) {
-            if (!data || data.ok !== true) {
+        fetch(postUrl, { method: 'POST', body: fd })
+          .then(function (r) {
+            return r.json().then(function (data) {
+              if (!r.ok || !data || data.ok !== true) {
               throw new Error((data && data.error) || 'Submit failed');
             }
+              return data;
+            });
+          })
+          .then(function (data) {
             onSubmitOk(data);
-            btn.disabled = true;
-            btn.textContent = 'Submitted';
-            btn.classList.add('status-waiting');
+            btn.disabled = false;
+            btn.textContent = 'Submit';
+            btn.classList.remove('status-waiting', 'status-approved');
           })
           .catch(function (err) {
             btn.disabled = false;
@@ -1464,10 +2596,24 @@
           currentReceiptState = loadPendingState(fidPoll) || buildStateFromForm();
           fillReceiptModal(currentReceiptState);
         }
+        var ref = getReceiptReference();
+        if (ref) {
+          hydrateReceiptStateFromApi(ref).catch(function () {});
+        }
       }
 
       if (downloadReceiptBtn) {
-        downloadReceiptBtn.addEventListener('click', function () {
+        downloadReceiptBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          ensureReceiptState();
+          downloadReceiptFile();
+        });
+      }
+      if (approvedDownloadReceiptBtn) {
+        approvedDownloadReceiptBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
           ensureReceiptState();
           downloadReceiptFile();
         });
@@ -1478,8 +2624,16 @@
           openReceiptModal();
         });
       }
+      if (approvedViewReceiptBtn) {
+        approvedViewReceiptBtn.addEventListener('click', function () {
+          ensureReceiptState();
+          openReceiptModal();
+        });
+      }
       if (modalDownloadBtn) {
-        modalDownloadBtn.addEventListener('click', function () {
+        modalDownloadBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
           ensureReceiptState();
           downloadReceiptFile();
         });
@@ -1495,6 +2649,9 @@
       });
 
       document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && waitingModal && waitingModal.style.display === 'flex') {
+          hideWaitingApprovalModal();
+        }
         if (e.key === 'Escape' && receiptModal && receiptModal.style.display === 'flex') {
           closeReceiptModal();
         }
@@ -1703,6 +2860,7 @@
       });
 
       initCalendar();
+      initFarmerSelect();
 
       if (farmerSelectEl) {
         farmerSelectEl.addEventListener('change', onFarmerSelectChange);
@@ -1724,7 +2882,7 @@
       <h3 class="txn-tutorial-title" id="txn-tutorial-title">How to transact</h3>
       <p class="txn-tutorial-text" id="txn-tutorial-text"></p>
       <ul class="txn-tutorial-checklist" id="txn-tutorial-checklist" hidden>
-        <li>Select a <strong>farmer</strong> from the dropdown at the top of the form</li>
+        <li>Search or select a <strong>farmer</strong> from the field at the top of the form</li>
         <li>Enter <strong>your name</strong> and upload a <strong>valid ID</strong></li>
         <li>Choose <strong>pick-up date</strong>, <strong>product</strong>, and <strong>quantity (KG)</strong></li>
         <li>Select <strong>Cash</strong>, enter the amount, then tap <strong>Submit</strong></li>
@@ -1745,9 +2903,10 @@
       farmerId: {{ farmer_id or 0 }}
     };
   </script>
-  <script src="{{ url_for('static', filename='js/transaction_tutorial.js') }}?v=20260608-tx-guide-once"></script>
-  <script src="{{ url_for('static', filename='js/notifications.js') }}?v=20260604-notif-icon-design"></script>
-  <script src="{{ url_for('static', filename='js/client_tx_watch.js') }}?v=20260524-txnotif3"></script>
+  <script src="{{ url_for('static', filename='js/transaction_tutorial.js') }}?v=20260906-farmer-dropdown"></script>
+  {% include 'partials/header_notif_panel.html' %}
+  <script src="{{ url_for('static', filename='js/client_tx_storage.js') }}?v=20260610-actions"></script>
+  {% include 'partials/notification_scripts.html' %}
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   {% include 'partials/page_loading.html' %}
 </body>

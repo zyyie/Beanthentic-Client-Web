@@ -13,7 +13,6 @@
 
   const reasonsList = document.querySelector(".report-reasons");
   const DETAILS_ANIM_MS = 320;
-  const STORAGE_KEY = "beanthentic_client_pending_tx";
   const SUBMIT_URL =
     window.BEANTHENTIC_REPORT_SUBMIT_URL || "/api/client-report/submit";
   const FARMERS_URL =
@@ -66,21 +65,25 @@
   };
 
   function readTxStorage() {
-    try {
-      const raw =
-        sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
+    if (window.BeanthenticTxStorage && window.BeanthenticTxStorage.readLatestPendingTx) {
+      return window.BeanthenticTxStorage.readLatestPendingTx();
     }
+    return null;
+  }
+
+  function clientNameFromTx(tx) {
+    if (window.BeanthenticTxStorage && window.BeanthenticTxStorage.clientNameFromPending) {
+      return window.BeanthenticTxStorage.clientNameFromPending(tx);
+    }
+    if (!tx) return "";
+    return String(tx.client_name || tx.buyer_name || tx.buyer || "").trim();
   }
 
   function prefillReporterFields() {
     const tx = readTxStorage();
     if (reporterNameEl && !reporterNameEl.value.trim()) {
-      const name =
-        (tx && (tx.client_name || tx.buyer || tx.buyer_name)) || "";
-      if (name) reporterNameEl.value = String(name).trim();
+      const name = clientNameFromTx(tx);
+      if (name) reporterNameEl.value = name;
     }
     scheduleLoadTransactionFarmers();
   }
@@ -282,11 +285,26 @@
       }
       state.submitted = true;
       body.lastElementChild?.remove();
-      addMessage(
+      const successText =
         data.message ||
-          "Your report was submitted. Our team will review it. Thank you.",
-        "bot"
-      );
+        "Your report was submitted. Our team will review it. Thank you.";
+      addMessage(successText, "bot");
+      if (window.BeanthenticNotifs && window.BeanthenticNotifs.pushReportReady) {
+        window.BeanthenticNotifs.pushReportReady({
+          report_id: data.report_id || data.id || Date.now(),
+          title: "Report submitted",
+          text:
+            successText ||
+            "Your report was submitted successfully and is ready for review.",
+        });
+      } else if (window.BeanthenticNotifs && window.BeanthenticNotifs.showToast) {
+        window.BeanthenticNotifs.showToast({
+          title: "Report submitted",
+          text: successText,
+          type: "success",
+          durationMs: 6000,
+        });
+      }
       setTypingEnabled(false);
       return true;
     } catch (err) {

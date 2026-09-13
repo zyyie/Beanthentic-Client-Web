@@ -1,10 +1,12 @@
 (function () {
-  const LOADING_MS = 2000;
+  const LOADING_MS = 450;
+  const LOADING_MAX_MS = 10000;
   const GUIDE_SUPPRESS_KEY = "beanthentic_tx_guide_suppressed";
   const PENDING_GUIDE_KEY = "beanthentic_tx_pending_guide";
   const CLIENT_SESSION_KEY = "beanthentic_tx_client_session";
   let busy = false;
   let pendingTimer = null;
+  let safetyTimer = null;
 
   function isGuideSuppressed() {
     try {
@@ -65,6 +67,17 @@
     return document.getElementById("beanthentic-page-loading");
   }
 
+  function clearTimers() {
+    if (pendingTimer) {
+      window.clearTimeout(pendingTimer);
+      pendingTimer = null;
+    }
+    if (safetyTimer) {
+      window.clearTimeout(safetyTimer);
+      safetyTimer = null;
+    }
+  }
+
   function showLoading() {
     const overlay = getOverlay();
     if (!overlay) return;
@@ -72,9 +85,15 @@
     overlay.classList.add("is-visible");
     document.body.classList.add("page-loading-active");
     busy = true;
+    if (safetyTimer) window.clearTimeout(safetyTimer);
+    safetyTimer = window.setTimeout(function () {
+      safetyTimer = null;
+      hideLoading();
+    }, LOADING_MAX_MS);
   }
 
   function hideLoading() {
+    clearTimers();
     const overlay = getOverlay();
     if (overlay) {
       overlay.hidden = true;
@@ -82,10 +101,6 @@
     }
     document.body.classList.remove("page-loading-active");
     busy = false;
-    if (pendingTimer) {
-      window.clearTimeout(pendingTimer);
-      pendingTimer = null;
-    }
   }
 
   function shouldSkip(el) {
@@ -93,20 +108,33 @@
     if (el.closest("[data-no-page-loading]")) return true;
     if (el.closest("#beanthentic-page-loading")) return true;
     if (el.matches("#notif-toggle, [data-notif-mark-read]")) return true;
-    if (el.closest(".report-chat") && !el.closest("a[href]")) return true;
     if (
-      el.closest(".header-notif-panel") &&
-      !el.closest("a[href].header-notif-item-card, a[data-notif-view]")
+      el.closest("a.header-notif-item-card") ||
+      el.closest("[data-notif-view]")
     ) {
       return true;
     }
+    if (el.closest(".report-chat") && !el.closest("a[href]")) return true;
+    if (el.closest(".header-notif-panel")) return true;
     if (el.matches("input, textarea, select, label")) return true;
     return false;
+  }
+
+  function isReceiptDownloadHref(href) {
+    try {
+      const url = new URL(String(href || "").trim(), window.location.href);
+      return /\/api\/client-transaction\/receipt\/download\/?$/i.test(
+        url.pathname.replace(/\/+$/, "")
+      );
+    } catch {
+      return false;
+    }
   }
 
   function isNavigableHref(href) {
     const raw = String(href || "").trim();
     if (!raw || raw === "#" || /^javascript:/i.test(raw)) return false;
+    if (isReceiptDownloadHref(raw)) return false;
     try {
       const url = new URL(raw, window.location.href);
       if (
@@ -187,6 +215,7 @@
       const link = e.target.closest("a[href]");
       if (link && !shouldSkip(link)) {
         const href = link.getAttribute("href");
+        if (link.hasAttribute("download") || isReceiptDownloadHref(href)) return;
         if (!isNavigableHref(href)) return;
 
         e.preventDefault();
@@ -210,8 +239,20 @@
     true
   );
 
-  window.addEventListener("pageshow", function (e) {
-    if (e.persisted) hideLoading();
+  window.addEventListener("pageshow", function () {
+    hideLoading();
+  });
+
+  window.addEventListener("load", function () {
+    hideLoading();
+  });
+
+  document.addEventListener("DOMContentLoaded", function () {
+    hideLoading();
+  });
+
+  window.addEventListener("beforeunload", function () {
+    clearTimers();
   });
 
   window.BeanthenticPageLoading = {

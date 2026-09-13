@@ -27,6 +27,8 @@ set BEANTHENTIC_SERVER=waitress
 set BEANTHENTIC_RELOADER=0
 set BEANTHENTIC_DEBUG=0
 
+set BEANTHENTIC_AUTO_RESTART=1
+
 echo.
 echo Starting server (stops any old copy on port 5001)...
 echo After editing files: close this window and run again, OR refresh browser for HTML/CSS.

@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ asset_version }}" />
 </head>
 
-<body>
+<body class="report-page">
   <header class="top-header top-header--history">
     <div class="container nav-wrapper nav-wrapper--history">
       <a class="nav-back" href="{{ url_for('home') }}" aria-label="Back to homepage">
@@ -18,6 +18,7 @@
         </svg>
       </a>
       <div class="nav-title">Report</div>
+      {% include 'partials/header_notif.html' %}
     </div>
   </header>
 
@@ -112,12 +113,15 @@
     </section>
   </main>
 
+  {% include 'partials/header_notif_panel.html' %}
   <script>
     window.BEANTHENTIC_REPORT_SUBMIT_URL = "{{ url_for('client_report_submit_proxy') }}";
     window.BEANTHENTIC_REPORT_FARMERS_URL = "{{ url_for('client_report_transaction_farmers_proxy') }}";
     window.BEANTHENTIC_APP_SERVER_BASE = {{ (app_server_base or '')| tojson }};
   </script>
-  <script src="{{ url_for('static', filename='js/report_page_chat.js') }}?v=20260604-report-chevron"></script>
+  <script src="{{ url_for('static', filename='js/client_tx_storage.js') }}?v=20260906-receipt-notif"></script>
+  {% include 'partials/notification_scripts.html' %}
+  <script src="{{ url_for('static', filename='js/report_page_chat.js') }}?v=20260906-receipt-notif"></script>
   {% include 'partials/page_loading.html' %}
 </body>
 

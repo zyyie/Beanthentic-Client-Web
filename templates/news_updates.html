@@ -65,6 +65,7 @@
 
       function scheduleSync() {
         window.clearTimeout(window.__beanthenticFbEmbedResize);
+        window.__beanthenticFbResizing = true;
         window.__beanthenticFbEmbedResize = window.setTimeout(syncFacebookEmbedSize, 150);
       }
 
@@ -74,8 +75,24 @@
         syncFacebookEmbedSize();
       }
       window.addEventListener("resize", scheduleSync);
+
+      frame.addEventListener("load", function () {
+        if (window.__beanthenticFbResizing) {
+          window.__beanthenticFbResizing = false;
+          return;
+        }
+        if (!window.BeanthenticNotifs || !window.BeanthenticNotifs.pushFacebookSynced) {
+          return;
+        }
+        var syncKey = new Date().toISOString().slice(0, 13);
+        window.BeanthenticNotifs.pushFacebookSynced({
+          sync_key: syncKey,
+          text: "New Facebook Page activity has been synced.",
+        });
+      });
     })();
   </script>
+  {% include 'partials/notification_scripts.html' %}
   {% include 'partials/page_loading.html' %}
 </body>
 

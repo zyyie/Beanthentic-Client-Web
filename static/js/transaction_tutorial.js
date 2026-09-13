@@ -220,7 +220,7 @@
     }
 
     if (stepLabel) {
-      stepLabel.textContent = step.isOverview ? "Quick guide" : "";
+      stepLabel.textContent = step.isOverview ? "QUICK GUIDE" : "";
       stepLabel.hidden = !step.isOverview;
     }
     if (titleEl) {
@@ -290,6 +290,9 @@
     var farmerSelect = document.getElementById("farmer-select");
     if (farmerSelect) {
       farmerSelect.focus();
+    } else {
+      var farmerSelect = document.getElementById("farmer-select");
+      if (farmerSelect) farmerSelect.focus();
     }
   }
 

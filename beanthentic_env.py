@@ -10,6 +10,7 @@ Supports:
 from __future__ import annotations
 
 import os
+import threading
 from pathlib import Path
 from urllib.parse import quote, unquote, urlparse, urlunparse
 
@@ -97,6 +98,33 @@ def _normalize_supabase_url(url: str) -> str:
     return raw
 
 
+def _prefer_supabase_transaction_pooler(url: str) -> str:
+    """
+    Supabase session pooler (port 5432) allows ~15 clients total.
+    Use transaction pooler (port 6543) unless BEANTHENTIC_DB_POOLER_MODE=session.
+    """
+    mode = (os.environ.get("BEANTHENTIC_DB_POOLER_MODE") or "transaction").strip().lower()
+    if mode in ("session", "5432"):
+        return url
+    raw = url.strip()
+    if raw.lower().startswith("postgres://"):
+        raw = "postgresql://" + raw[len("postgres://") :]
+    parsed = urlparse(raw)
+    host = parsed.hostname or ""
+    port = parsed.port or 5432
+    if "pooler.supabase.com" not in host:
+        return url
+    if port != 5432:
+        return url
+    user = unquote(parsed.username or "")
+    password = unquote(parsed.password or "")
+    db = (parsed.path or "/postgres").lstrip("/") or "postgres"
+    user_q = quote(user, safe="")
+    pass_q = quote(password, safe="")
+    netloc = f"{user_q}:{pass_q}@{host}:6543"
+    return urlunparse(("postgresql", netloc, f"/{db}", "", parsed.query, ""))
+
+
 def get_db_url() -> str:
     url = (os.environ.get("BEANTHENTIC_DB_URL") or os.environ.get("DATABASE_URL") or "").strip()
     if not url:
@@ -104,7 +132,8 @@ def get_db_url() -> str:
         if db_type in ("postgresql", "postgres"):
             url = _build_postgres_url_from_env()
     if url:
-        return _normalize_supabase_url(url)
+        url = _normalize_supabase_url(url)
+        return _prefer_supabase_transaction_pooler(url)
     return ""
 
 
@@ -191,13 +220,117 @@ def sqlalchemy_database_url() -> str:
 
 def _postgres_connect_url() -> str:
     url = get_db_url()
-    if url.lower().startswith("postgres://"):
-        url = "postgresql://" + url[len("postgres://") :]
+    if not url:
+        url = (os.environ.get("BEANTHENTIC_DB_URL") or os.environ.get("DATABASE_URL") or "").strip()
+        if url.lower().startswith("postgres://"):
+            url = "postgresql://" + url[len("postgres://") :]
+        url = _normalize_supabase_url(url)
+        url = _prefer_supabase_transaction_pooler(url)
     sslmode = os.environ.get("BEANTHENTIC_DB_SSLMODE", "require").strip() or "require"
     if "sslmode=" not in url.lower():
         sep = "&" if "?" in url else "?"
         url = f"{url}{sep}sslmode={sslmode}"
     return url
+
+
+_pg_pool = None
+_pg_pool_lock = threading.Lock()
+_pooled_connection_ids: set[int] = set()
+
+
+def _mark_pooled_connection(conn) -> None:
+    _pooled_connection_ids.add(id(conn))
+
+
+def _is_pooled_connection(conn) -> bool:
+    return id(conn) in _pooled_connection_ids
+
+
+def _unmark_pooled_connection(conn) -> None:
+    _pooled_connection_ids.discard(id(conn))
+
+
+def _release_postgresql_connection(conn, original_close=None) -> None:
+    if conn is None:
+        return
+    pooled = _is_pooled_connection(conn)
+    try:
+        closed = getattr(conn, "closed", 0)
+        if not closed:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+    except Exception:
+        pass
+    if pooled:
+        pool = _pg_pool
+        if pool is not None:
+            try:
+                pool.putconn(conn)
+                _unmark_pooled_connection(conn)
+                return
+            except Exception:
+                pass
+    if original_close:
+        try:
+            original_close()
+        except Exception:
+            pass
+    else:
+        try:
+            conn.close()
+        except Exception:
+            pass
+    _unmark_pooled_connection(conn)
+
+
+class _PooledConnection:
+    """Thin wrapper so conn.close() returns the connection to the pool."""
+
+    __slots__ = ("_conn",)
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def close(self) -> None:
+        _release_postgresql_connection(self._conn)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
+
+
+def _wrap_pooled_close(conn):
+    _mark_pooled_connection(conn)
+    return _PooledConnection(conn)
+
+
+def _postgres_pool():
+    global _pg_pool
+    if _pg_pool is not None:
+        return _pg_pool
+    with _pg_pool_lock:
+        if _pg_pool is not None:
+            return _pg_pool
+        import psycopg2
+        from psycopg2 import pool
+        from psycopg2.extras import RealDictCursor
+
+        url = _postgres_connect_url()
+        max_conn = max(2, min(int(os.environ.get("BEANTHENTIC_DB_POOL_MAX", "8") or 8), 12))
+        _pg_pool = pool.ThreadedConnectionPool(
+            1,
+            max_conn,
+            url,
+            cursor_factory=RealDictCursor,
+        )
+        return _pg_pool
 
 
 def _connect_postgresql():
@@ -208,8 +341,15 @@ def _connect_postgresql():
         import psycopg2
         from psycopg2.extras import RealDictCursor
 
-        conn = psycopg2.connect(url, cursor_factory=RealDictCursor)
+        pooled = False
+        try:
+            conn = _postgres_pool().getconn()
+            pooled = True
+        except Exception:
+            conn = psycopg2.connect(url, cursor_factory=RealDictCursor)
         conn.autocommit = False
+        if pooled:
+            return _wrap_pooled_close(conn)
         return conn
     except ImportError as exc:
         last_err = exc
@@ -259,6 +399,22 @@ def connect():
     return pymysql.connect(**params)
 
 
+def close(conn) -> None:
+    """Close or return a pooled PostgreSQL connection."""
+    if conn is None:
+        return
+    if isinstance(conn, _PooledConnection):
+        conn.close()
+        return
+    if is_postgresql() and _is_pooled_connection(conn):
+        _release_postgresql_connection(conn)
+        return
+    try:
+        conn.close()
+    except Exception:
+        pass
+
+
 def verify_connection() -> tuple[bool, str]:
     """Quick DB probe for startup diagnostics."""
     try:
@@ -268,7 +424,7 @@ def verify_connection() -> tuple[bool, str]:
                 cur.execute("SELECT 1 AS ok")
                 cur.fetchone()
         finally:
-            conn.close()
+            close(conn)
         return True, "OK"
     except Exception as exc:
         return False, str(exc)
@@ -329,6 +485,7 @@ def upload_to_supabase_storage(
             method="POST",
             headers={
                 "Authorization": f"Bearer {key}",
+                "apikey": key,
                 "Content-Type": content_type,
                 "x-upsert": "true",
             },

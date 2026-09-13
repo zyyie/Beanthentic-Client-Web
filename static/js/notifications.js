@@ -2,6 +2,23 @@
   const NOTIF_LIST_KEY = "beanthentic_notifications";
   const READ_KEY = "beanthentic_notifications_read";
 
+  const ALLOWED_KINDS = new Set(["farmer", "transaction", "social", "report"]);
+
+  const CATEGORY_ORDER = ["farmer", "transaction", "social", "report"];
+  const CATEGORY_LABELS = {
+    farmer: "Farmer Registration",
+    transaction: "Transactions",
+    social: "Social / Facebook",
+    report: "Reports",
+  };
+
+  function farmerLabel(extra) {
+    const name = String(
+      (extra && (extra.farmer_name || extra.farmerName)) || ""
+    ).trim();
+    return name || "The farmer";
+  }
+
   function loadNotifRoutes() {
     try {
       const el = document.getElementById("beanthentic-notif-routes");
@@ -11,39 +28,6 @@
     } catch {
       return {};
     }
-  }
-
-  function defaultNotifs() {
-    const routes = loadNotifRoutes();
-    return [
-      {
-        id: "welcome",
-        title: "Welcome to Beanthentic",
-        text: "Explore farmer profiles, history, and transactions from your dashboard.",
-        time: "Just now",
-        datetime: "2026-05-22",
-        href: routes.home || "/",
-        kind: "info",
-      },
-      {
-        id: "farmer-new",
-        title: "New farmer registered",
-        text: "A new farmer profile has been added to the system.",
-        time: "1 day ago",
-        datetime: "2026-05-21",
-        href: routes.farmer_profiles || "/farmer-profiles",
-        kind: "farmer",
-      },
-      {
-        id: "system-update",
-        title: "System update",
-        text: "Coffee history and report features are now available.",
-        time: "2 days ago",
-        datetime: "2026-05-20",
-        href: routes.report || "/report",
-        kind: "system",
-      },
-    ];
   }
 
   function loadReadIds() {
@@ -82,22 +66,63 @@
     }
   }
 
+  function normalizeKind(kind) {
+    const k = String(kind || "").trim().toLowerCase();
+    return ALLOWED_KINDS.has(k) ? k : "";
+  }
+
+  function parseDate(value) {
+    if (!value) return null;
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatRelativeTime(value) {
+    const d = parseDate(value);
+    if (!d) return "";
+    const diffMs = Date.now() - d.getTime();
+    const sec = Math.floor(diffMs / 1000);
+    if (sec < 45) return "Just now";
+    const min = Math.floor(sec / 60);
+    if (min < 60) return min === 1 ? "1 minute ago" : min + " minutes ago";
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return hr === 1 ? "1 hour ago" : hr + " hours ago";
+    const day = Math.floor(hr / 24);
+    if (day < 7) return day === 1 ? "1 day ago" : day + " days ago";
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
+  function formatDisplayDateTime(value) {
+    const d = parseDate(value);
+    if (!d) return "";
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
   function mergeNotifications() {
     const readIds = loadReadIds();
     const stored = loadStoredNotifs();
     const byId = new Map();
 
-    defaultNotifs().forEach((n) => {
-      byId.set(n.id, { ...n, unread: !readIds.has(n.id) });
-    });
-
     stored.forEach((n) => {
       if (!n || !n.id) return;
-      const prev = byId.get(n.id) || {};
+      const kind = normalizeKind(n.kind);
+      if (!kind) return;
       byId.set(n.id, {
-        ...prev,
         ...n,
-        unread: !readIds.has(n.id),
+        kind,
+        unread: !readIds.has(String(n.id)),
       });
     });
 
@@ -110,34 +135,104 @@
     return list;
   }
 
+  function hasApprovedNotification(ref) {
+    const id = "tx-approved-" + String(ref || "").trim();
+    if (!id || id === "tx-approved-") return false;
+    return loadStoredNotifs().some((n) => n && String(n.id) === id);
+  }
+
+  function ensureApprovedNotification(referenceNo, extra) {
+    const ref = String(referenceNo || "").trim();
+    if (!ref || hasApprovedNotification(ref)) return false;
+    const farmer = farmerLabel(extra);
+    const datetime =
+      (extra && extra.datetime) ||
+      (extra && extra.approved_at) ||
+      new Date().toISOString();
+    const txBase = loadNotifRoutes().transaction || "/transaction";
+    return pushNotification({
+      id: "tx-approved-" + ref,
+      kind: "transaction",
+      title: "Transaction approved",
+      text:
+        (extra && extra.text) ||
+        "Your transaction has been approved by " +
+          farmer +
+          ". Your receipt is now available to view and download.",
+      time: formatRelativeTime(datetime),
+      datetime,
+      href:
+        normalizeHref(txBase) +
+        "?ref=" +
+        encodeURIComponent(ref) +
+        "&view=receipt",
+      reference_no: ref,
+    });
+  }
+
+  function syncApprovedFromPendingStorage() {
+    const storage = window.BeanthenticTxStorage;
+    if (!storage || typeof storage.readAllPendingTx !== "function") return 0;
+    let added = 0;
+    storage.readAllPendingTx().forEach(function (pending) {
+      if (!pending || !pending.reference_no) return;
+      const status = String(pending.status || "pending").toLowerCase();
+      if (status !== "approved" && status !== "sent_to_client") return;
+      if (
+        ensureApprovedNotification(String(pending.reference_no).trim(), {
+          farmer_name: pending.farmer_name || "",
+          datetime: pending.approved_at || pending.submitted_at || "",
+        })
+      ) {
+        added += 1;
+      }
+    });
+    return added;
+  }
+
   function pushNotification(notif) {
     if (!notif || !notif.id) return false;
+    const kind = normalizeKind(notif.kind);
+    if (!kind) return false;
+
     const stored = loadStoredNotifs();
-    if (stored.some((n) => n.id === notif.id)) return false;
+    const id = String(notif.id);
+    const existingIdx = stored.findIndex((n) => n && String(n.id) === id);
+    const datetime =
+      notif.datetime || new Date().toISOString();
     const entry = {
-      id: String(notif.id),
+      id,
       title: notif.title || "Notification",
       text: notif.text || "",
-      time: notif.time || "Just now",
-      datetime: notif.datetime || new Date().toISOString().slice(0, 10),
+      time: notif.time || formatRelativeTime(datetime),
+      datetime,
       href: notif.href || "",
-      kind: notif.kind || "info",
+      kind,
       reference_no: notif.reference_no || "",
+      farmer_id: notif.farmer_id || "",
     };
+
+    if (existingIdx >= 0) {
+      stored[existingIdx] = { ...stored[existingIdx], ...entry };
+      saveStoredNotifs(stored);
+      return true;
+    }
+
     stored.unshift(entry);
     saveStoredNotifs(stored);
     return true;
   }
 
-  function markRead(id) {
+  function markNotificationRead(id) {
+    if (!id) return;
     const readIds = loadReadIds();
-    readIds.add(id);
+    readIds.add(String(id));
     saveReadIds(readIds);
   }
 
   function markAllRead() {
     const readIds = loadReadIds();
-    mergeNotifications().forEach((n) => readIds.add(n.id));
+    mergeNotifications().forEach((n) => readIds.add(String(n.id)));
     saveReadIds(readIds);
   }
 
@@ -159,6 +254,16 @@
         encodeURIComponent(String(notif.reference_no))
       );
     }
+    if (notif.kind === "farmer" && notif.farmer_id) {
+      const base = routes.farmer_profiles || "/farmer-profiles";
+      return normalizeHref(base) + "?highlight=" + encodeURIComponent(String(notif.farmer_id));
+    }
+    if (notif.kind === "social") {
+      return normalizeHref(routes.news_updates || "/news-updates");
+    }
+    if (notif.kind === "report") {
+      return normalizeHref(routes.report || "/report");
+    }
     return "";
   }
 
@@ -168,42 +273,6 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
-  }
-
-  function resolveNotifIcon(notif) {
-    if (notif.icon) return notif.icon;
-    if (notif.kind === "farmer") return "sprout";
-    if (notif.kind === "transaction") return "receipt";
-    if (notif.kind === "system") return "gear";
-    return "megaphone";
-  }
-
-  function notifIconSvg(name) {
-    const icons = {
-      megaphone:
-        '<path d="M3 10v4h4l5 4V6L7 10H3z"/>' +
-        '<path d="M16.5 8.5a4.5 4.5 0 0 1 0 7"/>' +
-        '<path d="M19.5 5.5a8 8 0 0 1 0 13"/>',
-      sprout:
-        '<path d="M12 22V11"/>' +
-        '<path d="M12 11C12 6.5 8 4 8 4s4 2.5 4 7"/>' +
-        '<path d="M12 11c0-4.5 4-7 4-7s-4 2.5-4 7"/>',
-      gear:
-        '<circle cx="12" cy="12" r="3"/>' +
-        '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
-      receipt:
-        '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
-        '<path d="M14 2v6h6"/>' +
-        '<path d="M16 13H8"/>' +
-        '<path d="M16 17H8"/>' +
-        '<path d="M10 9H8"/>',
-    };
-    const paths = icons[name] || icons.megaphone;
-    return (
-      '<svg class="header-notif-item-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
-      paths +
-      "</svg>"
-    );
   }
 
   let uiRoot = null;
@@ -277,16 +346,24 @@
       card.setAttribute("data-notif-view", "");
     }
 
-    const iconWrap = document.createElement("span");
-    iconWrap.className = "header-notif-item-icon";
-    iconWrap.innerHTML = notifIconSvg(resolveNotifIcon(notif));
-
     const body = document.createElement("span");
     body.className = "header-notif-item-body";
+
+    const headRow = document.createElement("span");
+    headRow.className = "header-notif-item-head";
 
     const title = document.createElement("span");
     title.className = "header-notif-item-title";
     title.textContent = notif.title || "Notification";
+
+    const status = document.createElement("span");
+    status.className =
+      "header-notif-item-status" +
+      (notif.unread ? " is-new" : " is-read-label");
+    status.textContent = notif.unread ? "New" : "Read";
+
+    headRow.appendChild(title);
+    headRow.appendChild(status);
 
     const text = document.createElement("span");
     text.className = "header-notif-item-text";
@@ -295,27 +372,63 @@
     const timeEl = document.createElement("time");
     timeEl.className = "header-notif-item-time";
     timeEl.dateTime = notif.datetime || "";
-    timeEl.textContent = notif.time || "";
+    const displayTime =
+      formatDisplayDateTime(notif.datetime) ||
+      notif.time ||
+      formatRelativeTime(notif.datetime);
+    timeEl.textContent = displayTime;
+    timeEl.title = displayTime;
 
-    body.appendChild(title);
+    body.appendChild(headRow);
     body.appendChild(text);
     body.appendChild(timeEl);
-    card.appendChild(iconWrap);
     card.appendChild(body);
     li.appendChild(card);
     return li;
   }
 
-  function renderList() {
-    if (!uiRoot) return;
-    const list = uiRoot.querySelector("[data-notif-list]");
-    const badge = uiRoot.querySelector("[data-notif-badge]");
-    const empty = uiRoot.querySelector("[data-notif-empty]");
-    if (!list) return;
+  function groupNotifications(notifs) {
+    const groups = new Map();
+    CATEGORY_ORDER.forEach((kind) => groups.set(kind, []));
+    notifs.forEach((notif) => {
+      const kind = normalizeKind(notif.kind);
+      if (!kind || !groups.has(kind)) return;
+      groups.get(kind).push(notif);
+    });
+    return groups;
+  }
 
-    list.innerHTML = "";
+  function renderList() {
+    if (!uiRoot) uiRoot = document.querySelector("[data-notif-root]");
+    const listHost = document.querySelector("[data-notif-list]");
+    const badge = uiRoot?.querySelector("[data-notif-badge]");
+    const empty = document.querySelector("[data-notif-empty]");
+    if (!listHost) return;
+
+    listHost.innerHTML = "";
     const notifs = mergeNotifications();
-    notifs.forEach((notif) => list.appendChild(renderListItem(notif)));
+    const groups = groupNotifications(notifs);
+
+    CATEGORY_ORDER.forEach((kind) => {
+      const items = groups.get(kind) || [];
+      if (!items.length) return;
+
+      const section = document.createElement("li");
+      section.className = "header-notif-group";
+      section.setAttribute("data-notif-group", kind);
+
+      const label = document.createElement("h4");
+      label.className = "header-notif-group-label";
+      label.textContent = CATEGORY_LABELS[kind] || kind;
+
+      const sublist = document.createElement("ul");
+      sublist.className = "header-notif-group-list";
+      items.forEach((notif) => sublist.appendChild(renderListItem(notif)));
+
+      section.appendChild(label);
+      section.appendChild(sublist);
+      listHost.appendChild(section);
+    });
 
     const count = notifs.filter((n) => n.unread).length;
     if (badge) {
@@ -328,7 +441,7 @@
     }
 
     const hasItems = notifs.length > 0;
-    list.hidden = !hasItems;
+    listHost.hidden = !hasItems;
     if (empty) empty.hidden = hasItems;
   }
 
@@ -340,97 +453,148 @@
       renderList();
       return added;
     },
-    pushTransactionSubmitted(referenceNo, extra) {
-      const ref = String(referenceNo || "").trim();
-      if (!ref) return false;
-      const txBase = loadNotifRoutes().transaction || "/transaction";
+    pushFarmerRegistered(farmerId, farmerName, createdAt) {
+      const fid = String(farmerId || "").trim();
+      if (!fid) return false;
+      const name = String(farmerName || "").trim() || "Farmer #" + fid;
+      const routes = loadNotifRoutes();
+      const datetime = createdAt || new Date().toISOString();
       const added = pushNotification({
-        id: "tx-submitted-" + ref,
-        kind: "transaction",
-        title: "Transaction submitted",
-        text:
-          (extra && extra.text) ||
-          `Your request was sent (Ref: ${ref}). We will notify you when the farmer approves it.`,
-        time: "Just now",
-        datetime: new Date().toISOString(),
-        href: txBase + "?ref=" + encodeURIComponent(ref),
-        reference_no: ref,
+        id: "farmer-reg-" + fid,
+        kind: "farmer",
+        title: "New farmer registered",
+        text: "New farmer registered: " + name + ".",
+        time: formatRelativeTime(datetime),
+        datetime,
+        href: routes.farmer_profiles || "/farmer-profiles",
+        farmer_id: fid,
       });
+      if (added) {
+        showToast({
+          title: "New farmer registered",
+          text: name + " joined Beanthentic.",
+          type: "success",
+        });
+        pulseBell();
+      }
       renderList();
       return added;
     },
     pushTransactionApproved(referenceNo, extra) {
       const ref = String(referenceNo || "").trim();
       if (!ref) return false;
+      const added = ensureApprovedNotification(ref, extra);
+      renderList();
+      return added;
+    },
+    ensureApprovedNotification,
+    syncApprovedFromPendingStorage,
+    pushTransactionReceiptAvailable(referenceNo, extra) {
+      const ref = String(referenceNo || "").trim();
+      if (!ref) return false;
+      const stored = loadStoredNotifs();
+      if (stored.some((n) => n && String(n.id) === "tx-approved-" + ref)) {
+        return false;
+      }
+      const farmer = farmerLabel(extra);
+      const datetime = new Date().toISOString();
+      const txBase = loadNotifRoutes().transaction || "/transaction";
       const added = pushNotification({
-        id: "tx-approved-" + ref,
+        id: "tx-receipt-" + ref,
         kind: "transaction",
-        title: "Transaction approved",
+        title: "Receipt available",
         text:
           (extra && extra.text) ||
-          `The farmer approved your transaction (Ref: ${ref}). Waiting for the official receipt.`,
-        time: "Just now",
-        datetime: new Date().toISOString(),
+          "Your transaction has been approved by " +
+            farmer +
+            ". Your receipt is now available to view and download.",
+        time: formatRelativeTime(datetime),
+        datetime,
         href:
-          (loadNotifRoutes().transaction || "/transaction") +
+          normalizeHref(txBase) +
           "?ref=" +
-          encodeURIComponent(ref),
+          encodeURIComponent(ref) +
+          "&view=receipt",
         reference_no: ref,
       });
       renderList();
       return added;
     },
-    pushTransactionReceiptSent(referenceNo, extra) {
-      const ref = String(referenceNo || "").trim();
-      if (!ref) return false;
+    pushFacebookSynced(extra) {
+      const routes = loadNotifRoutes();
+      const datetime = new Date().toISOString();
+      const syncKey =
+        (extra && extra.sync_key) ||
+        datetime.slice(0, 13);
       const added = pushNotification({
-        id: "tx-receipt-" + ref,
-        kind: "transaction",
-        title: "Receipt sent",
+        id: "fb-sync-" + syncKey,
+        kind: "social",
+        title: "Facebook Page update",
         text:
           (extra && extra.text) ||
-          `The farmer sent your official receipt (Ref: ${ref}). Tap to view your receipt.`,
-        time: "Just now",
-        datetime: new Date().toISOString(),
-        href:
-          (loadNotifRoutes().transaction || "/transaction") +
-          "?ref=" +
-          encodeURIComponent(ref),
-        reference_no: ref,
+          "New Facebook Page activity has been synced.",
+        time: formatRelativeTime(datetime),
+        datetime,
+        href: routes.news_updates || "/news-updates",
       });
+      if (added) {
+        pulseBell();
+      }
+      renderList();
+      return added;
+    },
+    pushReportReady(extra) {
+      const routes = loadNotifRoutes();
+      const reportId =
+        (extra && extra.report_id) ||
+        "latest-" + new Date().toISOString().slice(0, 10);
+      const datetime = new Date().toISOString();
+      const added = pushNotification({
+        id: "report-" + reportId,
+        kind: "report",
+        title: (extra && extra.title) || "Report update",
+        text:
+          (extra && extra.text) ||
+          "Your report has been submitted and is ready for review.",
+        time: formatRelativeTime(datetime),
+        datetime,
+        href: routes.report || "/report",
+      });
+      if (added) {
+        showToast({
+          title: (extra && extra.title) || "Report update",
+          text:
+            (extra && extra.text) ||
+            "Your report has been submitted successfully.",
+          type: "success",
+        });
+        pulseBell();
+      }
       renderList();
       return added;
     },
     notifyTransactionEvent(type, referenceNo, extra) {
       const ref = String(referenceNo || "").trim();
       if (!ref) return false;
+      if (type === "submitted" || type === "receipt") {
+        return false;
+      }
       let added = false;
-      if (type === "submitted") {
-        added = this.pushTransactionSubmitted(ref, extra);
-      } else if (type === "approved") {
+      if (type === "approved") {
         added = this.pushTransactionApproved(ref, extra);
-      } else if (type === "receipt") {
-        added = this.pushTransactionReceiptSent(ref, extra);
       }
       if (!added) return false;
-      const titles = {
-        submitted: "Transaction submitted",
-        approved: "Transaction approved",
-        receipt: "Receipt sent",
-      };
-      const texts = {
-        submitted: "Ref " + ref + " — waiting for farmer approval.",
-        approved: "Ref " + ref + " — farmer approved your request.",
-        receipt: "Ref " + ref + " — tap to view your receipt.",
-      };
-      if (showToast) {
-        showToast({
-          title: (extra && extra.title) || titles[type] || "Transaction update",
-          text: (extra && extra.text) || texts[type] || "",
-          type: "success",
-          durationMs: 7000,
-        });
-      }
+      const farmer = farmerLabel(extra);
+      showToast({
+        title: (extra && extra.title) || "Transaction approved",
+        text:
+          (extra && extra.text) ||
+          "Your transaction has been approved by " +
+            farmer +
+            ". Your receipt is now available to view and download.",
+        type: "success",
+        durationMs: 7000,
+      });
       pulseBell();
       return true;
     },
@@ -438,11 +602,26 @@
       markAllRead();
       renderList();
     },
+    markNotificationRead(id) {
+      markNotificationRead(id);
+      renderList();
+    },
     list: mergeNotifications,
     refresh: renderList,
   };
 
   let uiBound = false;
+
+  function portalNotifOverlay() {
+    const panel = document.getElementById("notif-panel");
+    const backdrop = document.getElementById("notif-backdrop");
+    if (panel && panel.parentElement !== document.body) {
+      document.body.appendChild(panel);
+    }
+    if (backdrop && backdrop.parentElement !== document.body) {
+      document.body.appendChild(backdrop);
+    }
+  }
 
   function bindNotificationUi() {
     if (uiBound) {
@@ -453,16 +632,24 @@
     if (!uiRoot) return false;
 
     const toggle = uiRoot.querySelector("#notif-toggle");
-    const panel = uiRoot.querySelector("#notif-panel");
-    const markReadBtn = uiRoot.querySelector("[data-notif-mark-read]");
-    const list = uiRoot.querySelector("[data-notif-list]");
+    const panel = document.getElementById("notif-panel");
+    const backdrop = document.getElementById("notif-backdrop");
+    const markReadBtn = panel?.querySelector("[data-notif-mark-read]");
+    const list = panel?.querySelector("[data-notif-list]");
 
     if (!toggle || !panel || !list) return false;
+
+    portalNotifOverlay();
 
     function setPanelOpen(open) {
       panel.hidden = !open;
       toggle.setAttribute("aria-expanded", open ? "true" : "false");
       panel.classList.toggle("is-open", open);
+      document.body.classList.toggle("notif-panel-open", open);
+      if (backdrop) {
+        backdrop.hidden = !open;
+        backdrop.setAttribute("aria-hidden", open ? "false" : "true");
+      }
       if (open) renderList();
     }
 
@@ -470,37 +657,56 @@
       const target = normalizeHref(href);
       if (!item || !target) return;
       const id = item.getAttribute("data-notif-id");
-      if (id) markRead(id);
+      if (id) {
+        markNotificationRead(id);
+        item.classList.remove("is-unread");
+        item.classList.add("is-read");
+        renderList();
+      }
       setPanelOpen(false);
-      renderList();
       window.location.assign(target);
     }
 
     toggle.addEventListener("click", (e) => {
+      e.preventDefault();
       e.stopPropagation();
       setPanelOpen(panel.hasAttribute("hidden"));
     });
 
     markReadBtn?.addEventListener("click", (e) => {
+      e.preventDefault();
       e.stopPropagation();
       window.BeanthenticNotifs.markAllRead();
     });
 
-    list.addEventListener("click", (e) => {
-      const card = e.target.closest("[data-notif-view]");
-      if (!card) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const item = card.closest(".header-notif-item");
-      const href =
-        card.getAttribute("href") ||
-        item?.getAttribute("data-notif-href") ||
-        "";
-      navigateFromNotification(item, href);
+    backdrop?.addEventListener("click", () => {
+      setPanelOpen(false);
     });
 
+    list.addEventListener(
+      "click",
+      (e) => {
+        const card = e.target.closest("[data-notif-view]");
+        if (!card) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const item = card.closest(".header-notif-item");
+        const href =
+          card.getAttribute("href") ||
+          item?.getAttribute("data-notif-href") ||
+          "";
+        navigateFromNotification(item, href);
+      },
+      true
+    );
+
     document.addEventListener("click", (e) => {
-      if (!uiRoot.contains(e.target)) setPanelOpen(false);
+      if (panel.hasAttribute("hidden")) return;
+      const t = e.target;
+      if (toggle === t || toggle.contains(t)) return;
+      if (panel.contains(t)) return;
+      if (backdrop && (backdrop === t || backdrop.contains(t))) return;
+      setPanelOpen(false);
     });
 
     document.addEventListener("keydown", (e) => {
@@ -508,14 +714,22 @@
     });
 
     setPanelOpen(false);
+    syncApprovedFromPendingStorage();
     renderList();
     uiBound = true;
     return true;
   }
 
+  portalNotifOverlay();
+  syncApprovedFromPendingStorage();
+
   if (!bindNotificationUi()) {
     document.addEventListener("DOMContentLoaded", function () {
+      portalNotifOverlay();
+      syncApprovedFromPendingStorage();
       bindNotificationUi();
     });
+  } else {
+    renderList();
   }
 })();
