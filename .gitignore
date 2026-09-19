@@ -1,0 +1,4 @@
+.env
+sms-gate.env
+*.pyc
+__pycache__/

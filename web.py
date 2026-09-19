@@ -15,7 +15,12 @@ from flask import Flask, Response, jsonify, redirect, render_template, request, 
 
 import beanthentic_env
 from config.client_reports import get_transaction_farmers, submit_client_report
-from config.client_product_prices import compute_order_total, prices_for_client_api
+from config.client_product_prices import (
+    GCB_PRICE_PER_KG,
+    ROASTED_PACK_PRICES,
+    compute_order_total,
+    prices_for_client_api,
+)
 from config.client_transactions import (
     get_client_transaction_status,
     get_receipt_download,
@@ -1204,9 +1209,14 @@ def transaction():
         )
     farmers_for_select.sort(key=lambda item: item["display_name"].lower())
     product_prices: list[dict] = []
+    gcb_prices = GCB_PRICE_PER_KG
+    roasted_packs = ROASTED_PACK_PRICES
     if beanthentic_env.get_db_url():
         try:
-            product_prices = prices_for_client_api().get("prices") or []
+            payload = prices_for_client_api()
+            product_prices = payload.get("prices") or []
+            gcb_prices = payload.get("gcb_prices") or GCB_PRICE_PER_KG
+            roasted_packs = payload.get("roasted_packs") or ROASTED_PACK_PRICES
         except Exception:
             product_prices = []
     return render_template(
@@ -1217,6 +1227,8 @@ def transaction():
         farmers_error=farmers_error,
         farmer_profiles_url=url_for("farmer_profiles"),
         product_prices=product_prices,
+        gcb_prices=gcb_prices,
+        roasted_packs=roasted_packs,
     )
 
 
@@ -1259,6 +1271,7 @@ def _proxy_client_transaction_submit():
             "quantity_unit",
             "payment_amount",
             "payment_method",
+            "delivery_method",
             "transaction_type",
             "client_phone",
             "phone_verify_token",
@@ -1282,6 +1295,20 @@ def _proxy_client_transaction_submit():
                 ).encode("utf-8")
             )
             parts.append(data)
+            parts.append(b"\r\n")
+
+        proof = request.files.get("payment_proof")
+        if proof and proof.filename:
+            pdata = proof.read()
+            pctype = proof.mimetype or mimetypes.guess_type(proof.filename)[0] or "application/octet-stream"
+            parts.append(
+                (
+                    f"--{boundary}\r\n"
+                    f"Content-Disposition: form-data; name=\"payment_proof\"; filename=\"{proof.filename}\"\r\n"
+                    f"Content-Type: {pctype}\r\n\r\n"
+                ).encode("utf-8")
+            )
+            parts.append(pdata)
             parts.append(b"\r\n")
 
         parts.append(f"--{boundary}--\r\n".encode("utf-8"))
@@ -1315,7 +1342,11 @@ def client_transaction_submit_proxy():
         return resp, 204
 
     if beanthentic_env.get_db_url():
-        data, status = submit_client_transaction(request.form, request.files.get("valid_id"))
+        data, status = submit_client_transaction(
+            request.form,
+            request.files.get("valid_id"),
+            request.files.get("payment_proof"),
+        )
         if data.get("ok") or status < 500:
             return jsonify(data), status
 
@@ -1428,12 +1459,19 @@ def client_transaction_compute_price():
     product = str(request.args.get("product") or request.args.get("coffee_variety") or "").strip()
     bean_form = str(request.args.get("bean_form") or request.args.get("bean_type") or "").strip()
     classification = str(request.args.get("classification") or "").strip()
+    quantity_pack = str(request.args.get("quantity_pack") or "").strip()
     try:
         quantity_kg = float(str(request.args.get("quantity_kg") or "0"))
     except (TypeError, ValueError):
         quantity_kg = 0.0
 
-    result = compute_order_total(product, bean_form, classification, quantity_kg)
+    result = compute_order_total(
+        product,
+        bean_form,
+        classification,
+        quantity_kg,
+        quantity_pack=quantity_pack,
+    )
     if not result.get("ok"):
         return jsonify({"ok": False, "error": "No official price found for this selection."}), 404
     return jsonify({"ok": True, **result})

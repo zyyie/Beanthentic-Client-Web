@@ -3028,6 +3028,7 @@ body.report-page::after {
 
 .form-group {
   margin-bottom: 25px;
+  min-width: 0;
 }
 
 .form-group label {
@@ -3467,17 +3468,20 @@ body.report-page::after {
 .pickup-header {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
   margin-bottom: 25px;
   padding-bottom: 15px;
   border-bottom: 1px solid rgba(43, 127, 31, 0.12);
+  min-width: 0;
 }
 
 .pickup-title {
-  font-size: 20px;
+  font-size: clamp(1.05rem, 4.6vw, 1.35rem);
   font-weight: 800;
   color: #3d2817;
   flex: 1;
+  min-width: 0;
+  line-height: 1.2;
 }
 
 .txn-tutorial-replay--inline {
@@ -3666,6 +3670,116 @@ body.transaction-page--admin-contact #txn-receipt-ready-card {
   background-size: 18px;
 }
 
+.txn-select-wrap {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.txn-select-wrap[hidden] {
+  display: none !important;
+}
+
+.txn-select-wrap .txn-select-native,
+.txn-select-wrap select.custom-select {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.txn-select-btn {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 12px 42px 12px 16px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 16px;
+  line-height: 1.3;
+  background: #ffffff;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%232b7f1f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px;
+  color: #174a13;
+  text-align: left;
+  font-family: inherit;
+}
+
+.txn-select-wrap.is-open .txn-select-btn,
+.txn-select-btn:hover:not(:disabled) {
+  border-color: #2b7f1f;
+  background-color: #f8fcf7;
+  box-shadow: 0 0 0 3px rgba(43, 127, 31, 0.1);
+}
+
+.txn-select-wrap.is-disabled .txn-select-btn,
+.txn-select-btn:disabled {
+  background-color: #f0f0f0;
+  color: #999;
+  border-color: #e8e8e8;
+  cursor: not-allowed;
+  opacity: 0.85;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23999999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+.txn-select-menu {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 80;
+  max-height: min(240px, 45vh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #f4faf3;
+  border: 1.5px solid #2b7f1f;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(23, 74, 19, 0.14);
+  box-sizing: border-box;
+}
+
+.txn-select-wrap.is-open .txn-select-menu {
+  display: block;
+}
+
+.txn-select-option {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 11px 14px;
+  color: #174a13;
+  font-size: 16px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.txn-select-option:hover,
+.txn-select-option.is-selected {
+  background: #e8f5e4;
+}
+
+.pickup-details-card {
+  overflow: visible;
+}
+
 .txn-qty-input:disabled {
   background-color: #f0f0f0;
   color: #999;
@@ -3682,11 +3796,19 @@ body.transaction-page--admin-contact #txn-receipt-ready-card {
   width: 100%;
 }
 
+.payment-method-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+
 .clickable-payment-method {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
-  padding: 12px 20px;
+  padding: 12px 16px;
   background: #ffffff;
   border: 1.5px solid #e0e0e0;
   border-radius: 12px;
@@ -3696,6 +3818,8 @@ body.transaction-page--admin-contact #txn-receipt-ready-card {
   transition: all 0.3s ease;
   height: 48px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .clickable-payment-method:hover {
@@ -3706,8 +3830,6 @@ body.transaction-page--admin-contact #txn-receipt-ready-card {
 .clickable-payment-method.selected {
   border-color: #2b7f1f;
   background: #f0f7ef;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
   box-shadow: none;
 }
 
@@ -3717,12 +3839,285 @@ body.transaction-page--admin-contact #txn-receipt-ready-card {
   color: #2b7f1f;
 }
 
+.clickable-payment-method--gcash {
+  color: #0057e7;
+}
+
+.clickable-payment-method--gcash:hover {
+  border-color: #0072ce;
+  background: #f3f8ff;
+}
+
+.clickable-payment-method--gcash.selected {
+  border-color: #0057e7;
+  background: #eef5ff;
+  color: #0057e7;
+}
+
+.clickable-payment-method--lalamove {
+  color: #ff6200;
+}
+
+.clickable-payment-method--lalamove:hover {
+  border-color: #ff8a3d;
+  background: #fff6f0;
+}
+
+.clickable-payment-method--lalamove.selected {
+  border-color: #ff6200;
+  background: #fff1e8;
+  color: #d45300;
+}
+
+.lalamove-delivery-logo {
+  width: 26px;
+  height: 26px;
+  display: block;
+  flex-shrink: 0;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.gcash-qr-modal {
+  z-index: 12040;
+}
+
+.gcash-qr-modal__card {
+  width: min(92vw, 420px);
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 22px 18px 18px;
+  border: 1.5px solid #0057e7;
+  border-radius: 18px;
+  background: #f7fbff;
+  text-align: center;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+  animation: popUpModal 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.gcash-qr-modal__done {
+  margin-top: 8px;
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  background: #0057e7;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gcash-qr-modal__done:hover {
+  background: #0046bb;
+}
+
+.receipt-modal-overlay.lalamove-selected-modal {
+  z-index: 12050;
+}
+
+.lalamove-selected-modal__card {
+  position: relative;
+  width: min(92vw, 420px);
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 22px 24px;
+  border-radius: 18px;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.28);
+  animation: popUpModal 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.lalamove-selected-modal__close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.lalamove-selected-modal__close:hover {
+  color: #475569;
+}
+
+.lalamove-selected-modal__brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #f26522;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-size: 1.15rem;
+}
+
+.lalamove-selected-modal__brand img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.lalamove-selected-modal__title {
+  margin: 8px 0 0;
+  color: #1e293b;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.lalamove-selected-modal__text {
+  margin: 0;
+  max-width: 280px;
+  color: #64748b;
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.lalamove-selected-modal__ok {
+  margin-top: 12px;
+  min-width: 160px;
+  border: none;
+  border-radius: 999px;
+  padding: 0.7rem 1.6rem;
+  background: #3aa4b5;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lalamove-selected-modal__ok:hover {
+  background: #2f8c9b;
+}
+
+.gcash-proof-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gcash-proof-group[hidden] {
+  display: none;
+}
+
+.gcash-proof-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 72px;
+  padding: 10px 12px;
+  border: 1.5px dashed #c5d0e0;
+  border-radius: 12px;
+  background: #f7f9fc;
+  color: #64748b;
+  cursor: pointer;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.gcash-proof-drop:hover,
+.gcash-proof-drop.is-dragging {
+  border-color: #8aa0c2;
+  background: #eef3f9;
+}
+
+.gcash-proof-drop__icon {
+  width: 28px;
+  height: 28px;
+  color: #94a3b8;
+}
+
+.gcash-proof-drop__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  line-height: 1.2;
+}
+
+.gcash-proof-drop__hint {
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.gcash-proof-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gcash-proof-preview[hidden] {
+  display: none;
+}
+
+.gcash-proof-preview img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #d6e4ff;
+}
+
+.gcash-proof-remove {
+  border: none;
+  background: transparent;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.gcash-pay-panel__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0b3b86;
+}
+
+.gcash-pay-panel__qr {
+  width: min(220px, 70vw);
+  height: auto;
+  aspect-ratio: 1;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.gcash-pay-panel__number-label {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4a6288;
+}
+
+.gcash-pay-panel__number {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #0057e7;
+}
+
 .payment-dropdown-field {
   background: #f0f7ef;
   border: 1.5px solid #2b7f1f;
-  border-top: none;
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
+  border-radius: 12px;
   padding: 15px;
   animation: slideDownAmount 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
   z-index: 5;
@@ -3842,11 +4237,13 @@ input[type=number] {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 900px) {
   .pickup-fields {
     grid-template-columns: 1fr;
   }
+}
 
+@media (max-width: 600px) {
   .transaction-main {
     padding: 20px 0 56px;
   }
@@ -5235,12 +5632,27 @@ input[type=number] {
 }
 
 /* Custom Calendar Modal Styles */
+.receipt-modal-overlay.calendar-modal {
+  z-index: 12050;
+  align-items: center;
+  justify-content: center;
+  padding-top: calc(12px + env(safe-area-inset-top, 0px) + clamp(64px, 18vw, 96px));
+  padding-right: clamp(12px, 4vw, 24px);
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: clamp(12px, 4vw, 24px);
+}
+
 .calendar-container {
   background: var(--bt-gradient-header);
-  width: 90%;
+  width: min(92vw, 400px);
   max-width: 400px;
-  border-radius: 30px;
-  padding: 25px;
+  max-height: min(
+    78dvh,
+    calc(100dvh - 100px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))
+  );
+  overflow: auto;
+  border-radius: clamp(16px, 4vw, 28px);
+  padding: clamp(10px, 2.8vw, 22px);
   position: relative;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
   color: #ffffff;
@@ -5251,11 +5663,11 @@ input[type=number] {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .calendar-header h3 {
-  font-size: 22px;
+  font-size: clamp(14px, 4vw, 20px);
   font-weight: 800;
   margin: 0;
   color: #ffffff;
@@ -5265,10 +5677,10 @@ input[type=number] {
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.16);
   color: white;
-  width: 35px;
-  height: 35px;
-  border-radius: 10px;
-  font-size: 20px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -5284,23 +5696,24 @@ input[type=number] {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 25px;
-  gap: 10px;
+  margin-bottom: 12px;
+  gap: 8px;
 }
 
 .nav-arrow {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: white;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  font-size: 24px;
+  width: clamp(28px, 8vw, 40px);
+  height: clamp(28px, 8vw, 40px);
+  border-radius: 10px;
+  font-size: clamp(16px, 5vw, 24px);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .nav-arrow:hover {
@@ -5309,17 +5722,19 @@ input[type=number] {
 
 .calendar-selectors {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex: 1;
+  min-width: 0;
 }
 
 .calendar-selectors select {
   flex: 1;
+  min-width: 0;
   background: white;
   border: none;
-  padding: 10px 15px;
-  border-radius: 15px;
-  font-size: 16px;
+  padding: clamp(6px, 1.8vw, 10px) clamp(8px, 2vw, 14px);
+  border-radius: 12px;
+  font-size: clamp(12px, 3.4vw, 16px);
   font-weight: 700;
   color: var(--bt-gradient-header);
   cursor: pointer;
@@ -5327,15 +5742,15 @@ input[type=number] {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23083d1c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 35px;
+  background-position: right 8px center;
+  padding-right: 26px;
 }
 
 .calendar-grid-wrapper {
   background: var(--bt-green-dark);
-  border-radius: 20px;
-  padding: 15px;
-  margin-bottom: 25px;
+  border-radius: 16px;
+  padding: 10px 8px;
+  margin-bottom: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -5343,11 +5758,11 @@ input[type=number] {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   text-align: center;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .calendar-weekdays span {
-  font-size: 14px;
+  font-size: clamp(10px, 2.8vw, 14px);
   font-weight: 800;
   color: rgba(255, 255, 255, 0.92);
 }
@@ -5355,16 +5770,17 @@ input[type=number] {
 .calendar-days {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
+  gap: 4px;
 }
 
 .calendar-day {
   aspect-ratio: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  font-size: 16px;
+  border-radius: clamp(8px, 2vw, 12px);
+  font-size: clamp(11px, 3.2vw, 16px);
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -5417,13 +5833,15 @@ input[type=number] {
   background: white;
   color: var(--bt-gradient-header);
   border: none;
-  padding: 15px 80px;
-  border-radius: 40px;
-  font-size: 18px;
-  font-weight: 900;
+  padding: clamp(6px, 1.6vw, 12px) clamp(22px, 8vw, 48px);
+  min-width: 0;
+  width: auto;
+  border-radius: 999px;
+  font-size: clamp(12px, 3.4vw, 16px);
+  font-weight: 800;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
 }
 
 .calendar-ok-btn:hover {
@@ -6087,10 +6505,8 @@ body.txn-tutorial-active:not(.transaction-page--from-farmer) {
   }
 
   .calendar-container {
-    width: calc(100vw - 24px);
-    max-width: none;
-    padding: 18px 14px;
-    border-radius: 20px;
+    width: min(94vw, 360px);
+    max-width: 360px;
   }
 
   .receipt-modal-shell {
@@ -6221,4 +6637,67 @@ body.txn-tutorial-active:not(.transaction-page--from-farmer) {
 
 body.page-loading-active {
   overflow: hidden;
+}
+
+/* Keep every module inside the viewport without changing page logic. */
+.container,
+.transaction-form,
+.pickup-details-card,
+.pickup-fields,
+.gcash-qr-modal__card,
+.lalamove-selected-modal__card,
+.txn-waiting-modal__card,
+.calendar-container,
+.pi-card,
+.report-sheet,
+.history-list,
+.profiles-page {
+  max-width: 100%;
+}
+
+.pickup-fields > *,
+.payment-method-choices > *,
+.txn-seller-source > * {
+  min-width: 0;
+}
+
+.custom-select,
+.form-group input,
+.form-group textarea,
+.form-group select {
+  max-width: 100%;
+}
+
+iframe,
+embed,
+object {
+  max-width: 100%;
+}
+
+.receipt-modal-overlay.gcash-qr-modal,
+.receipt-modal-overlay.lalamove-selected-modal,
+.receipt-modal-overlay.txn-waiting-modal {
+  padding-top: max(16px, calc(env(safe-area-inset-top, 0px) + 72px));
+  padding-left: clamp(12px, 4vw, 24px);
+  padding-right: clamp(12px, 4vw, 24px);
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 360px) {
+  .clickable-payment-method {
+    gap: 6px;
+    padding: 10px 8px;
+    font-size: 0.88rem;
+  }
+}
+
+@media (max-height: 560px) {
+  .receipt-modal-overlay.calendar-modal {
+    padding-top: max(10px, env(safe-area-inset-top, 0px));
+    align-items: flex-end;
+  }
+
+  .calendar-container {
+    max-height: min(70dvh, calc(100dvh - 24px - env(safe-area-inset-bottom, 0px)));
+  }
 }

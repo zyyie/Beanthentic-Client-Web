@@ -158,14 +158,13 @@
         (extra && extra.text) ||
         "Your transaction has been approved by " +
           farmer +
-          ". Your receipt is now available to view and download.",
+          ". Please wait for the farmer to send your receipt.",
       time: formatRelativeTime(datetime),
       datetime,
       href:
         normalizeHref(txBase) +
         "?ref=" +
-        encodeURIComponent(ref) +
-        "&view=receipt",
+        encodeURIComponent(ref),
       reference_no: ref,
     });
   }
@@ -591,7 +590,7 @@
           (extra && extra.text) ||
           "Your transaction has been approved by " +
             farmer +
-            ". Your receipt is now available to view and download.",
+            ". Please wait for the farmer to send your receipt.",
         type: "success",
         durationMs: 7000,
       });

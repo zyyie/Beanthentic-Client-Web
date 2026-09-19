@@ -26,9 +26,9 @@
   <main class="container transaction-main">
     <form class="transaction-form" id="client-transaction-form"
       action="{{ url_for('client_transaction_submit_proxy') }}" method="POST" enctype="multipart/form-data">
-      <input type="hidden" name="transaction_type" value="pickup" />
+      <input type="hidden" name="transaction_type" id="transaction-type" value="" />
       <input type="hidden" name="quantity_unit" value="KG" />
-      <input type="hidden" name="payment_method" value="Cash" />
+      <input type="hidden" name="payment_method" id="payment-method" value="" />
       <input type="hidden" name="farmer_id" id="farmer-id" value="{{ farmer_id or '' }}" />
       <input type="hidden" name="farmer_name" id="farmer-name-hidden" value="{{ farmer_name or '' }}" />
       <input type="hidden" name="seller_type" id="seller-type" value="" />
@@ -45,7 +45,7 @@
                 <line x1="12" y1="22" x2="12" y2="12" />
               </svg>
             </div>
-            <span class="pickup-title">Pick up</span>
+            <span class="pickup-title">Order details</span>
             <button type="button" class="txn-tutorial-replay txn-tutorial-replay--inline"
               id="txn-tutorial-replay-inline" aria-label="Show quick guide" {% if farmer_id %}hidden{% endif
               %}>Guide</button>
@@ -156,24 +156,17 @@
               <input type="hidden" name="phone_verify_token" id="phone-verify-token" value="" />
             </div>
 
-            <div class="form-group" data-txn-tour="pickup-date">
-              <label for="pickup-date">Pick-up Schedule/Date</label>
-              <div class="custom-date-wrapper">
-                <input type="text" id="pickup-date" name="pickup_date" placeholder="Select date" readonly required />
-              </div>
-            </div>
-
-            <div class="form-group" data-txn-tour="product-type">
+            <div class="form-group full-width" data-txn-tour="product-type">
               <label for="txn-product">Product</label>
               <select id="txn-product" name="product" class="custom-select" required>
                 <option value="" disabled selected hidden>Select product</option>
-                <option value="Liberica">Liberica</option>
+                <option value="Liberica">Authentic Liberica</option>
                 <option value="Robusta">Robusta</option>
                 <option value="Excelsa">Excelsa</option>
               </select>
             </div>
 
-            <div class="form-group" data-txn-tour="bean-form">
+            <div class="form-group full-width" data-txn-tour="bean-form">
               <label for="txn-bean-form">Coffee Bean Type</label>
               <select id="txn-bean-form" name="bean_form" class="custom-select" required>
                 <option value="" disabled selected hidden>Select coffee bean type</option>
@@ -182,14 +175,14 @@
               </select>
             </div>
 
-            <div class="form-group" data-txn-tour="classification">
+            <div class="form-group full-width" data-txn-tour="classification">
               <label for="txn-classification">Classification</label>
               <select id="txn-classification" name="classification" class="custom-select" required disabled>
                 <option value="" disabled selected hidden>Select classification</option>
               </select>
             </div>
 
-            <div class="form-group" data-txn-tour="quantity">
+            <div class="form-group full-width" data-txn-tour="quantity">
               <label for="txn-quantity-pack" id="txn-quantity-label">Quantity</label>
               <select id="txn-quantity-pack" name="product_quantity_pack" class="custom-select" disabled>
                 <option value="" disabled selected hidden>Select quantity</option>
@@ -198,10 +191,26 @@
                 step="0.01" placeholder="Enter kilos (e.g. 2)" hidden disabled />
             </div>
 
-            <div class="form-group" data-txn-tour="fixed-price">
+            <div class="form-group full-width" data-txn-tour="fixed-price">
               <label for="txn-fixed-price">Fixed Price</label>
               <div class="txn-fixed-price-display" id="txn-fixed-price" aria-live="polite">—</div>
               <p class="form-help" id="txn-fixed-price-help">Auto-calculated after you select quantity.</p>
+            </div>
+
+            <div class="form-group full-width" data-txn-tour="delivery-method">
+              <label for="delivery-method">Delivery Method</label>
+              <select id="delivery-method" name="delivery_method" class="custom-select" required>
+                <option value="" disabled selected hidden>Select delivery method</option>
+                <option value="pickup">Pick up</option>
+                <option value="lalamove">Lalamove</option>
+              </select>
+            </div>
+
+            <div class="form-group full-width" id="txn-pickup-date-wrap" data-txn-tour="pickup-date" hidden>
+              <label for="pickup-date">Pick-up Schedule/Date</label>
+              <div class="custom-date-wrapper">
+                <input type="text" id="pickup-date" name="pickup_date" placeholder="Select date" readonly />
+              </div>
             </div>
 
             <input type="hidden" name="product_type" id="product-type" value="" />
@@ -211,22 +220,49 @@
             <div class="form-group full-width" data-txn-tour="payment-method">
               <label>Payment Method</label>
               <div class="payment-method-wrapper">
-                <div class="clickable-payment-method" id="cash-payment-option">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <rect x="2" y="6" width="20" height="12" rx="2" />
-                    <circle cx="12" cy="12" r="2" />
-                    <path d="M6 12h.01M18 12h.01" />
-                  </svg>
-                  <span>Cash only</span>
+                <div class="payment-method-choices">
+                  <div class="clickable-payment-method" id="cash-payment-option" role="button" tabindex="0"
+                    aria-pressed="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                      stroke-linejoin="round" aria-hidden="true">
+                      <rect x="2" y="6" width="20" height="12" rx="2" />
+                      <circle cx="12" cy="12" r="2" />
+                      <path d="M6 12h.01M18 12h.01" />
+                    </svg>
+                    <span>Cash</span>
+                  </div>
+                  <div class="clickable-payment-method clickable-payment-method--gcash" id="gcash-payment-option"
+                    role="button" tabindex="0" aria-pressed="false">
+                    <img class="gcash-payment-logo" src="{{ url_for('static', filename='images/gcash-logo.png') }}"
+                      alt="GCash" width="26" height="26" />
+                    <span>GCash</span>
+                  </div>
                 </div>
 
-                <!-- This now appears directly below the button -->
                 <div id="amount-input-group" class="payment-dropdown-field" style="display: none;">
                   <label for="payment-amount">Amount to Pay (₱)</label>
                   <input type="number" id="payment-amount" name="payment_amount" min="1" step="0.01"
                     placeholder="Auto-calculated from product price" readonly required />
                   <p class="form-help txn-price-pay-help">Total is computed automatically from official product prices.</p>
+                </div>
+
+                <div id="gcash-proof-group" class="gcash-proof-group" hidden>
+                  <div class="gcash-proof-drop" id="payment-proof-drop" tabindex="0" role="button"
+                    aria-label="Upload photo of GCash receipt">
+                    <input type="file" id="payment-proof" name="payment_proof" accept="image/*" hidden />
+                    <svg class="gcash-proof-drop__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M20 16.5A4.5 4.5 0 0 0 17.5 8h-.7A6 6 0 0 0 6 9.6 4 4 0 0 0 6 17.5h14" />
+                      <path d="M12 16V9" />
+                      <path d="M9 12l3-3 3 3" />
+                    </svg>
+                    <span class="gcash-proof-drop__title">Upload photo</span>
+                    <span class="gcash-proof-drop__hint">Drag and drop files here</span>
+                  </div>
+                  <div id="payment-proof-preview-wrap" class="gcash-proof-preview" hidden>
+                    <img id="payment-proof-preview" alt="Payment proof preview" />
+                    <button type="button" class="gcash-proof-remove" id="payment-proof-remove">Remove</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -467,7 +503,7 @@
       </div>
     </div>
     <!-- Custom Calendar Modal -->
-    <div id="calendar-modal" class="receipt-modal-overlay" style="display: none;">
+    <div id="calendar-modal" class="receipt-modal-overlay calendar-modal" style="display: none;">
       <div class="calendar-container">
         <div class="calendar-header">
           <h3>Select pick-up date</h3>
@@ -515,6 +551,34 @@
         <button type="button" class="txn-waiting-modal__btn" id="txn-waiting-modal-close">OK</button>
       </div>
     </div>
+
+    <div id="gcash-qr-modal" class="receipt-modal-overlay gcash-qr-modal" style="display: none;" role="dialog"
+      aria-modal="true" aria-labelledby="gcash-qr-modal-title">
+      <div class="gcash-qr-modal__card" role="document">
+        <p id="gcash-qr-modal-title" class="gcash-pay-panel__title">Scan this QR to pay with GCash</p>
+        <img class="gcash-pay-panel__qr" src="{{ url_for('static', filename='images/gcash-instapay-qr.png') }}"
+          alt="GCash InstaPay QR code" width="220" height="220" />
+        <p class="gcash-pay-panel__number-label">GCash number</p>
+        <p class="gcash-pay-panel__number" id="gcash-pay-number">09618709063</p>
+        <button type="button" class="gcash-qr-modal__done" id="gcash-qr-modal-close">Done</button>
+      </div>
+    </div>
+
+    <div id="lalamove-selected-modal" class="receipt-modal-overlay lalamove-selected-modal" style="display: none;"
+      role="dialog" aria-modal="true" aria-labelledby="lalamove-selected-title">
+      <div class="lalamove-selected-modal__card" role="document">
+        <button type="button" class="lalamove-selected-modal__close" id="lalamove-selected-close" aria-label="Close">
+          ×
+        </button>
+        <div class="lalamove-selected-modal__brand">
+          <img src="{{ url_for('static', filename='images/lalamove-logo.png') }}" alt="" width="36" height="36" />
+          <span>LALAMOVE</span>
+        </div>
+        <h2 id="lalamove-selected-title" class="lalamove-selected-modal__title">Lalamove Selected</h2>
+        <p class="lalamove-selected-modal__text">Please go to your Lalamove account to book your delivery.</p>
+        <button type="button" class="lalamove-selected-modal__ok" id="lalamove-selected-ok">OK</button>
+      </div>
+    </div>
   </main>
 
   <div id="beanthentic-toast-host" class="beanthentic-toast-host" aria-live="polite" aria-atomic="true"></div>
@@ -522,6 +586,8 @@
   <script>
     window.__BEANTHENTIC_APP_SERVER_BASE__ = {{ app_server_base | tojson }};
     window.__TX_PRODUCT_PRICES__ = {{ product_prices | tojson }};
+    window.__TX_GCB_PRICES__ = {{ gcb_prices | default({}) | tojson }};
+    window.__TX_ROASTED_PACK_PRICES__ = {{ roasted_packs | default({}) | tojson }};
   </script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -541,8 +607,122 @@
       const closeReceipt = document.getElementById('close-receipt');
       const closeReceiptBack = document.getElementById('close-receipt-back');
       const cashOption = document.getElementById('cash-payment-option');
+      const gcashOption = document.getElementById('gcash-payment-option');
+      const paymentMethodInput = document.getElementById('payment-method');
+      const deliveryMethodInput = document.getElementById('delivery-method');
+      const transactionTypeInput = document.getElementById('transaction-type');
       const amountGroup = document.getElementById('amount-input-group');
       const amountInput = document.getElementById('payment-amount');
+
+      function selectedDeliveryMethod() {
+        var value = deliveryMethodInput ? String(deliveryMethodInput.value || '').trim() : '';
+        if (value === 'lalamove') return 'lalamove';
+        if (value === 'pickup') return 'pickup';
+        return '';
+      }
+
+      function syncPickupScheduleVisibility() {
+        var wrap = document.getElementById('txn-pickup-date-wrap');
+        var input = document.getElementById('pickup-date');
+        var isPickup = selectedDeliveryMethod() === 'pickup';
+        if (wrap) wrap.hidden = !isPickup;
+        if (input) {
+          if (isPickup) {
+            input.setAttribute('required', 'required');
+          } else {
+            input.removeAttribute('required');
+            input.value = '';
+          }
+        }
+      }
+
+      function setDeliveryMethod(method, opts) {
+        var options = opts || {};
+        var next = method === 'lalamove' ? 'lalamove' : (method === 'pickup' ? 'pickup' : '');
+        if (deliveryMethodInput) deliveryMethodInput.value = next;
+        if (transactionTypeInput) transactionTypeInput.value = next;
+        syncPickupScheduleVisibility();
+        if (next === 'lalamove' && options.showPopup !== false) {
+          openLalamoveSelectedModal();
+        } else {
+          closeLalamoveSelectedModal();
+        }
+        scheduleFormDraftSave();
+      }
+
+      function openLalamoveSelectedModal() {
+        var modal = document.getElementById('lalamove-selected-modal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeLalamoveSelectedModal() {
+        var modal = document.getElementById('lalamove-selected-modal');
+        if (!modal) return;
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+      }
+
+      function selectedPaymentMethod() {
+        if (gcashOption && gcashOption.classList.contains('selected')) return 'GCash';
+        if (cashOption && cashOption.classList.contains('selected')) return 'Cash';
+        return '';
+      }
+
+      function openGcashQrModal() {
+        var modal = document.getElementById('gcash-qr-modal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeGcashQrModal() {
+        var modal = document.getElementById('gcash-qr-modal');
+        if (!modal) return;
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+      }
+
+      function setPaymentMethod(method, opts) {
+        var options = opts || {};
+        var isCash = method === 'Cash';
+        var isGcash = method === 'GCash';
+        if (cashOption) {
+          cashOption.classList.toggle('selected', isCash);
+          cashOption.setAttribute('aria-pressed', isCash ? 'true' : 'false');
+        }
+        if (gcashOption) {
+          gcashOption.classList.toggle('selected', isGcash);
+          gcashOption.setAttribute('aria-pressed', isGcash ? 'true' : 'false');
+        }
+        if (paymentMethodInput) paymentMethodInput.value = method || '';
+        var proofGroup = document.getElementById('gcash-proof-group');
+        var proofInput = document.getElementById('payment-proof');
+        if (proofGroup) proofGroup.hidden = !isGcash;
+        if (proofInput) {
+          if (isGcash) proofInput.setAttribute('required', 'required');
+          else proofInput.removeAttribute('required');
+        }
+        if (!isGcash && typeof clearPaymentProof === 'function') clearPaymentProof();
+        if (isGcash && options.showQr !== false) {
+          openGcashQrModal();
+        } else {
+          closeGcashQrModal();
+        }
+        scheduleFormDraftSave();
+        if (!amountGroup) return;
+        if (isCash || isGcash) {
+          updatePriceSummary();
+          amountGroup.style.display = 'block';
+          if (!txnPricingState.ready && amountInput) {
+            amountInput.value = '';
+            amountInput.placeholder = 'Select quantity first';
+          }
+        } else {
+          amountGroup.style.display = 'none';
+        }
+      }
 
       var TX_BEAN_FORM_LABELS = {
         gcb: 'Green Coffee Bean (GCB)',
@@ -563,10 +743,40 @@
       };
 
       var TX_PRODUCT_PRICES = Array.isArray(window.__TX_PRODUCT_PRICES__) ? window.__TX_PRODUCT_PRICES__ : [];
+      var TX_GCB_PRICE_DEFAULTS = { robusta: 400, excelsa: 750, liberica: 2000 };
+      var TX_ROASTED_PACK_DEFAULTS = {
+        robusta: { '250g': 200, '500g': 500, '1kg': 750 },
+        excelsa: { '250g': 250, '500g': 500, '1kg': 900 },
+        liberica: { '250g': 750, '500g': 1500, '1kg': 3000 }
+      };
+      var TX_GCB_PRICES =
+        window.__TX_GCB_PRICES__ && typeof window.__TX_GCB_PRICES__ === 'object' && Object.keys(window.__TX_GCB_PRICES__).length
+          ? window.__TX_GCB_PRICES__
+          : TX_GCB_PRICE_DEFAULTS;
+      var TX_ROASTED_PACK_PRICES =
+        window.__TX_ROASTED_PACK_PRICES__ &&
+        typeof window.__TX_ROASTED_PACK_PRICES__ === 'object' &&
+        Object.keys(window.__TX_ROASTED_PACK_PRICES__).length
+          ? window.__TX_ROASTED_PACK_PRICES__
+          : TX_ROASTED_PACK_DEFAULTS;
       var txnPricingState = { ready: false, unitPrice: null, quantityKg: null, total: null };
 
       function normalizePriceKey(raw) {
         return String(raw || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      }
+
+      function normalizeVarietyKey(raw) {
+        var text = normalizePriceKey(raw);
+        if (text === 'authentic liberica' || text === 'authentic_liberica') return 'liberica';
+        return text;
+      }
+
+      function normalizePackKey(raw) {
+        var text = String(raw || '').trim().toLowerCase().replace(/\s+/g, '');
+        if (text === '250grams' || text === '250gram' || text === '0.25kg' || text === '0.25') return '250g';
+        if (text === '500grams' || text === '500gram' || text === '0.5kg' || text === '0.50kg' || text === '0.5' || text === '0.50') return '500g';
+        if (text === '1kl' || text === '1000g' || text === '1.0kg' || text === '1.00kg') return '1kg';
+        return text;
       }
 
       function normalizeBeanTypeKey(raw) {
@@ -602,8 +812,25 @@
             return res.json();
           })
           .then(function (body) {
-            if (body && body.ok && Array.isArray(body.prices) && body.prices.length) {
-              TX_PRODUCT_PRICES = body.prices;
+            if (body && body.ok) {
+              if (Array.isArray(body.prices) && body.prices.length) {
+                TX_PRODUCT_PRICES = body.prices;
+              }
+              if (body.gcb_price_per_kg && typeof body.gcb_price_per_kg === 'object' && typeof body.gcb_price_per_kg.robusta === 'number') {
+                TX_GCB_PRICES = body.gcb_price_per_kg;
+              } else if (body.gcb_prices && typeof body.gcb_prices === 'object' && Object.keys(body.gcb_prices).length) {
+                TX_GCB_PRICES = body.gcb_prices;
+              }
+              if (body.gcb_kg_prices && typeof body.gcb_kg_prices === 'object' && Object.keys(body.gcb_kg_prices).length) {
+                Object.keys(body.gcb_kg_prices).forEach(function (variety) {
+                  if (TX_GCB_PRICES[variety] == null || typeof TX_GCB_PRICES[variety] === 'number') {
+                    TX_GCB_PRICES[variety] = body.gcb_kg_prices[variety];
+                  }
+                });
+              }
+              if (body.roasted_packs && typeof body.roasted_packs === 'object' && Object.keys(body.roasted_packs).length) {
+                TX_ROASTED_PACK_PRICES = body.roasted_packs;
+              }
             }
             updatePriceSummary();
             return TX_PRODUCT_PRICES;
@@ -614,9 +841,48 @@
           });
       }
 
+      function lookupGcbPricePerKg(product) {
+        var variety = normalizeVarietyKey(product);
+        var entry = TX_GCB_PRICES[variety];
+        if (typeof entry === 'number' && isFinite(entry)) return entry;
+        if (entry && typeof entry === 'object') {
+          var oneKg = Number(entry['1kg'] || entry['1']);
+          if (isFinite(oneKg)) return oneKg;
+        }
+        var fallback = Number(TX_GCB_PRICE_DEFAULTS[variety]);
+        return isFinite(fallback) ? fallback : null;
+      }
+
+      function lookupGcbTotal(product, qtyKg) {
+        var variety = normalizeVarietyKey(product);
+        var entry = TX_GCB_PRICES[variety];
+        if (entry && typeof entry === 'object') {
+          var kgKey = Math.abs(qtyKg - Math.round(qtyKg)) < 1e-9 ? String(Math.round(qtyKg)) + 'kg' : '';
+          if (kgKey && entry[kgKey] != null) {
+            var exact = Number(entry[kgKey]);
+            if (isFinite(exact)) return exact;
+          }
+        }
+        var unit = lookupGcbPricePerKg(product);
+        if (unit == null) return null;
+        return Math.round(unit * qtyKg * 100) / 100;
+      }
+
+      function lookupRoastedPackPrice(product, pack) {
+        var variety = normalizeVarietyKey(product);
+        var packKey = normalizePackKey(pack);
+        var table = TX_ROASTED_PACK_PRICES[variety];
+        if (!table || !packKey) return null;
+        var price = Number(table[packKey]);
+        return isFinite(price) ? price : null;
+      }
+
       function lookupUnitPricePerKg(product, beanForm, classification) {
-        var variety = normalizePriceKey(product);
         var beanType = normalizeBeanTypeKey(beanForm);
+        if (beanType === 'gcb') {
+          return lookupGcbPricePerKg(product);
+        }
+        var variety = normalizePriceKey(product);
         var classKey = normalizeClassificationKey(classification);
         if (!variety || !beanType || !TX_PRODUCT_PRICES.length) return null;
 
@@ -685,24 +951,18 @@
         var productEl = document.getElementById('txn-product');
         var beanFormEl = document.getElementById('txn-bean-form');
         var classEl = document.getElementById('txn-classification');
+        var packEl = document.getElementById('txn-quantity-pack');
 
         var product = productEl ? String(productEl.value || '').trim() : '';
         var beanForm = beanFormEl ? String(beanFormEl.value || '').trim() : '';
         var classification = classEl ? String(classEl.value || '').trim() : '';
         var qtyKg = currentQuantityKgFromForm();
-        var unitPrice = lookupUnitPricePerKg(product, beanForm, classification);
 
-        txnPricingState = { ready: false, unitPrice: unitPrice, quantityKg: qtyKg, total: null };
+        txnPricingState = { ready: false, unitPrice: null, quantityKg: qtyKg, total: null };
 
         function setFixedPriceDisplay(totalText, helpText) {
           if (fixedPriceEl) fixedPriceEl.textContent = totalText;
           if (helpEl) helpEl.textContent = helpText;
-        }
-
-        if (!TX_PRODUCT_PRICES.length) {
-          setFixedPriceDisplay('—', 'Could not load official prices. Please refresh the page.');
-          if (amountInput) amountInput.value = '';
-          return;
         }
 
         if (!product || !beanForm || !classification) {
@@ -712,28 +972,50 @@
         }
 
         if (qtyKg <= 0) {
-          setFixedPriceDisplay('—', 'Select quantity to see fixed price.');
+          setFixedPriceDisplay('—', beanForm === 'gcb' ? 'Enter quantity to see fixed price.' : 'Select quantity to see fixed price.');
           if (amountInput) amountInput.value = '';
           return;
         }
 
-        if (unitPrice == null) {
-          setFixedPriceDisplay('—', 'No official price found for this product selection.');
-          if (amountInput) amountInput.value = '';
-          return;
+        var total = null;
+        var helpText = '';
+        var unitPrice = null;
+
+        if (beanForm === 'roasted') {
+          var pack = packEl ? String(packEl.value || '').trim() : '';
+          var packPrice = lookupRoastedPackPrice(product, pack);
+          if (packPrice == null) {
+            setFixedPriceDisplay('—', 'No official pack price found for this roasted product.');
+            if (amountInput) amountInput.value = '';
+            return;
+          }
+          total = Math.round(packPrice * 100) / 100;
+          unitPrice = qtyKg > 0 ? Math.round((packPrice / qtyKg) * 100) / 100 : packPrice;
+          helpText = 'Official pack price · ' + currentQuantityLabelFromForm();
+        } else {
+          unitPrice = lookupGcbPricePerKg(product);
+          total = lookupGcbTotal(product, qtyKg);
+          if (unitPrice == null || total == null) {
+            setFixedPriceDisplay('—', 'No official price found for this product selection.');
+            if (amountInput) amountInput.value = '';
+            return;
+          }
+          helpText = pesoLabel(unitPrice) + ' / kg · ' + currentQuantityLabelFromForm();
         }
 
-        var total = Math.round(unitPrice * qtyKg * 100) / 100;
         txnPricingState = { ready: true, unitPrice: unitPrice, quantityKg: qtyKg, total: total };
-
-        setFixedPriceDisplay(
-          pesoLabel(total),
-          pesoLabel(unitPrice) + ' / kg · ' + currentQuantityLabelFromForm()
-        );
+        setFixedPriceDisplay(pesoLabel(total), helpText);
         if (amountInput) amountInput.value = String(total);
-        if (cashOption.classList.contains('selected') && amountGroup) {
+        if (amountGroup && selectedPaymentMethod()) {
           amountGroup.style.display = 'block';
         }
+      }
+
+      function syncPackSelectVisibility(packEl) {
+        if (!packEl) return;
+        var wrap = packEl.closest('.txn-select-wrap');
+        if (wrap) wrap.hidden = !!packEl.hidden;
+        refreshTxnSelectUI(packEl);
       }
 
       function setQuantityMode(mode) {
@@ -752,7 +1034,10 @@
             kgEl.disabled = false;
             kgEl.setAttribute('required', 'required');
           }
-          if (labelEl) labelEl.textContent = 'Quantity (kg)';
+          if (labelEl) {
+            labelEl.textContent = 'Quantity (kg)';
+            labelEl.setAttribute('for', 'txn-quantity-kg');
+          }
         } else if (mode === 'roasted') {
           if (packEl) {
             packEl.hidden = false;
@@ -765,7 +1050,10 @@
             kgEl.removeAttribute('required');
             kgEl.value = '';
           }
-          if (labelEl) labelEl.textContent = 'Quantity';
+          if (labelEl) {
+            labelEl.textContent = 'Quantity';
+            labelEl.setAttribute('for', 'txn-quantity-pack');
+          }
         } else {
           if (packEl) {
             packEl.hidden = false;
@@ -779,8 +1067,12 @@
             kgEl.removeAttribute('required');
             kgEl.value = '';
           }
-          if (labelEl) labelEl.textContent = 'Quantity';
+          if (labelEl) {
+            labelEl.textContent = 'Quantity';
+            labelEl.setAttribute('for', 'txn-quantity-pack');
+          }
         }
+        syncPackSelectVisibility(packEl);
       }
 
       function fillSelectOptions(selectEl, placeholder, items, labelFn) {
@@ -804,7 +1096,250 @@
           }
           selectEl.appendChild(opt);
         });
+        refreshTxnSelectUI(selectEl);
       }
+
+      function closeTxnSelectMenus() {
+        document.querySelectorAll('.txn-select-wrap.is-open').forEach(function (w) {
+          w.classList.remove('is-open');
+        });
+      }
+
+      function refreshTxnSelectUI(selectEl) {
+        if (!selectEl) return;
+        var wrap = selectEl.closest('.txn-select-wrap');
+        if (!wrap) return;
+        var btn = wrap.querySelector('.txn-select-btn');
+        var menu = wrap.querySelector('.txn-select-menu');
+        if (!btn || !menu) return;
+        var opts = Array.prototype.slice.call(selectEl.options || []);
+        var current = null;
+        opts.forEach(function (o) {
+          if (o.selected) current = o;
+        });
+        btn.textContent = current && current.value ? String(current.textContent || '').trim() : (opts[0] ? String(opts[0].textContent || '').trim() : 'Select');
+        btn.disabled = !!selectEl.disabled;
+        wrap.classList.toggle('is-disabled', !!selectEl.disabled);
+        menu.innerHTML = '';
+        opts.forEach(function (opt) {
+          if (!opt.value || opt.hidden) return;
+          var item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'txn-select-option' + (opt.selected ? ' is-selected' : '');
+          item.textContent = String(opt.textContent || '').trim();
+          item.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (selectEl.disabled) return;
+            selectEl.value = opt.value;
+            selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+            closeTxnSelectMenus();
+            refreshTxnSelectUI(selectEl);
+          });
+          menu.appendChild(item);
+        });
+      }
+
+      function refreshAllTxnSelects() {
+        document.querySelectorAll('select.custom-select').forEach(refreshTxnSelectUI);
+      }
+
+      function enhanceTxnSelect(selectEl) {
+        if (!selectEl || selectEl.closest('.txn-select-wrap')) return;
+        var wrap = document.createElement('div');
+        wrap.className = 'txn-select-wrap';
+        selectEl.parentNode.insertBefore(wrap, selectEl);
+        wrap.appendChild(selectEl);
+        selectEl.classList.add('txn-select-native');
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'txn-select-btn';
+        btn.setAttribute('aria-haspopup', 'listbox');
+        var menu = document.createElement('div');
+        menu.className = 'txn-select-menu';
+        wrap.appendChild(btn);
+        wrap.appendChild(menu);
+        btn.addEventListener('click', function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (selectEl.disabled) return;
+          var open = wrap.classList.contains('is-open');
+          closeTxnSelectMenus();
+          if (!open) wrap.classList.add('is-open');
+        });
+        selectEl.addEventListener('change', function () {
+          refreshTxnSelectUI(selectEl);
+        });
+        refreshTxnSelectUI(selectEl);
+      }
+
+      document.addEventListener('click', function (ev) {
+        if (!ev.target.closest || !ev.target.closest('.txn-select-wrap')) closeTxnSelectMenus();
+      });
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') closeTxnSelectMenus();
+      });
+      form.querySelectorAll('select.custom-select').forEach(enhanceTxnSelect);
+
+      var FORM_DRAFT_KEY = 'beanthentic_client_form_draft';
+      var restoringDraft = false;
+
+      function fieldValue(id) {
+        var el = document.getElementById(id);
+        return el ? String(el.value || '') : '';
+      }
+
+      function collectFormDraft() {
+        var farmerEl = document.getElementById('farmer-select');
+        return {
+          seller_type: typeof currentSellerType === 'function' ? currentSellerType() : fieldValue('seller-type'),
+          farmer_select: farmerEl ? String(farmerEl.value || '') : '',
+          farmer_id: fieldValue('farmer-id'),
+          farmer_name: fieldValue('farmer-name-hidden'),
+          client_name: fieldValue('client-name'),
+          client_phone: fieldValue('client-phone'),
+          product: fieldValue('txn-product'),
+          bean_form: fieldValue('txn-bean-form'),
+          classification: fieldValue('txn-classification'),
+          quantity_pack: fieldValue('txn-quantity-pack'),
+          quantity_kg: fieldValue('txn-quantity-kg'),
+          pickup_date: fieldValue('pickup-date'),
+          delivery_method: fieldValue('delivery-method'),
+          payment_method: fieldValue('payment-method'),
+          saved_at: new Date().toISOString()
+        };
+      }
+
+      function draftHasContent(d) {
+        if (!d || typeof d !== 'object') return false;
+        return !!(
+          d.client_name || d.client_phone || d.product || d.bean_form ||
+          d.classification || d.quantity_pack || d.quantity_kg || d.pickup_date ||
+          d.delivery_method || d.payment_method || d.farmer_select || d.farmer_id ||
+          d.seller_type
+        );
+      }
+
+      function writeDraftStore(raw) {
+        try { localStorage.setItem(FORM_DRAFT_KEY, raw); } catch (_ls) { }
+        try { sessionStorage.setItem(FORM_DRAFT_KEY, raw); } catch (_ss) { }
+      }
+
+      function readDraftStore() {
+        try {
+          return localStorage.getItem(FORM_DRAFT_KEY) || sessionStorage.getItem(FORM_DRAFT_KEY) || '';
+        } catch (_read) {
+          try { return sessionStorage.getItem(FORM_DRAFT_KEY) || ''; } catch (_ss) { return ''; }
+        }
+      }
+
+      function saveFormDraft() {
+        if (restoringDraft || submittedRef) return;
+        var d = collectFormDraft();
+        if (!draftHasContent(d)) return;
+        writeDraftStore(JSON.stringify(d));
+      }
+
+      function scheduleFormDraftSave() {
+        saveFormDraft();
+      }
+
+      function clearFormDraft() {
+        try { localStorage.removeItem(FORM_DRAFT_KEY); } catch (_draftClear) { }
+        try { sessionStorage.removeItem(FORM_DRAFT_KEY); } catch (_draftClearSs) { }
+      }
+
+      function stripNewOrderQuery() {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          if (params.get('new') !== '1') return;
+          params.delete('new');
+          var q = params.toString();
+          var next = window.location.pathname + (q ? '?' + q : '') + (window.location.hash || '');
+          window.history.replaceState({}, '', next);
+        } catch (_strip) { }
+      }
+
+      function restoreFormDraft() {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('ref') || submittedRef) return;
+        var raw = readDraftStore();
+        if (!raw) return;
+        var d;
+        try {
+          d = JSON.parse(raw);
+        } catch (_draftParse) {
+          return;
+        }
+        if (!draftHasContent(d)) return;
+        restoringDraft = true;
+        try {
+          if (d.seller_type === 'admin') {
+            setSellerType('admin');
+          } else if (d.seller_type === 'farmer') {
+            setSellerType('farmer', { clearAdminName: false });
+            var fid = String(d.farmer_select || d.farmer_id || '').trim();
+            if (fid && parseInt(fid, 10) > 0) {
+              if (typeof applyFarmerContext === 'function') {
+                applyFarmerContext({
+                  farmer_id: fid,
+                  farmer_name: d.farmer_name || '',
+                  seller_type: 'farmer'
+                });
+              } else {
+                var farmerEl = document.getElementById('farmer-select');
+                if (farmerEl) {
+                  farmerEl.value = fid;
+                  onFarmerSelectChange();
+                }
+              }
+            }
+          }
+          var nameEl = document.getElementById('client-name');
+          if (nameEl && d.client_name) nameEl.value = d.client_name;
+          var phoneEl = document.getElementById('client-phone');
+          if (phoneEl && d.client_phone) phoneEl.value = d.client_phone;
+          var prod = document.getElementById('txn-product');
+          if (prod && d.product) prod.value = d.product;
+          var bean = document.getElementById('txn-bean-form');
+          if (bean && d.bean_form) {
+            bean.value = d.bean_form;
+            syncBeanFormFields(true);
+          }
+          var cls = document.getElementById('txn-classification');
+          if (cls && d.classification) cls.value = d.classification;
+          var pack = document.getElementById('txn-quantity-pack');
+          if (pack && d.quantity_pack) pack.value = d.quantity_pack;
+          var kg = document.getElementById('txn-quantity-kg');
+          if (kg && d.quantity_kg) kg.value = d.quantity_kg;
+          if (d.pickup_date) {
+            var ymd = typeof parseDisplayPickupDate === 'function' ? parseDisplayPickupDate(d.pickup_date) : null;
+            if (ymd && typeof applySelectedDateToInput === 'function') {
+              selectedDate = ymd;
+              applySelectedDateToInput(ymd);
+            } else {
+              var dateEl = document.getElementById('pickup-date');
+              if (dateEl) dateEl.value = d.pickup_date;
+            }
+          }
+          if (d.delivery_method) setDeliveryMethod(d.delivery_method, { showPopup: false });
+          if (d.payment_method) setPaymentMethod(d.payment_method, { showQr: false });
+          refreshAllTxnSelects();
+          updatePriceSummary();
+        } finally {
+          restoringDraft = false;
+        }
+      }
+
+      form.addEventListener('input', scheduleFormDraftSave);
+      form.addEventListener('change', scheduleFormDraftSave);
+      form.addEventListener('keyup', scheduleFormDraftSave);
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') saveFormDraft();
+      });
+      window.addEventListener('pagehide', saveFormDraft);
+      window.addEventListener('beforeunload', saveFormDraft);
+      window.addEventListener('freeze', saveFormDraft);
 
       function packToKg(pack) {
         if (pack === '250g') return 0.25;
@@ -903,7 +1438,7 @@
       function buildOrderSummary() {
         var s = readOrderSelections();
         if (!s.product) {
-          throw new Error('Select product (Liberica, Robusta, or Excelsa).');
+          throw new Error('Select product (Authentic Liberica, Robusta, or Excelsa).');
         }
         if (!s.bean_form) {
           throw new Error('Select coffee bean type (Green Coffee Bean or Roasted Beans).');
@@ -1293,7 +1828,15 @@
                 return;
               }
               showOtpInput();
-              setOtpStatus(data.message || 'Code sent. Enter the verification code below.', 'is-ok');
+              if (data.warning) {
+                setOtpStatus(
+                  (data.message || 'Enter the 6-digit code, then tap Verify.') +
+                    (data.warning ? ' (' + data.warning + ')' : ''),
+                  'is-err'
+                );
+              } else {
+                setOtpStatus(data.message || 'Code sent. Enter the verification code below.', 'is-ok');
+              }
               startOtpCooldown(data.retry_after || 60);
             })
             .catch(function () {
@@ -1499,6 +2042,7 @@
         }
         updateWaitingReviewCopy();
         updateFarmerGuideVisibility();
+        refreshTxnSelectUI(farmerSelectEl);
       }
 
       function setSellerType(type, opts) {
@@ -1509,6 +2053,7 @@
             farmer_name: ADMIN_SELLER_NAME,
             seller_type: 'admin'
           });
+          scheduleFormDraftSave();
           return;
         }
         var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
@@ -1524,6 +2069,7 @@
             sessionStorage.removeItem(FARMER_CTX_KEY);
           } catch (_clearSeller) { }
         }
+        scheduleFormDraftSave();
       }
 
       function updateWaitingReviewCopy() {
@@ -1603,6 +2149,7 @@
         });
         syncFarmerSelectFromContext();
         onFarmerSelectChange();
+        refreshTxnSelectUI(farmerSelectEl);
       }
 
       function pendingStorageKey(farmerId) {
@@ -1749,6 +2296,7 @@
             control.style.cursor = 'not-allowed';
           }
         });
+        refreshAllTxnSelects();
       }
 
       function unlockFormControls() {
@@ -1769,6 +2317,7 @@
         btn.style.display = '';
         if (statusContainer) statusContainer.classList.remove('status-receipt-ready');
         hideReceiptReadyCard();
+        refreshAllTxnSelects();
       }
 
       function clearTransactionFormFields() {
@@ -1776,11 +2325,13 @@
         document.getElementById('pickup-date').value = '';
         clearOrderSelectionFields();
         amountInput.value = '';
-        cashOption.classList.remove('selected');
-        amountGroup.style.display = 'none';
+        setPaymentMethod('');
+        setDeliveryMethod('', { showPopup: false });
+        if (typeof clearPaymentProof === 'function') clearPaymentProof();
         if (typeof resetPhoneVerification === 'function') resetPhoneVerification();
         if (typeof clearValidIdPreview === 'function') clearValidIdPreview();
         selectedDate = null;
+        refreshAllTxnSelects();
       }
 
       function buildTrackMeta(extra) {
@@ -2134,9 +2685,10 @@
         var s = state || {};
         currentReceiptState = s;
         fillReceiptModal(s);
-        showStatusPanel('approved', ref, 'Your transaction was approved. You can view or download your receipt below.');
+        showStatusPanel('approved', ref, 'Your transaction was approved. Please wait while the farmer sends your receipt.');
         populateTransactionDetailsPanel(s, 'Approved');
         if (statusPanel) statusPanel.hidden = false;
+        showSubmittedOrderReadonly(s);
         btn.style.display = 'none';
         lockFormControls();
       }
@@ -2401,7 +2953,6 @@
 
       function applyApprovedUI(ref, state) {
         suppressTxQuickGuide();
-        stopPoll();
         submittedRef = ref;
         var fidPoll = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
         var s = state || loadPendingState(fidPoll) || buildStateFromForm();
@@ -2409,16 +2960,13 @@
         s.status = 'approved';
         savePendingState(s, s.farmer_id || fidPoll);
         showApprovedTransactionPanel(ref, s);
-        hydrateReceiptStateFromApi(ref).catch(function () {
-          fillReceiptModal(s);
-        });
+        if (!pollTimer) ensureStatusPolling();
         if (approvedNotifiedForRef !== ref) {
           approvedNotifiedForRef = ref;
           notifyTransactionApproved(ref, s);
         } else if (window.BeanthenticNotifs && window.BeanthenticNotifs.ensureApprovedNotification) {
           window.BeanthenticNotifs.ensureApprovedNotification(ref, txNotifyExtra(ref, s));
         }
-        maybeOpenReceiptFromUrl();
       }
 
       function shouldOpenReceiptFromUrl() {
@@ -2427,6 +2975,9 @@
 
       function maybeOpenReceiptFromUrl() {
         if (!shouldOpenReceiptFromUrl()) return;
+        var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+        var saved = loadPendingState(fid);
+        if (!saved || String(saved.status || '') !== 'sent_to_client') return;
         var ref = String(submittedRef || getReceiptReference() || '').trim();
         if (!ref) return;
         hydrateReceiptStateFromApi(ref)
@@ -2452,7 +3003,8 @@
         s.status = 'sent_to_client';
         savePendingState(s, s.farmer_id || fidPoll);
         applyFarmerContext(s);
-        clearTransactionFormFields();
+        showSubmittedOrderReadonly(s);
+        clearFormDraft();
         showReceiptReadyCard(ref, s, 'Your payment was successful.');
         if (statusPanel) statusPanel.hidden = true;
         if (statusDetails) statusDetails.hidden = true;
@@ -2476,6 +3028,7 @@
         setStatusPanelReceiptControls('pending');
         unlockFormControls();
         clearTransactionFormFields();
+        clearFormDraft();
         clearFarmerSelection();
         btn.style.display = '';
         btn.disabled = false;
@@ -2485,7 +3038,7 @@
         focusFarmerSelect();
         try {
           if (window.history && window.history.replaceState) {
-            window.history.replaceState({}, '', window.location.pathname + '?new=1');
+            window.history.replaceState({}, '', window.location.pathname);
           }
         } catch (_url) { }
       }
@@ -2507,11 +3060,12 @@
       }
 
       function setStatusPanelReceiptControls(mode) {
-        var showReceipt = mode === 'approved' || mode === 'receipt';
-        if (statusDetails) statusDetails.hidden = !showReceipt;
+        var showDetails = mode === 'approved' || mode === 'receipt';
+        var showReceiptBtns = mode === 'receipt';
+        if (statusDetails) statusDetails.hidden = !showDetails;
         if (statusActions) {
-          statusActions.hidden = !showReceipt;
-          statusActions.style.display = showReceipt ? '' : 'none';
+          statusActions.hidden = !showReceiptBtns;
+          statusActions.style.display = showReceiptBtns ? '' : 'none';
         }
       }
 
@@ -2653,15 +3207,52 @@
 
       function applyFormFromState(s) {
         if (!s) return;
-        applyFarmerContext(s);
-        restoreOrderSelectionFields(s);
-        if (s.product_type || s.quantity_kg) {
-          applyOrderSummaryToForm({
-            product_type: s.product_type || '',
-            quantity_kg: s.quantity_kg || '',
-            order_selections: s.order_selections || readOrderSelections()
-          });
+        restoringDraft = true;
+        try {
+          applyFarmerContext(s);
+          var nameEl = document.getElementById('client-name');
+          var buyer = String(s.client_name || s.buyer_name || '').trim();
+          if (nameEl && buyer) nameEl.value = buyer;
+          var phoneEl = document.getElementById('client-phone');
+          if (phoneEl && s.client_phone) phoneEl.value = String(s.client_phone).trim();
+          restoreOrderSelectionFields(s);
+          if (s.product_type || s.quantity_kg) {
+            applyOrderSummaryToForm({
+              product_type: s.product_type || '',
+              quantity_kg: s.quantity_kg || '',
+              order_selections: s.order_selections || readOrderSelections()
+            });
+          }
+          if (s.pickup_date) {
+            var ymd = typeof parseDisplayPickupDate === 'function' ? parseDisplayPickupDate(s.pickup_date) : null;
+            if (ymd && typeof applySelectedDateToInput === 'function') {
+              selectedDate = ymd;
+              applySelectedDateToInput(ymd);
+            } else {
+              var dateEl = document.getElementById('pickup-date');
+              if (dateEl) dateEl.value = s.pickup_date;
+            }
+          }
+          var delivery = String(s.delivery_method || s.transaction_type || '').trim();
+          if (delivery) setDeliveryMethod(delivery, { showPopup: false });
+          if (s.payment_method) setPaymentMethod(s.payment_method, { showQr: false });
+          if (amountInput && s.payment_amount != null && s.payment_amount !== '') {
+            amountInput.value = s.payment_amount;
+          }
+          if (orderFieldsWrap) orderFieldsWrap.hidden = false;
+          if (formFooter) formFooter.hidden = false;
+          refreshAllTxnSelects();
+          updatePriceSummary();
+        } finally {
+          restoringDraft = false;
         }
+      }
+
+      function showSubmittedOrderReadonly(state) {
+        applyFormFromState(state);
+        lockFormControls();
+        if (btn) btn.style.display = 'none';
+        refreshAllTxnSelects();
       }
 
       function buildStateFromForm(extra) {
@@ -2688,8 +3279,9 @@
             quantity_kg: document.getElementById('quantity-kg').value,
             order_selections: readOrderSelections(),
             payment_amount: amountInput.value,
-            payment_method: 'Cash',
-            transaction_type: 'pickup',
+            payment_method: selectedPaymentMethod() || 'Cash',
+            transaction_type: selectedDeliveryMethod() || 'pickup',
+            delivery_method: selectedDeliveryMethod() || '',
             valid_id_preview: idPreview,
             valid_id_url: idUrl,
             status: 'pending',
@@ -2746,7 +3338,7 @@
         suppressTxQuickGuide();
         submittedRef = ref;
         if (state) applyFarmerContext(state);
-        clearTransactionFormFields();
+        showSubmittedOrderReadonly(state);
         applyWaitingUI(ref);
         ensureStatusPolling();
       }
@@ -2783,7 +3375,19 @@
         });
       }
 
-      function mergeFarmerFromUrlIntoState(saved) {
+      function loadPendingByReference(ref) {
+        var want = String(ref || '').trim();
+        if (!want) return null;
+        if (window.BeanthenticTxStorage && typeof window.BeanthenticTxStorage.readAllPendingTx === 'function') {
+          var list = window.BeanthenticTxStorage.readAllPendingTx() || [];
+          for (var i = 0; i < list.length; i++) {
+            if (list[i] && String(list[i].reference_no || '').trim() === want) return list[i];
+          }
+        }
+        var byActive = loadPendingState();
+        if (byActive && String(byActive.reference_no || '').trim() === want) return byActive;
+        return null;
+      }
         var urlFarmer = farmerFromUrlParams();
         if (!urlFarmer) return saved;
         var next = saved ? Object.assign({}, saved) : buildStateFromForm();
@@ -2808,8 +3412,7 @@
           saved.farmer_name = ctx.farmer_name || saved.farmer_name;
         }
         submittedRef = urlRef;
-        clearTransactionFormFields();
-        applyFarmerContext(saved);
+        applyFormFromState(saved);
 
         return fetch(
           '/api/client-transaction/status?reference_no=' +
@@ -2918,19 +3521,153 @@
       }
 
       // Clickable Payment Method Logic
-      cashOption.addEventListener('click', function () {
-        this.classList.toggle('selected');
-        if (this.classList.contains('selected')) {
-          updatePriceSummary();
-          amountGroup.style.display = 'block';
-          if (!txnPricingState.ready && amountInput) {
-            amountInput.value = '';
-            amountInput.placeholder = 'Select quantity first';
+      function bindPaymentOption(el, method) {
+        if (!el) return;
+        function activate() {
+          if (method === 'GCash') {
+            setPaymentMethod('GCash');
+            return;
           }
-        } else {
-          amountGroup.style.display = 'none';
+          setPaymentMethod(selectedPaymentMethod() === method ? '' : method);
         }
-      });
+        el.addEventListener('click', activate);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            activate();
+          }
+        });
+      }
+      bindPaymentOption(cashOption, 'Cash');
+      bindPaymentOption(gcashOption, 'GCash');
+
+      if (deliveryMethodInput) {
+        deliveryMethodInput.addEventListener('change', function () {
+          setDeliveryMethod(deliveryMethodInput.value);
+        });
+        setDeliveryMethod('', { showPopup: false });
+      }
+
+      (function bindLalamoveSelectedModal() {
+        var modal = document.getElementById('lalamove-selected-modal');
+        var okBtn = document.getElementById('lalamove-selected-ok');
+        var closeBtn = document.getElementById('lalamove-selected-close');
+        if (okBtn) {
+          okBtn.addEventListener('click', function () {
+            closeLalamoveSelectedModal();
+          });
+        }
+        if (closeBtn) {
+          closeBtn.addEventListener('click', function () {
+            setDeliveryMethod('pickup', { showPopup: false });
+            closeLalamoveSelectedModal();
+          });
+        }
+        if (modal) {
+          modal.addEventListener('click', function (ev) {
+            if (ev.target === modal) {
+              setDeliveryMethod('pickup', { showPopup: false });
+              closeLalamoveSelectedModal();
+            }
+          });
+        }
+      })();
+
+      (function bindGcashQrModal() {
+        var modal = document.getElementById('gcash-qr-modal');
+        var closeBtn = document.getElementById('gcash-qr-modal-close');
+        if (closeBtn) closeBtn.addEventListener('click', closeGcashQrModal);
+        if (modal) {
+          modal.addEventListener('click', function (ev) {
+            if (ev.target === modal) closeGcashQrModal();
+          });
+        }
+        document.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Escape') closeGcashQrModal();
+        });
+      })();
+
+      var paymentProofInput = document.getElementById('payment-proof');
+      var paymentProofDrop = document.getElementById('payment-proof-drop');
+      var paymentProofPreview = document.getElementById('payment-proof-preview');
+      var paymentProofPreviewWrap = document.getElementById('payment-proof-preview-wrap');
+      var paymentProofRemove = document.getElementById('payment-proof-remove');
+
+      function clearPaymentProof() {
+        if (paymentProofInput) paymentProofInput.value = '';
+        if (paymentProofPreview) paymentProofPreview.removeAttribute('src');
+        if (paymentProofPreviewWrap) paymentProofPreviewWrap.hidden = true;
+        if (paymentProofDrop) paymentProofDrop.classList.remove('is-dragging', 'has-file');
+      }
+
+      function setPaymentProofFile(file) {
+        if (!file) {
+          clearPaymentProof();
+          return;
+        }
+        var isImage = (file.type && file.type.indexOf('image/') === 0) || /\.(jpe?g|png|webp|gif)$/i.test(file.name || '');
+        if (!isImage) {
+          alert('Please upload a photo of your GCash receipt.');
+          return;
+        }
+        if (paymentProofInput) {
+          try {
+            var dt = new DataTransfer();
+            dt.items.add(file);
+            paymentProofInput.files = dt.files;
+          } catch (_dt) { }
+        }
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          if (paymentProofPreview) paymentProofPreview.src = e.target.result;
+          if (paymentProofPreviewWrap) paymentProofPreviewWrap.hidden = false;
+        };
+        reader.readAsDataURL(file);
+        if (paymentProofDrop) paymentProofDrop.classList.add('has-file');
+      }
+
+      if (paymentProofInput) {
+        paymentProofInput.addEventListener('change', function () {
+          if (this.files && this.files[0]) setPaymentProofFile(this.files[0]);
+          else clearPaymentProof();
+        });
+      }
+      if (paymentProofDrop) {
+        paymentProofDrop.addEventListener('click', function () {
+          if (paymentProofInput) paymentProofInput.click();
+        });
+        paymentProofDrop.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            if (paymentProofInput) paymentProofInput.click();
+          }
+        });
+        ['dragenter', 'dragover'].forEach(function (evt) {
+          paymentProofDrop.addEventListener(evt, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            paymentProofDrop.classList.add('is-dragging');
+          });
+        });
+        ['dragleave', 'drop'].forEach(function (evt) {
+          paymentProofDrop.addEventListener(evt, function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            paymentProofDrop.classList.remove('is-dragging');
+          });
+        });
+        paymentProofDrop.addEventListener('drop', function (e) {
+          var files = e.dataTransfer && e.dataTransfer.files;
+          if (files && files[0]) setPaymentProofFile(files[0]);
+        });
+      }
+      if (paymentProofRemove) {
+        paymentProofRemove.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          clearPaymentProof();
+        });
+      }
 
       form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -2949,9 +3686,32 @@
           return;
         }
 
-        if (!cashOption.classList.contains('selected')) {
-          alert('Please select Cash payment to confirm your order total.');
+        if (!selectedPaymentMethod()) {
+          alert('Please select Cash or GCash payment to confirm your order total.');
           return;
+        }
+        if (!selectedDeliveryMethod()) {
+          alert('Please select a delivery method (Pick up or Lalamove).');
+          return;
+        }
+        if (selectedDeliveryMethod() === 'pickup') {
+          var pickupDateEl = document.getElementById('pickup-date');
+          var pickupDateVal = pickupDateEl ? String(pickupDateEl.value || '').trim() : '';
+          if (!pickupDateVal) {
+            alert('Please select a pick-up date.');
+            var pickupWrap = document.getElementById('txn-pickup-date-wrap');
+            if (pickupWrap) pickupWrap.scrollIntoView({ block: 'center' });
+            return;
+          }
+        }
+        if (selectedPaymentMethod() === 'GCash') {
+          var proofEl = document.getElementById('payment-proof');
+          if (!proofEl || !proofEl.files || !proofEl.files.length) {
+            alert('Please upload a photo of your GCash receipt as proof of payment.');
+            var proofGroup = document.getElementById('gcash-proof-group');
+            if (proofGroup) proofGroup.scrollIntoView({ block: 'center' });
+            return;
+          }
         }
 
         const buyerName = document.getElementById('client-name').value.trim();
@@ -2998,7 +3758,9 @@
         const pendingKey = sellerType === 'admin' ? ADMIN_SELLER_KEY : farmerIdVal;
 
         const fd = new FormData(form);
-        fd.set('payment_method', 'Cash');
+        fd.set('payment_method', selectedPaymentMethod() || 'Cash');
+        fd.set('delivery_method', selectedDeliveryMethod());
+        fd.set('transaction_type', selectedDeliveryMethod() || 'pickup');
         fd.set('seller_type', sellerType);
         fd.set('farmer_name', sellerName);
         if (sellerType === 'admin') {
@@ -3041,12 +3803,14 @@
             quantity_kg: quantity,
             order_selections: orderSummary.order_selections,
             payment_amount: amount,
+            payment_method: selectedPaymentMethod() || 'Cash',
+            delivery_method: selectedDeliveryMethod(),
+            transaction_type: selectedDeliveryMethod() || 'pickup',
             valid_id_preview: idPreview,
             valid_id_path: validPath,
             valid_id_url: validPath ? validIdServeUrl(validPath) : ''
           });
           savePendingState(state, pendingKey);
-          clearTransactionFormFields();
           notifyTransactionSubmitted(submittedRef, state);
           startWaitingFlow(submittedRef, state);
         }
@@ -3107,6 +3871,9 @@
         approvedDownloadReceiptBtn.addEventListener('click', function (e) {
           e.preventDefault();
           e.stopPropagation();
+          var fidPoll = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+          var saved = loadPendingState(fidPoll);
+          if (!saved || String(saved.status || '') !== 'sent_to_client') return;
           ensureReceiptState();
           downloadReceiptFile();
         });
@@ -3119,6 +3886,9 @@
       }
       if (approvedViewReceiptBtn) {
         approvedViewReceiptBtn.addEventListener('click', function () {
+          var fidPoll = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+          var saved = loadPendingState(fidPoll);
+          if (!saved || String(saved.status || '') !== 'sent_to_client') return;
           ensureReceiptState();
           openReceiptModal();
         });
@@ -3361,10 +4131,13 @@
       }
 
       initTransactionFromLinkOrStorage();
+      stripNewOrderQuery();
       syncFarmerSelectFromContext();
       if (farmerSelectEl && farmerSelectEl.value && currentSellerType() !== 'admin' && (!farmerIdInput || !String(farmerIdInput.value || '').trim())) {
         onFarmerSelectChange();
       }
+      restoreFormDraft();
+      refreshAllTxnSelects();
     });
   </script>
 
@@ -3379,7 +4152,7 @@
         <li>Choose <strong>Farmer</strong> or <strong>Admin (Sir Arnold Malbataan)</strong></li>
         <li>Enter <strong>your name</strong> and verify your <strong>mobile number</strong></li>
         <li>Choose <strong>pick-up date</strong>, <strong>product</strong>, and <strong>quantity (KG)</strong></li>
-        <li>Select <strong>Cash</strong>, enter the amount, then tap <strong>Submit</strong></li>
+        <li>Select <strong>Cash</strong> or <strong>GCash</strong>, then tap <strong>Submit</strong></li>
       </ul>
       <p class="txn-tutorial-final" id="txn-tutorial-final" hidden>
         <a id="txn-tutorial-profile-link" href="{{ farmer_profiles_url }}">Go to farmer profiles to transact</a>

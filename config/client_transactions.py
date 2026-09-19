@@ -56,6 +56,11 @@ def _customer_tx_columns(cur) -> set[str]:
 
 _BEAN_FORM_LABELS = {"gcb": "Green Coffee Bean (GCB)", "roasted": "Roasted Beans"}
 
+_PAYMENT_PROOF_COLUMNS: dict[str, tuple[str, str]] = {
+    "payment_proof_path": ("TEXT", "TEXT"),
+    "payment_proof_filename": ("VARCHAR(255)", "VARCHAR(255)"),
+}
+
 _ORDER_DETAIL_COLUMNS: dict[str, tuple[str, str]] = {
     "coffee_variety": ("VARCHAR(32)", "VARCHAR(32)"),
     "bean_form": ("VARCHAR(20)", "VARCHAR(20)"),
@@ -70,7 +75,7 @@ def ensure_customer_transaction_order_columns(cur) -> set[str]:
     """Add order-detail columns if missing; return current column names."""
     cols = _customer_tx_columns(cur)
     pg = beanthentic_env.is_postgresql()
-    for name, (pg_type, mysql_type) in _ORDER_DETAIL_COLUMNS.items():
+    for name, (pg_type, mysql_type) in {**_ORDER_DETAIL_COLUMNS, **_PAYMENT_PROOF_COLUMNS}.items():
         if name in cols:
             continue
         col_type = pg_type if pg else mysql_type
@@ -304,7 +309,7 @@ def _resolve_farmer_id_for_client_tx(cur, form) -> int:
     return 0
 
 
-def _save_client_valid_id_file(tx_id: int, upload) -> tuple[str | None, str | None]:
+def _save_client_image_file(tx_id: int, upload, prefix: str) -> tuple[str | None, str | None]:
     if not upload or not str(getattr(upload, "filename", "") or "").strip():
         return None, None
     ext = "jpg"
@@ -314,7 +319,7 @@ def _save_client_valid_id_file(tx_id: int, upload) -> tuple[str | None, str | No
         if guess in ("jpg", "jpeg", "png", "webp"):
             ext = "jpg" if guess == "jpeg" else guess
     _CLIENT_ID_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-    fname = f"tx_{tx_id}_{int(datetime.now().timestamp())}.{ext}"
+    fname = f"{prefix}_{tx_id}_{int(datetime.now().timestamp())}.{ext}"
     path = _CLIENT_ID_UPLOADS_DIR / fname
     raw = upload.read()
     if not raw:
@@ -330,6 +335,10 @@ def _save_client_valid_id_file(tx_id: int, upload) -> tuple[str | None, str | No
     public_url = upload_valid_id_bytes(raw, fname, ctype)
     stored_path = public_url or local_path
     return stored_path, filename
+
+
+def _save_client_valid_id_file(tx_id: int, upload) -> tuple[str | None, str | None]:
+    return _save_client_image_file(tx_id, upload, "tx")
 
 
 def _insert_farmer_pending_notif(farmer_id: int, message: str) -> None:
@@ -421,16 +430,39 @@ def _parse_order_selections(form) -> dict:
     return selections
 
 
-def submit_client_transaction(form, upload) -> tuple[dict, int]:
+def _normalize_delivery_method(raw: str) -> str:
+    text = str(raw or "").strip().lower().replace("-", "").replace(" ", "")
+    if text in ("lalamove", "delivery"):
+        return "lalamove"
+    if text == "pickup":
+        return "pickup"
+    return ""
+
+
+def _normalize_payment_method(raw: str) -> str:
+    text = str(raw or "").strip().lower().replace("-", "").replace(" ", "")
+    if text == "gcash":
+        return "GCash"
+    return "Cash"
+
+
+def submit_client_transaction(form, upload, payment_proof=None) -> tuple[dict, int]:
     buyer = str(form.get("client_name") or form.get("buyer_name") or "").strip()
     product = str(form.get("product_type") or form.get("product") or "").strip()
     pickup_display = str(form.get("pickup_date") or "").strip()
-    transaction_type = str(form.get("transaction_type") or "pickup").strip() or "pickup"
-    payment_method = str(form.get("payment_method") or "Cash").strip() or "Cash"
+    payment_method = _normalize_payment_method(form.get("payment_method"))
+    delivery_method = _normalize_delivery_method(
+        form.get("delivery_method") or form.get("transaction_type")
+    )
+    transaction_type = delivery_method or "pickup"
     quantity_unit = str(form.get("quantity_unit") or "KG").strip() or "KG"
 
     if not buyer or not product:
         return {"ok": False, "error": "Name and product are required."}, 400
+    if not delivery_method:
+        return {"ok": False, "error": "Please select a delivery method (Pick up or Lalamove)."}, 400
+    if delivery_method == "pickup" and not pickup_display:
+        return {"ok": False, "error": "Please select a pick-up date."}, 400
 
     try:
         qty = float(str(form.get("quantity_kg") or "0"))
@@ -438,6 +470,14 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
         qty = 0.0
     if qty <= 0:
         return {"ok": False, "error": "Quantity must be greater than zero."}, 400
+
+    if payment_method == "GCash":
+        proof_name = str(getattr(payment_proof, "filename", "") or "").strip()
+        if not proof_name:
+            return {
+                "ok": False,
+                "error": "Please upload a photo of your GCash receipt as proof of payment.",
+            }, 400
 
     pickup_date, txn_date = _parse_pickup_date(pickup_display)
     ref = str(form.get("reference_no") or "").strip() or _new_client_ref()
@@ -448,6 +488,7 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
         order_selections.get("bean_form") or "",
         order_selections.get("classification") or "",
         qty,
+        quantity_pack=str(order_selections.get("quantity_pack") or "").strip(),
     )
     if not pricing.get("ok"):
         return {
@@ -486,6 +527,7 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
         "quantity_kg": qty,
         "quantity_unit": quantity_unit,
         "payment_method": payment_method,
+        "delivery_method": delivery_method,
         "payment_amount": amount,
         "reference_no": ref,
         "submitted_from": "client_web",
@@ -569,24 +611,32 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
             )
 
         valid_path, valid_name = _save_client_valid_id_file(tx_id, upload)
+        proof_path, proof_name = _save_client_image_file(tx_id, payment_proof, "proof")
+        upd: dict[str, Any] = {}
         if valid_path:
             form_payload["valid_id_path"] = valid_path
             form_payload["valid_id_filename"] = valid_name
-            upd: dict[str, Any] = {}
             if "valid_id_path" in cols:
                 upd["valid_id_path"] = valid_path
             if "valid_id_filename" in cols and valid_name:
                 upd["valid_id_filename"] = valid_name
             if "valid_id" in cols:
                 upd["valid_id"] = valid_path
+        if proof_path:
+            form_payload["payment_proof_path"] = proof_path
+            form_payload["payment_proof_filename"] = proof_name
+            if "payment_proof_path" in cols:
+                upd["payment_proof_path"] = proof_path
+            if "payment_proof_filename" in cols and proof_name:
+                upd["payment_proof_filename"] = proof_name
+        if upd:
             if "client_form_json" in cols:
                 upd["client_form_json"] = json.dumps(form_payload, ensure_ascii=False)
-            if upd:
-                sets = [f"{k} = %s" for k in upd]
-                cur.execute(
-                    f"UPDATE customer_transaction SET {', '.join(sets)} WHERE customer_transaction_id = %s",
-                    list(upd.values()) + [tx_id],
-                )
+            sets = [f"{k} = %s" for k in upd]
+            cur.execute(
+                f"UPDATE customer_transaction SET {', '.join(sets)} WHERE customer_transaction_id = %s",
+                list(upd.values()) + [tx_id],
+            )
 
         remarks = f"Client Web {transaction_type}"
         if pickup_display:
@@ -595,6 +645,8 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
             remarks += f"; phone={verified_phone}"
         if valid_path:
             remarks += f"; valid_id={valid_path}"
+        if proof_path:
+            remarks += f"; payment_proof={proof_path}"
 
         cur.execute(
             """
@@ -627,7 +679,11 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
             "farmer_id": farmer_id,
             "farmer_name": seller_name,
             "seller_type": seller_type,
-            "saved_fields": {**form_payload, "valid_id_saved": bool(valid_path)},
+            "saved_fields": {
+                **form_payload,
+                "valid_id_saved": bool(valid_path),
+                "payment_proof_saved": bool(proof_path),
+            },
             "message": wait_msg,
         }, 200
     except Exception as exc:
