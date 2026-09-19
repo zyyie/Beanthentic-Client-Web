@@ -3332,6 +3332,125 @@ body.report-page::after {
   color: rgba(0, 0, 0, 0.55);
 }
 
+.txn-seller-source {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+
+.txn-seller-source__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-height: 58px;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 12px;
+  color: #174a13;
+  font-weight: 800;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.txn-seller-source__btn:hover {
+  border-color: #8ad41d;
+  background: #f9fdf8;
+}
+
+.txn-seller-source__btn.is-selected {
+  border-color: #2b7f1f;
+  background: #f0f7ef;
+  box-shadow: 0 0 0 3px rgba(43, 127, 31, 0.12);
+}
+
+.txn-seller-source__name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #2b7f1f;
+  line-height: 1.3;
+}
+
+.txn-seller-source__btn:not(.is-selected) .txn-seller-source__name {
+  color: #4a6b52;
+}
+
+@media (max-width: 520px) {
+  .txn-seller-source {
+    grid-template-columns: 1fr;
+  }
+}
+
+.txn-admin-contact {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px 16px;
+  background: #f0f7ef;
+  border: 1.5px solid #2b7f1f;
+  border-radius: 12px;
+}
+
+.txn-admin-contact__name {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #174a13;
+}
+
+.txn-admin-contact__list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.txn-admin-contact__row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px 12px;
+  align-items: start;
+}
+
+.txn-admin-contact__row dt {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #4a6b52;
+}
+
+.txn-admin-contact__row dd {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #174a13;
+  word-break: break-word;
+}
+
+.txn-admin-contact__row a {
+  color: #2b7f1f;
+  text-decoration: none;
+}
+
+.txn-admin-contact__row a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 520px) {
+  .txn-admin-contact__row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
 .pickup-details-card.txn-tutorial-highlight {
   border-radius: 18px;
 }
@@ -3370,6 +3489,131 @@ body.report-page::after {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
+}
+
+#txn-order-fields {
+  display: contents;
+}
+
+#txn-order-fields[hidden] {
+  display: none !important;
+}
+
+.txn-phone-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.txn-phone-row input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 12px 16px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .txn-phone-row {
+    flex-direction: column;
+  }
+
+  .txn-otp-btn {
+    min-height: 48px;
+    width: 100%;
+  }
+}
+
+.txn-otp-btn {
+  flex-shrink: 0;
+  min-width: 118px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  background: #2b7f1f;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.txn-otp-btn:hover:not(:disabled) {
+  background: #1e5214;
+}
+
+.txn-otp-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.txn-otp-verify[hidden] {
+  display: none !important;
+}
+
+.txn-otp-verify:not([hidden]) {
+  display: block;
+  margin-top: 16px;
+  padding: 14px 14px 12px;
+  border: 1.5px solid #d7ead3;
+  border-radius: 14px;
+  background: #f7fbf6;
+  animation: txnOtpReveal 0.22s ease;
+}
+
+@keyframes txnOtpReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.txn-otp-verify label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 800;
+}
+
+.txn-otp-verify .form-help {
+  margin: 8px 0 0;
+}
+
+.txn-otp-status {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  min-height: 1.2em;
+}
+
+.txn-otp-status.is-ok {
+  color: #2b7f1f;
+  font-weight: 700;
+}
+
+.txn-otp-status.is-err {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.txn-phone-verified #client-phone {
+  border-color: #2b7f1f;
+  background: #f0f7ef;
+  font-weight: 700;
+  color: #174a13;
+}
+
+body.transaction-page--admin-contact .form-footer,
+body.transaction-page--admin-contact #txn-status-panel,
+body.transaction-page--admin-contact #txn-receipt-ready-card {
+  display: none !important;
 }
 
 .form-group.full-width {

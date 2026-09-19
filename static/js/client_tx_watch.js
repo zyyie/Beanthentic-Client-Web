@@ -49,6 +49,7 @@
     if (body && body.farmer_id != null && body.farmer_id !== "") {
       next.farmer_id = String(body.farmer_id);
     }
+    if (body && body.seller_type) next.seller_type = String(body.seller_type).trim();
     if (body && body.buyer_name) next.client_name = String(body.buyer_name).trim();
     if (body && body.product) next.product_type = String(body.product).trim();
     if (body && body.pickup_date) next.pickup_date = String(body.pickup_date).trim();

@@ -15,7 +15,7 @@
     {
       target: null,
       title: "How to start a transaction",
-      text: "Pick a farmer from the list below, then fill out the rest of the form:",
+      text: "Choose Farmer or Admin (Sir Arnold Malbataan), then fill out the rest of the form:",
       placement: "center",
       isOverview: true,
     },
@@ -287,6 +287,11 @@
 
   function nextStep() {
     endTour(true);
+    var buyFarmerBtn = document.getElementById("txn-buy-farmer");
+    if (buyFarmerBtn) {
+      buyFarmerBtn.focus();
+      return;
+    }
     var farmerSelect = document.getElementById("farmer-select");
     if (farmerSelect) {
       farmerSelect.focus();

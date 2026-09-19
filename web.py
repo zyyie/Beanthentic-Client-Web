@@ -1245,6 +1245,8 @@ def _proxy_client_transaction_submit():
             "client_name",
             "farmer_id",
             "farmer_name",
+            "seller_type",
+            "seller_name",
             "pickup_date",
             "product",
             "product_type",
@@ -1258,6 +1260,8 @@ def _proxy_client_transaction_submit():
             "payment_amount",
             "payment_method",
             "transaction_type",
+            "client_phone",
+            "phone_verify_token",
         ):
             val = request.form.get(key)
             if val is not None and str(val).strip() != "":
@@ -1316,6 +1320,39 @@ def client_transaction_submit_proxy():
             return jsonify(data), status
 
     return _proxy_client_transaction_submit()
+
+
+@app.route("/api/client-phone/send-code", methods=["POST", "OPTIONS"])
+def client_phone_send_code():
+    if request.method == "OPTIONS":
+        resp = jsonify({"ok": True})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp, 204
+    from config.client_phone_otp import send_client_otp
+
+    payload = request.get_json(silent=True) or {}
+    phone = str(payload.get("phone") or request.form.get("phone") or "").strip()
+    data, status = send_client_otp(phone)
+    return jsonify(data), status
+
+
+@app.route("/api/client-phone/verify", methods=["POST", "OPTIONS"])
+def client_phone_verify():
+    if request.method == "OPTIONS":
+        resp = jsonify({"ok": True})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        return resp, 204
+    from config.client_phone_otp import verify_client_otp
+
+    payload = request.get_json(silent=True) or {}
+    phone = str(payload.get("phone") or request.form.get("phone") or "").strip()
+    code = str(payload.get("code") or request.form.get("code") or "").strip()
+    data, status = verify_client_otp(phone, code)
+    return jsonify(data), status
 
 
 @app.route("/api/client-transaction/receipt/download", methods=["GET"])

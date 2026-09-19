@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 import beanthentic_env
 from config.client_product_prices import compute_order_total
+from config.client_phone_otp import consume_phone_token
 from config.client_valid_id import display_url_for_stored, upload_valid_id_bytes, valid_id_from_row
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
@@ -166,6 +167,111 @@ def _parse_pickup_date(raw: str) -> tuple[str | None, str]:
 
 def _new_client_ref() -> str:
     return datetime.now().strftime("CW%Y%m%d%H%M%S") + f"{random.randint(0, 9999):04d}"
+
+
+ADMIN_SELLER_NAME = "Sir Arnold Malbataan"
+
+
+def _seller_type_from_form(form) -> str:
+    raw = str(form.get("seller_type") or "").strip().lower()
+    if raw in ("admin", "chairman"):
+        return "admin"
+    if raw == "farmer":
+        return "farmer"
+    name = " ".join(str(form.get("farmer_name") or form.get("seller_name") or "").split()).lower()
+    if "malbataan" in name:
+        return "admin"
+    return "farmer"
+
+
+def _parse_client_form_payload(raw: Any) -> dict:
+    if not raw:
+        return {}
+    try:
+        payload = json.loads(raw) if isinstance(raw, str) else dict(raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _find_admin_farmer_id(cur) -> int:
+    try:
+        cur.execute(
+            """
+            SELECT f.farmer_id
+            FROM farmers f
+            LEFT JOIN personal_information pi ON pi.farmer_id = f.farmer_id
+            LEFT JOIN users u ON u.user_id = f.user_id
+            WHERE LOWER(CONCAT(COALESCE(pi.first_name, ''), ' ', COALESCE(pi.last_name, ''))) LIKE %s
+               OR LOWER(COALESCE(pi.last_name, '')) LIKE %s
+               OR LOWER(COALESCE(u.username, '')) LIKE %s
+            ORDER BY f.farmer_id ASC
+            LIMIT 1
+            """,
+            ("%malbataan%", "%malbataan%", "%malbataan%"),
+        )
+        row = cur.fetchone()
+        if row and int(row.get("farmer_id") or 0) > 0:
+            return int(row["farmer_id"])
+    except Exception:
+        pass
+    return 0
+
+
+def _customer_tx_farmer_id_nullable(cur) -> bool:
+    try:
+        if beanthentic_env.is_postgresql():
+            cur.execute(
+                """
+                SELECT is_nullable
+                FROM information_schema.columns
+                WHERE table_schema = CURRENT_SCHEMA()
+                  AND table_name = 'customer_transaction'
+                  AND column_name = 'farmer_id'
+                """
+            )
+        else:
+            cur.execute(
+                """
+                SELECT IS_NULLABLE AS is_nullable
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'customer_transaction'
+                  AND COLUMN_NAME = 'farmer_id'
+                """
+            )
+        row = cur.fetchone() or {}
+        return str(row.get("is_nullable") or row.get("IS_NULLABLE") or "").upper() == "YES"
+    except Exception:
+        return False
+
+
+def ensure_customer_transaction_admin_seller(cur) -> None:
+    """Admin purchases are not tied to a farmer row; allow farmer_id to be empty."""
+    if _customer_tx_farmer_id_nullable(cur):
+        return
+    try:
+        if beanthentic_env.is_postgresql():
+            cur.execute("ALTER TABLE customer_transaction ALTER COLUMN farmer_id DROP NOT NULL")
+        else:
+            cur.execute("ALTER TABLE customer_transaction MODIFY farmer_id INT NULL")
+    except Exception:
+        pass
+
+
+def _seller_from_row(row: dict) -> tuple[str, str]:
+    joined_name = " ".join(
+        str(row.get("farmer_name") or row.get("farmer_full_name") or "").split()
+    ).strip()
+    payload = _parse_client_form_payload(row.get("client_form_json"))
+    seller_type = str(payload.get("seller_type") or "").strip().lower()
+    json_name = " ".join(
+        str(payload.get("farmer_name") or payload.get("seller_name") or "").split()
+    ).strip()
+    combined = f"{joined_name} {json_name}".lower()
+    if seller_type in ("admin", "chairman") or "malbataan" in combined:
+        return "admin", json_name or joined_name or ADMIN_SELLER_NAME
+    return "farmer", joined_name or json_name
 
 
 def _resolve_farmer_id_for_client_tx(cur, form) -> int:
@@ -354,8 +460,22 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
     order_selections["computed_total"] = amount
     order_selections["price"] = amount
 
-    if not upload or not str(getattr(upload, "filename", "") or "").strip():
-        return {"ok": False, "error": "Valid ID is required."}, 400
+    verified_phone = consume_phone_token(
+        str(form.get("client_phone") or form.get("phone") or ""),
+        str(form.get("phone_verify_token") or ""),
+    )
+    if not verified_phone:
+        return {
+            "ok": False,
+            "error": "Verify your mobile number before submitting. We'll send a code to confirm you are a real client.",
+        }, 400
+
+    seller_type = _seller_type_from_form(form)
+    seller_name = (
+        ADMIN_SELLER_NAME
+        if seller_type == "admin"
+        else " ".join(str(form.get("farmer_name") or "").split())
+    )
 
     form_payload = {
         "transaction_type": transaction_type,
@@ -369,6 +489,11 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
         "payment_amount": amount,
         "reference_no": ref,
         "submitted_from": "client_web",
+        "seller_type": seller_type,
+        "seller_name": seller_name,
+        "farmer_name": seller_name,
+        "client_phone": verified_phone,
+        "phone_verified": True,
         "order_selections": order_selections,
     }
     form_json = json.dumps(form_payload, ensure_ascii=False)
@@ -378,7 +503,9 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
         conn = beanthentic_env.connect()
         cur = conn.cursor()
         farmer_id = _resolve_farmer_id_for_client_tx(cur, form)
-        if farmer_id <= 0:
+        if seller_type == "admin" and farmer_id <= 0:
+            farmer_id = _find_admin_farmer_id(cur)
+        if farmer_id <= 0 and seller_type != "admin":
             return {
                 "ok": False,
                 "error": "farmer_id is required. Select a farmer from the dropdown.",
@@ -390,7 +517,6 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
         except Exception:
             cols = _customer_tx_columns(cur)
         base_row = {
-            "farmer_id": farmer_id,
             "buyer_name": buyer,
             "product": product,
             "quantity": qty,
@@ -400,6 +526,10 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
             "reference_no": ref,
             "transaction_date": txn_date,
         }
+        if farmer_id > 0:
+            base_row["farmer_id"] = farmer_id
+        elif seller_type == "admin":
+            ensure_customer_transaction_admin_seller(cur)
         optional = {
             "transaction_type": transaction_type,
             "pickup_date": pickup_date,
@@ -461,6 +591,8 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
         remarks = f"Client Web {transaction_type}"
         if pickup_display:
             remarks += f"; pickup={pickup_display}"
+        if verified_phone:
+            remarks += f"; phone={verified_phone}"
         if valid_path:
             remarks += f"; valid_id={valid_path}"
 
@@ -482,14 +614,21 @@ def submit_client_transaction(form, upload) -> tuple[dict, int]:
 
         conn.commit()
         _insert_farmer_pending_notif(farmer_id, rec_msg)
+        wait_msg = (
+            "Transaction submitted. Waiting for admin approval."
+            if seller_type == "admin"
+            else "Transaction submitted. Waiting for farmer approval in the app."
+        )
         return {
             "ok": True,
             "customer_transaction_id": tx_id,
             "reference_no": ref,
             "status": "pending",
             "farmer_id": farmer_id,
+            "farmer_name": seller_name,
+            "seller_type": seller_type,
             "saved_fields": {**form_payload, "valid_id_saved": bool(valid_path)},
-            "message": "Transaction submitted. Waiting for farmer approval in the app.",
+            "message": wait_msg,
         }, 200
     except Exception as exc:
         if conn:
@@ -521,9 +660,7 @@ def _status_payload_from_row(row: dict, status: str) -> dict:
     buyer_name = str(row.get("buyer_name") or "")
     product_name = str(row.get("product") or "")
     farmer_id = int(row.get("farmer_id") or 0)
-    farmer_name = " ".join(
-        str(row.get("farmer_name") or row.get("farmer_full_name") or "").split()
-    ).strip()
+    seller_type, farmer_name = _seller_from_row(row)
     cid = int(row.get("customer_transaction_id") or 0)
     status = str(status or "pending").strip().lower()
     stored_valid_id = valid_id_from_row(row)
@@ -548,6 +685,7 @@ def _status_payload_from_row(row: dict, status: str) -> dict:
         "reference_no": ref_no,
         "farmer_id": farmer_id,
         "farmer_name": farmer_name,
+        "seller_type": seller_type,
         "valid_id_path": stored_valid_id,
         "valid_id_url": valid_display,
         "valid_id_filename": str(row.get("valid_id_filename") or "").strip(),
@@ -586,6 +724,7 @@ def _status_payload_from_row(row: dict, status: str) -> dict:
             "buyer_name": buyer_name,
             "farmer_name": farmer_name,
             "farmer_id": farmer_id,
+            "seller_type": seller_type,
             "pickup_date": pickup_label,
             "product": product_name,
             "coffee_variety": order_details.get("coffee_variety") or order_details.get("product"),

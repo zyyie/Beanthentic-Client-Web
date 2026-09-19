@@ -31,6 +31,7 @@
       <input type="hidden" name="payment_method" value="Cash" />
       <input type="hidden" name="farmer_id" id="farmer-id" value="{{ farmer_id or '' }}" />
       <input type="hidden" name="farmer_name" id="farmer-name-hidden" value="{{ farmer_name or '' }}" />
+      <input type="hidden" name="seller_type" id="seller-type" value="" />
 
       <div class="form-section">
         <div class="pickup-details-card" data-txn-tour="form-overview">
@@ -51,8 +52,27 @@
           </div>
 
           <div class="pickup-fields">
+            <div class="form-group full-width" id="txn-seller-source-wrap" data-txn-tour="seller-source">
+              <label id="txn-seller-source-label">Buy from</label>
+              <div class="txn-seller-source" role="radiogroup" aria-labelledby="txn-seller-source-label">
+                <button type="button" class="txn-seller-source__btn" id="txn-buy-farmer"
+                  data-seller-type="farmer" aria-pressed="false">
+                  <span>Farmer</span>
+                  <span class="txn-seller-source__name">Registered farmers</span>
+                </button>
+                <button type="button" class="txn-seller-source__btn" id="txn-buy-admin" data-seller-type="admin"
+                  aria-pressed="false">
+                  <span>Admin</span>
+                  <span class="txn-seller-source__name">Sir Arnold Malbataan</span>
+                </button>
+              </div>
+              <p class="txn-farmer-select-hint" id="txn-seller-source-hint">
+                Choose Farmer or Admin first. The details you need will appear after you select.
+              </p>
+            </div>
+
             <div class="form-group full-width txn-farmer-select-wrap" id="txn-farmer-select-wrap"
-              data-txn-tour="farmer-name">
+              data-txn-tour="farmer-name" hidden>
               <label for="farmer-select">Farmer name</label>
               <select id="farmer-select" name="farmer_select" class="txn-farmer-select custom-select" required
                 aria-describedby="txn-farmer-select-hint">
@@ -82,26 +102,58 @@
               </p>
             </div>
 
+            <div class="form-group full-width txn-admin-seller-wrap" id="txn-admin-seller-wrap" hidden>
+              <input type="hidden" id="admin-seller-name" value="Sir Arnold Malbataan" />
+              <label>Admin contact information</label>
+              <div class="txn-admin-contact" aria-label="Sir Arnold Malbataan contact information">
+                <p class="txn-admin-contact__name">Sir Arnold Malbataan</p>
+                <dl class="txn-admin-contact__list">
+                  <div class="txn-admin-contact__row">
+                    <dt>Email</dt>
+                    <dd><a href="mailto:abm_arnold@yahoo.com">abm_arnold@yahoo.com</a></dd>
+                  </div>
+                  <div class="txn-admin-contact__row">
+                    <dt>FB acc</dt>
+                    <dd>Arnold BM</dd>
+                  </div>
+                  <div class="txn-admin-contact__row">
+                    <dt>Cellphone number</dt>
+                    <dd>
+                      <a href="tel:09272705507">09272705507</a>
+                      <a href="tel:097704929259">097704929259</a>
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+
+            <div id="txn-order-fields" hidden>
             <div class="form-group full-width" data-txn-tour="client-name">
               <label for="client-name" id="client-name-label">Your name (client / buyer)</label>
               <input type="text" id="client-name" name="client_name" placeholder="Enter your full name" required
                 autocomplete="name" />
             </div>
 
-            <div class="form-group full-width" data-txn-tour="valid-id">
-              <label for="valid-id">Valid ID</label>
-              <div class="file-input-wrapper">
-                <input type="file" id="valid-id" name="valid_id" accept="image/*" required />
-                <button type="button" id="view-id-btn" class="view-id-btn" style="display: none;">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  View ID
-                </button>
+            <div class="form-group full-width" data-txn-tour="client-phone">
+              <label for="client-phone">Mobile number</label>
+              <div class="txn-phone-row">
+                <input type="tel" id="client-phone" name="client_phone" inputmode="numeric" autocomplete="tel"
+                  placeholder="09XXXXXXXXX" maxlength="13" required />
+                <button type="button" class="txn-otp-btn" id="send-otp-btn">Send</button>
               </div>
-              <p class="form-help">Please upload a clear copy of your valid ID.</p>
+              <p class="form-help">We will send a 6-digit code to confirm this number belongs to you.</p>
+
+              <div class="txn-otp-verify" id="otp-verify-wrap" hidden>
+                <label for="client-otp">Verification code</label>
+                <div class="txn-phone-row">
+                  <input type="text" id="client-otp" name="client_otp" inputmode="numeric" autocomplete="one-time-code"
+                    placeholder="Enter 6-digit code" maxlength="6" />
+                  <button type="button" class="txn-otp-btn" id="verify-otp-btn">Verify</button>
+                </div>
+                <p class="form-help">Enter the 6-digit code sent to your mobile number.</p>
+              </div>
+              <p class="txn-otp-status" id="otp-status" aria-live="polite"></p>
+              <input type="hidden" name="phone_verify_token" id="phone-verify-token" value="" />
             </div>
 
             <div class="form-group" data-txn-tour="pickup-date">
@@ -178,6 +230,7 @@
                 </div>
               </div>
             </div>
+            </div>
           </div>
         </div>
       </div>
@@ -192,7 +245,7 @@
               <dd id="txn-detail-client">—</dd>
             </div>
             <div class="txn-status-details__row">
-              <dt>Farmer</dt>
+              <dt id="txn-detail-farmer-label">Farmer</dt>
               <dd id="txn-detail-farmer">—</dd>
             </div>
             <div class="txn-status-details__row">
@@ -295,7 +348,7 @@
         </div>
       </div>
 
-      <div class="form-footer">
+      <div class="form-footer" id="txn-form-footer" hidden>
         <div id="status-container" data-txn-tour="submit">
           <button type="submit" class="submit-btn" id="submit-btn">Submit</button>
         </div>
@@ -455,7 +508,7 @@
           </svg>
         </div>
         <h2 id="txn-waiting-modal-title" class="txn-waiting-modal__title">Waiting for approval</h2>
-        <p class="txn-waiting-modal__text">
+        <p class="txn-waiting-modal__text" id="txn-waiting-modal-text">
           Your transaction was sent successfully. Please wait while the farmer reviews your request.
         </p>
         <p class="txn-waiting-modal__ref">Reference: <strong id="txn-waiting-modal-ref">—</strong></p>
@@ -1060,21 +1113,224 @@
           .catch(function () { });
       }
 
-      viewIdBtn.addEventListener('click', () => {
-        openValidIdPreviewModal();
-      });
+      if (viewIdBtn) {
+        viewIdBtn.addEventListener('click', () => {
+          openValidIdPreviewModal();
+        });
+      }
 
-      closePreview.addEventListener('click', () => {
-        previewModal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-      });
-
-      previewModal.addEventListener('click', (e) => {
-        if (e.target === previewModal) {
-          previewModal.style.display = 'none';
+      if (closePreview) {
+        closePreview.addEventListener('click', () => {
+          if (previewModal) previewModal.style.display = 'none';
           document.body.style.overflow = 'auto';
+        });
+      }
+
+      if (previewModal) {
+        previewModal.addEventListener('click', (e) => {
+          if (e.target === previewModal) {
+            previewModal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+          }
+        });
+      }
+
+      const phoneInput = document.getElementById('client-phone');
+      const sendOtpBtn = document.getElementById('send-otp-btn');
+      const verifyOtpBtn = document.getElementById('verify-otp-btn');
+      const otpInput = document.getElementById('client-otp');
+      const otpWrap = document.getElementById('otp-verify-wrap');
+      const otpStatus = document.getElementById('otp-status');
+      const phoneTokenInput = document.getElementById('phone-verify-token');
+      var phoneVerified = false;
+      var otpCooldownTimer = null;
+
+      function setOtpStatus(text, kind) {
+        if (!otpStatus) return;
+        otpStatus.textContent = text || '';
+        otpStatus.classList.remove('is-ok', 'is-err');
+        if (kind) otpStatus.classList.add(kind);
+      }
+
+      function showOtpInput() {
+        if (!otpWrap) return;
+        var wasHidden = otpWrap.hidden;
+        otpWrap.hidden = false;
+        if (verifyOtpBtn) verifyOtpBtn.disabled = false;
+        if (otpInput) {
+          if (wasHidden) otpInput.value = '';
+          otpInput.focus();
         }
-      });
+      }
+
+      function resetPhoneVerification() {
+        phoneVerified = false;
+        if (phoneTokenInput) phoneTokenInput.value = '';
+        if (otpInput) otpInput.value = '';
+        if (otpWrap) otpWrap.hidden = true;
+        if (phoneInput) {
+          phoneInput.readOnly = false;
+          var wrap = phoneInput.closest('.form-group');
+          if (wrap) wrap.classList.remove('txn-phone-verified');
+        }
+        if (sendOtpBtn) {
+          sendOtpBtn.disabled = false;
+          sendOtpBtn.textContent = 'Send';
+        }
+        if (verifyOtpBtn) verifyOtpBtn.disabled = false;
+        setOtpStatus('', '');
+      }
+
+      function markPhoneVerified(phone, token) {
+        phoneVerified = true;
+        if (phoneTokenInput) phoneTokenInput.value = token || '';
+        if (phoneInput && phone) phoneInput.value = phone;
+        if (phoneInput) {
+          phoneInput.readOnly = true;
+          var wrap = phoneInput.closest('.form-group');
+          if (wrap) wrap.classList.add('txn-phone-verified');
+        }
+        if (otpWrap) otpWrap.hidden = true;
+        if (sendOtpBtn) {
+          sendOtpBtn.disabled = true;
+          sendOtpBtn.textContent = 'Verified';
+        }
+        setOtpStatus('Number verified. You can continue your order.', 'is-ok');
+      }
+
+      function startOtpCooldown(seconds) {
+        var left = parseInt(seconds, 10);
+        if (!isFinite(left) || left <= 0) {
+          if (sendOtpBtn && !phoneVerified) {
+            sendOtpBtn.disabled = false;
+            sendOtpBtn.textContent = 'Send';
+          }
+          return;
+        }
+        if (!sendOtpBtn) return;
+        sendOtpBtn.disabled = true;
+        if (otpCooldownTimer) clearInterval(otpCooldownTimer);
+        function tick() {
+          if (phoneVerified) {
+            clearInterval(otpCooldownTimer);
+            otpCooldownTimer = null;
+            sendOtpBtn.textContent = 'Verified';
+            sendOtpBtn.disabled = true;
+            return;
+          }
+          if (left <= 0) {
+            clearInterval(otpCooldownTimer);
+            otpCooldownTimer = null;
+            sendOtpBtn.disabled = false;
+            sendOtpBtn.textContent = 'Send';
+            return;
+          }
+          sendOtpBtn.textContent = 'Wait ' + left + 's';
+          left -= 1;
+        }
+        tick();
+        otpCooldownTimer = setInterval(tick, 1000);
+      }
+
+      function postJson(url, body) {
+        return fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(body)
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (data) {
+            return { ok: r.ok, status: r.status, data: data || {} };
+          });
+        });
+      }
+
+      if (phoneInput) {
+        phoneInput.addEventListener('input', function () {
+          if (phoneVerified) resetPhoneVerification();
+        });
+        phoneInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (sendOtpBtn && !sendOtpBtn.disabled) sendOtpBtn.click();
+          }
+        });
+      }
+
+      if (otpInput) {
+        otpInput.addEventListener('input', function () {
+          otpInput.value = String(otpInput.value || '').replace(/\D/g, '').slice(0, 6);
+        });
+        otpInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (verifyOtpBtn && !verifyOtpBtn.disabled) verifyOtpBtn.click();
+          }
+        });
+      }
+
+      if (sendOtpBtn) {
+        sendOtpBtn.addEventListener('click', function () {
+          var phone = phoneInput ? String(phoneInput.value || '').trim() : '';
+          if (!phone) {
+            setOtpStatus('Enter your mobile number first.', 'is-err');
+            if (phoneInput) phoneInput.focus();
+            return;
+          }
+          sendOtpBtn.disabled = true;
+          sendOtpBtn.textContent = 'Sending...';
+          showOtpInput();
+          setOtpStatus('Sending verification code...', '');
+          postJson('/api/client-phone/send-code', { phone: phone })
+            .then(function (res) {
+              var data = res.data || {};
+              if (!res.ok || data.ok !== true) {
+                setOtpStatus(data.error || 'Could not send the code. Try again.', 'is-err');
+                startOtpCooldown(data.retry_after || 0);
+                if (!data.retry_after) {
+                  sendOtpBtn.disabled = false;
+                  sendOtpBtn.textContent = 'Send';
+                }
+                return;
+              }
+              showOtpInput();
+              setOtpStatus(data.message || 'Code sent. Enter the verification code below.', 'is-ok');
+              startOtpCooldown(data.retry_after || 60);
+            })
+            .catch(function () {
+              setOtpStatus('Could not send the code. Check your connection and try again.', 'is-err');
+              sendOtpBtn.disabled = false;
+              sendOtpBtn.textContent = 'Send';
+            });
+        });
+      }
+
+      if (verifyOtpBtn) {
+        verifyOtpBtn.addEventListener('click', function () {
+          var phone = phoneInput ? String(phoneInput.value || '').trim() : '';
+          var code = otpInput ? String(otpInput.value || '').trim() : '';
+          if (!code) {
+            setOtpStatus('Enter the 6-digit code we sent.', 'is-err');
+            if (otpInput) otpInput.focus();
+            return;
+          }
+          verifyOtpBtn.disabled = true;
+          setOtpStatus('Verifying...', '');
+          postJson('/api/client-phone/verify', { phone: phone, code: code })
+            .then(function (res) {
+              var data = res.data || {};
+              if (!res.ok || data.ok !== true) {
+                verifyOtpBtn.disabled = false;
+                setOtpStatus(data.error || 'Could not verify that code.', 'is-err');
+                return;
+              }
+              markPhoneVerified(data.phone || phone, data.phone_verify_token || '');
+            })
+            .catch(function () {
+              verifyOtpBtn.disabled = false;
+              setOtpStatus('Could not verify the code. Try again.', 'is-err');
+            });
+        });
+      }
 
       const STORAGE_KEY_LEGACY = 'beanthentic_client_pending_tx';
       const statusPanel = document.getElementById('txn-status-panel');
@@ -1119,9 +1375,42 @@
       var farmerSelectEl = document.getElementById('farmer-select');
       var farmerIdInput = document.getElementById('farmer-id');
       var farmerNameHidden = document.getElementById('farmer-name-hidden');
+      var sellerTypeInput = document.getElementById('seller-type');
+      var buyFarmerBtn = document.getElementById('txn-buy-farmer');
+      var buyAdminBtn = document.getElementById('txn-buy-admin');
+      var farmerSelectWrap = document.getElementById('txn-farmer-select-wrap');
+      var adminSellerWrap = document.getElementById('txn-admin-seller-wrap');
+      var orderFieldsWrap = document.getElementById('txn-order-fields');
+      var formFooter = document.getElementById('txn-form-footer');
+      var sellerSourceHint = document.getElementById('txn-seller-source-hint');
+      var detailFarmerLabel = document.getElementById('txn-detail-farmer-label');
+      var waitingModalText = document.getElementById('txn-waiting-modal-text');
+      var ADMIN_SELLER_NAME = 'Sir Arnold Malbataan';
+      var ADMIN_SELLER_KEY = 'admin';
 
       function farmerNameValue() {
         return farmerNameHidden ? String(farmerNameHidden.value || '').trim() : '';
+      }
+
+      function currentSellerType() {
+        var raw = sellerTypeInput ? String(sellerTypeInput.value || '').trim().toLowerCase() : '';
+        if (raw === 'admin') return 'admin';
+        if (raw === 'farmer') return 'farmer';
+        return '';
+      }
+
+      function isAdminSeller(state) {
+        if (state && String(state.seller_type || '').toLowerCase() === 'admin') return true;
+        if (state && parseInt(state.farmer_id, 10) > 0) return false;
+        return currentSellerType() === 'admin';
+      }
+
+      function pendingKeyId(farmerId, state) {
+        var fid = String(farmerId || (state && state.farmer_id) || '').trim();
+        if (fid && fid !== '0' && parseInt(fid, 10) > 0) return fid;
+        if (fid === ADMIN_SELLER_KEY) return ADMIN_SELLER_KEY;
+        if (isAdminSeller(state)) return ADMIN_SELLER_KEY;
+        return fid;
       }
 
       function farmerNameFromSelectOption(opt) {
@@ -1132,6 +1421,7 @@
       function ensureFarmerSelectOption(fid, name) {
         if (!farmerSelectEl || !fid) return;
         var id = String(fid).trim();
+        if (!id || id === ADMIN_SELLER_KEY || parseInt(id, 10) <= 0) return;
         var existing = Array.prototype.find.call(farmerSelectEl.options, function (opt) {
           return String(opt.value || '').trim() === id;
         });
@@ -1145,9 +1435,9 @@
       }
 
       function syncFarmerSelectFromContext() {
-        if (!farmerSelectEl) return;
+        if (!farmerSelectEl || currentSellerType() !== 'farmer') return;
         var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
-        if (fid) {
+        if (fid && parseInt(fid, 10) > 0) {
           ensureFarmerSelectOption(fid, farmerNameValue());
           farmerSelectEl.value = fid;
         } else {
@@ -1157,13 +1447,96 @@
 
       function updateFarmerGuideVisibility() {
         var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
-        var fromFarmer = !!(fid && parseInt(fid, 10) > 0);
+        var fromFarmer = currentSellerType() === 'admin' || !!(fid && parseInt(fid, 10) > 0);
         document.body.classList.toggle('transaction-page--from-farmer', fromFarmer);
         if (window.BeanthenticTxTutorial && window.BeanthenticTxTutorial.shouldShow) {
           if (typeof window.BeanthenticTxTutorial.updateContext === 'function') {
             window.BeanthenticTxTutorial.updateContext();
           }
         }
+      }
+
+      function applySellerSourceUi(seller, opts) {
+        var type = seller === 'admin' ? 'admin' : (seller === 'farmer' ? 'farmer' : '');
+        var isFarmer = type === 'farmer';
+        var isAdmin = type === 'admin';
+        if (sellerTypeInput) sellerTypeInput.value = type;
+        if (buyFarmerBtn) {
+          buyFarmerBtn.classList.toggle('is-selected', isFarmer);
+          buyFarmerBtn.setAttribute('aria-pressed', isFarmer ? 'true' : 'false');
+        }
+        if (buyAdminBtn) {
+          buyAdminBtn.classList.toggle('is-selected', isAdmin);
+          buyAdminBtn.setAttribute('aria-pressed', isAdmin ? 'true' : 'false');
+        }
+        if (farmerSelectWrap) farmerSelectWrap.hidden = !isFarmer;
+        if (adminSellerWrap) adminSellerWrap.hidden = !isAdmin;
+        if (orderFieldsWrap) orderFieldsWrap.hidden = !isFarmer;
+        if (formFooter) formFooter.hidden = !isFarmer;
+        if (sellerSourceHint) {
+          sellerSourceHint.textContent = isAdmin
+            ? 'Contact information of the Beanthentic admin.'
+            : (isFarmer
+              ? 'Fill out the form below to place your order.'
+              : 'Choose Farmer or Admin first. The details you need will appear after you select.');
+        }
+        document.body.classList.toggle('transaction-page--admin-contact', isAdmin);
+        document.body.classList.toggle('transaction-page--choose-seller', !type);
+        if (form) form.noValidate = !isFarmer;
+        if (farmerSelectEl) {
+          farmerSelectEl.required = isFarmer;
+          farmerSelectEl.disabled = !isFarmer;
+          if (!isFarmer) farmerSelectEl.classList.remove('txn-farmer-select--invalid');
+        }
+        if (isAdmin) {
+          if (farmerIdInput) farmerIdInput.value = '';
+          if (farmerNameHidden) farmerNameHidden.value = ADMIN_SELLER_NAME;
+          if (farmerSelectEl) farmerSelectEl.value = '';
+        } else if (opts && opts.clearAdminName) {
+          if (farmerNameHidden && farmerNameValue() === ADMIN_SELLER_NAME && !(farmerIdInput && String(farmerIdInput.value || '').trim())) {
+            farmerNameHidden.value = '';
+          }
+        }
+        updateWaitingReviewCopy();
+        updateFarmerGuideVisibility();
+      }
+
+      function setSellerType(type, opts) {
+        applySellerSourceUi(type, opts);
+        if (type === 'admin') {
+          persistFarmerContext({
+            farmer_id: '',
+            farmer_name: ADMIN_SELLER_NAME,
+            seller_type: 'admin'
+          });
+          return;
+        }
+        var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
+        var name = farmerNameValue();
+        if (fid || name) {
+          persistFarmerContext({
+            farmer_id: fid,
+            farmer_name: name,
+            seller_type: 'farmer'
+          });
+        } else {
+          try {
+            sessionStorage.removeItem(FARMER_CTX_KEY);
+          } catch (_clearSeller) { }
+        }
+      }
+
+      function updateWaitingReviewCopy() {
+        var admin = currentSellerType() === 'admin';
+        var hint = admin
+          ? 'Your request was sent. Please wait while the admin reviews it.'
+          : 'Your request was sent. Please wait while the farmer reviews it.';
+        var modal = admin
+          ? 'Your transaction was sent successfully. Please wait while the admin reviews your request.'
+          : 'Your transaction was sent successfully. Please wait while the farmer reviews your request.';
+        if (statusHint && !submittedRef) statusHint.textContent = hint;
+        if (waitingModalText) waitingModalText.textContent = modal;
+        return hint;
       }
 
       function updateFarmerSelectedDisplay() {
@@ -1181,16 +1554,21 @@
           farmerSelectEl.value = '';
           farmerSelectEl.classList.remove('txn-farmer-select--invalid');
         }
-        updateFarmerGuideVisibility();
+        applySellerSourceUi('', { clearAdminName: true });
       }
 
       function focusFarmerSelect() {
+        if (currentSellerType() !== 'farmer') {
+          if (currentSellerType() === 'admin' && buyAdminBtn) buyAdminBtn.focus();
+          else if (buyFarmerBtn) buyFarmerBtn.focus();
+          return;
+        }
         if (!farmerSelectEl) return;
         farmerSelectEl.focus();
       }
 
       function onFarmerSelectChange() {
-        if (!farmerSelectEl) return;
+        if (!farmerSelectEl || currentSellerType() !== 'farmer') return;
         var fid = String(farmerSelectEl.value || '').trim();
         if (!fid || parseInt(fid, 10) <= 0) {
           if (farmerIdInput) farmerIdInput.value = '';
@@ -1200,7 +1578,21 @@
         }
         var opt = farmerSelectEl.selectedOptions[0];
         var name = farmerNameFromSelectOption(opt);
-        applyFarmerContext({ farmer_id: fid, farmer_name: name });
+        applyFarmerContext({ farmer_id: fid, farmer_name: name, seller_type: 'farmer' });
+      }
+
+      function initSellerSource() {
+        if (buyFarmerBtn) {
+          buyFarmerBtn.addEventListener('click', function () {
+            setSellerType('farmer', { clearAdminName: true });
+          });
+        }
+        if (buyAdminBtn) {
+          buyAdminBtn.addEventListener('click', function () {
+            setSellerType('admin');
+          });
+        }
+        applySellerSourceUi('');
       }
 
       function initFarmerSelect() {
@@ -1219,8 +1611,7 @@
       }
 
       function savePendingState(state, farmerId) {
-        var fid =
-          String(farmerId || (state && state.farmer_id) || '').trim() ||
+        var fid = pendingKeyId(farmerId, state) ||
           (farmerIdInput ? String(farmerIdInput.value || '').trim() : '');
         var key = pendingStorageKey(fid);
         try {
@@ -1231,8 +1622,7 @@
       }
 
       function loadPendingState(farmerId) {
-        var fid =
-          String(farmerId || '').trim() ||
+        var fid = pendingKeyId(farmerId) ||
           (farmerIdInput ? String(farmerIdInput.value || '').trim() : '');
         var key = pendingStorageKey(fid);
         try {
@@ -1303,9 +1693,17 @@
 
       function getFarmerKeepContext(state) {
         var s = state || {};
+        if (isAdminSeller(s)) {
+          return {
+            farmer_id: '',
+            farmer_name: ADMIN_SELLER_NAME,
+            seller_type: 'admin'
+          };
+        }
         return {
           farmer_id: s.farmer_id || (farmerIdInput ? farmerIdInput.value : ''),
-          farmer_name: s.farmer_name || farmerNameValue()
+          farmer_name: s.farmer_name || farmerNameValue(),
+          seller_type: 'farmer'
         };
       }
 
@@ -1355,12 +1753,16 @@
 
       function unlockFormControls() {
         form.querySelectorAll('input, select, button').forEach(function (control) {
-          if (control.id === 'farmer-id' || control.id === 'farmer-name-hidden') {
+          if (control.id === 'farmer-id' || control.id === 'farmer-name-hidden' || control.id === 'seller-type' || control.id === 'admin-seller-name' || control.id === 'phone-verify-token') {
             return;
           }
           control.disabled = false;
           control.style.cursor = '';
         });
+        if (currentSellerType() === 'admin' && farmerSelectEl) {
+          farmerSelectEl.disabled = true;
+          farmerSelectEl.required = false;
+        }
         btn.disabled = false;
         btn.textContent = 'Submit';
         btn.classList.remove('status-waiting', 'status-approved');
@@ -1376,7 +1778,8 @@
         amountInput.value = '';
         cashOption.classList.remove('selected');
         amountGroup.style.display = 'none';
-        clearValidIdPreview();
+        if (typeof resetPhoneVerification === 'function') resetPhoneVerification();
+        if (typeof clearValidIdPreview === 'function') clearValidIdPreview();
         selectedDate = null;
       }
 
@@ -1384,6 +1787,7 @@
         var base = {
           farmer_id: farmerIdInput ? farmerIdInput.value : '',
           farmer_name: farmerNameValue(),
+          seller_type: currentSellerType(),
           reference_no: '',
           status: 'pending',
           submitted_at: new Date().toISOString()
@@ -1584,6 +1988,7 @@
         s.receipt_time = body.receipt_time || rc.receipt_time || s.receipt_time || '';
         if (body.farmer_name) s.farmer_name = String(body.farmer_name).trim();
         if (body.farmer_id != null && body.farmer_id !== '') s.farmer_id = String(body.farmer_id);
+        if (body.seller_type) s.seller_type = String(body.seller_type).trim();
         if (body.buyer_name) s.client_name = String(body.buyer_name).trim();
         if (body.valid_id_url) s.valid_id_url = String(body.valid_id_url).trim();
         if (body.valid_id_path) s.valid_id_path = String(body.valid_id_path).trim();
@@ -1710,6 +2115,7 @@
       function populateTransactionDetailsPanel(state, statusLabel) {
         var s = state || {};
         if (detailClient) detailClient.textContent = s.client_name || s.buyer_name || '—';
+        if (detailFarmerLabel) detailFarmerLabel.textContent = isAdminSeller(s) ? 'Admin' : 'Farmer';
         if (detailFarmer) detailFarmer.textContent = s.farmer_name || '—';
         if (detailProduct) detailProduct.textContent = s.product_type || s.product || '—';
         if (detailQuantity) detailQuantity.textContent = quantityLabelFromState(s);
@@ -1964,7 +2370,7 @@
 
       function applyWaitingUI(ref) {
         hideReceiptReadyCard();
-        showStatusPanel('pending', ref, 'Your request was sent. Please wait while the farmer reviews it.');
+        showStatusPanel('pending', ref, updateWaitingReviewCopy());
         lockFormControls();
         showWaitingApprovalModal(ref);
       }
@@ -2137,11 +2543,12 @@
         if (!s) return;
         var fid = s.farmer_id != null ? String(s.farmer_id).trim() : '';
         var name = s.farmer_name ? String(s.farmer_name).trim() : '';
-        if (!fid && !name) return;
+        var seller = s.seller_type === 'admin' ? 'admin' : 'farmer';
+        if (!fid && !name && seller !== 'admin') return;
         try {
           sessionStorage.setItem(
             FARMER_CTX_KEY,
-            JSON.stringify({ farmer_id: fid, farmer_name: name })
+            JSON.stringify({ farmer_id: fid, farmer_name: name, seller_type: seller })
           );
         } catch (_e) { }
       }
@@ -2152,17 +2559,33 @@
         var fid = String(body.dataset.farmerId || '').trim();
         var name = String(body.dataset.farmerName || '').trim();
         if (!fid && !name) return null;
-        return { farmer_id: fid, farmer_name: name };
+        return { farmer_id: fid, farmer_name: name, seller_type: 'farmer' };
       }
 
       function getActiveFarmerContext() {
         var urlFarmer = farmerFromUrlParams();
-        if (urlFarmer && urlFarmer.farmer_id) {
+        if (urlFarmer && urlFarmer.farmer_id && parseInt(urlFarmer.farmer_id, 10) > 0) {
+          urlFarmer.seller_type = 'farmer';
           return urlFarmer;
         }
         var srv = farmerFromServerPage();
-        if (srv && srv.farmer_id) {
+        if (srv && srv.farmer_id && parseInt(srv.farmer_id, 10) > 0) {
+          srv.seller_type = 'farmer';
           return srv;
+        }
+        if (urlFarmer && urlFarmer.seller_type === 'admin') {
+          return {
+            farmer_id: '',
+            farmer_name: ADMIN_SELLER_NAME,
+            seller_type: 'admin'
+          };
+        }
+        if (currentSellerType() === 'admin') {
+          return {
+            farmer_id: '',
+            farmer_name: ADMIN_SELLER_NAME,
+            seller_type: 'admin'
+          };
         }
         if (urlFarmer && urlFarmer.farmer_name) {
           return urlFarmer;
@@ -2170,21 +2593,33 @@
         var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
         var name = farmerNameValue();
         if (fid || name) {
-          return { farmer_id: fid, farmer_name: name };
+          return { farmer_id: fid, farmer_name: name, seller_type: currentSellerType() };
         }
         return null;
       }
 
       function applyFarmerContext(s) {
+        var seller = s && s.seller_type === 'admin' ? 'admin' : 'farmer';
         var name = s && s.farmer_name ? String(s.farmer_name).trim() : '';
         var fid = s && s.farmer_id != null && s.farmer_id !== '' ? String(s.farmer_id).trim() : '';
+        if (seller === 'admin' || (name.toLowerCase().indexOf('malbataan') >= 0 && !(parseInt(fid, 10) > 0))) {
+          applySellerSourceUi('admin');
+          persistFarmerContext({
+            farmer_id: '',
+            farmer_name: ADMIN_SELLER_NAME,
+            seller_type: 'admin'
+          });
+          updateFarmerSelectedDisplay();
+          return;
+        }
+        applySellerSourceUi('farmer', { clearAdminName: !(name || (fid && parseInt(fid, 10) > 0)) });
         if (!name && !fid) {
           updateFarmerSelectedDisplay();
           return;
         }
         if (farmerIdInput) farmerIdInput.value = fid;
         if (farmerNameHidden) farmerNameHidden.value = name;
-        persistFarmerContext({ farmer_id: fid, farmer_name: name });
+        persistFarmerContext({ farmer_id: fid, farmer_name: name, seller_type: 'farmer' });
         updateFarmerSelectedDisplay();
       }
 
@@ -2201,6 +2636,9 @@
           name = '';
         }
         var fid = (params.get('farmer_id') || '').trim();
+        if ((name || fid) && parseInt(fid, 10) > 0) {
+          return { farmer_id: fid, farmer_name: name, seller_type: 'farmer' };
+        }
         if (name || fid) {
           return { farmer_id: fid, farmer_name: name };
         }
@@ -2208,7 +2646,7 @@
           var raw = sessionStorage.getItem(FARMER_CTX_KEY);
           if (!raw) return null;
           var parsed = JSON.parse(raw);
-          if (parsed && parsed.farmer_name) return parsed;
+          if (parsed && (parsed.farmer_name || parsed.seller_type === 'admin')) return parsed;
         } catch (_s) { }
         return null;
       }
@@ -2243,6 +2681,8 @@
             client_name: document.getElementById('client-name').value.trim(),
             farmer_id: farmerIdInput ? farmerIdInput.value : '',
             farmer_name: farmerNameValue(),
+            seller_type: currentSellerType(),
+            client_phone: phoneInput ? String(phoneInput.value || '').trim() : '',
             pickup_date: document.getElementById('pickup-date').value,
             product_type: document.getElementById('product-type').value,
             quantity_kg: document.getElementById('quantity-kg').value,
@@ -2349,6 +2789,7 @@
         var next = saved ? Object.assign({}, saved) : buildStateFromForm();
         if (urlFarmer.farmer_name) next.farmer_name = urlFarmer.farmer_name;
         if (urlFarmer.farmer_id) next.farmer_id = urlFarmer.farmer_id;
+        if (urlFarmer.seller_type) next.seller_type = urlFarmer.seller_type;
         return next;
       }
 
@@ -2408,22 +2849,42 @@
         var isNewOrder = params.get('new') === '1';
 
         if (isNewOrder && !urlRef) {
+          var paramsNew = new URLSearchParams(window.location.search);
+          var urlFid = (paramsNew.get('farmer_id') || '').trim();
+          var urlName = (paramsNew.get('farmer_name') || '').trim();
           clearFarmerSelection();
           resetForFreshTransaction('');
-          focusFarmerSelect();
+          if (urlFid && parseInt(urlFid, 10) > 0) {
+            applyFarmerContext({
+              farmer_id: urlFid,
+              farmer_name: urlName,
+              seller_type: 'farmer'
+            });
+            focusFarmerSelect();
+          }
           return;
         }
 
         var ctx = getActiveFarmerContext();
-        if (ctx) applyFarmerContext(ctx);
-        var activeFid = ctx && ctx.farmer_id ? String(ctx.farmer_id).trim() : '';
+        var activeFid = pendingKeyId(ctx && ctx.farmer_id, ctx);
+        var pending = loadPendingState(activeFid);
 
         if (!urlRef) {
-          archiveCompletedPending(activeFid);
-          restorePendingOnLoad(activeFid);
+          if (pending && pending.reference_no) {
+            if (ctx) applyFarmerContext(ctx);
+            archiveCompletedPending(activeFid);
+            restorePendingOnLoad(activeFid);
+            return;
+          }
+          if (ctx && ctx.farmer_id && parseInt(ctx.farmer_id, 10) > 0) {
+            applyFarmerContext(ctx);
+            return;
+          }
+          applySellerSourceUi('');
           return;
         }
 
+        if (ctx) applyFarmerContext(ctx);
         bootstrapTransactionFromRef(urlRef, activeFid);
       }
 
@@ -2433,6 +2894,7 @@
         });
       }
 
+      if (validIdInput) {
       validIdInput.addEventListener('change', function () {
         if (this.files && this.files[0]) {
           validIdSavedOnServer = false;
@@ -2453,6 +2915,7 @@
           clearValidIdPreview();
         }
       });
+      }
 
       // Clickable Payment Method Logic
       cashOption.addEventListener('click', function () {
@@ -2471,6 +2934,20 @@
 
       form.addEventListener('submit', function (e) {
         e.preventDefault();
+        if (currentSellerType() === 'admin') return;
+        if (currentSellerType() !== 'farmer') {
+          alert('Choose Farmer or Admin first.');
+          if (buyFarmerBtn) buyFarmerBtn.focus();
+          return;
+        }
+
+        var phoneVal = phoneInput ? String(phoneInput.value || '').trim() : '';
+        var phoneToken = phoneTokenInput ? String(phoneTokenInput.value || '').trim() : '';
+        if (!phoneVerified || !phoneVal || !phoneToken) {
+          alert('Verify your mobile number first. We will send a code to confirm you are a real client.');
+          if (phoneInput) phoneInput.focus();
+          return;
+        }
 
         if (!cashOption.classList.contains('selected')) {
           alert('Please select Cash payment to confirm your order total.');
@@ -2500,10 +2977,14 @@
         const product = orderSummary.product_type;
         const quantity = String(orderSummary.quantity_kg);
 
-        const farmerCtx = getActiveFarmerContext();
-        const farmerIdVal = farmerCtx && farmerCtx.farmer_id ? String(farmerCtx.farmer_id).trim() : '';
-        if (!farmerIdVal || parseInt(farmerIdVal, 10) <= 0) {
+        const farmerCtx = getActiveFarmerContext() || {};
+        const sellerType = farmerCtx.seller_type === 'admin' || currentSellerType() === 'admin' ? 'admin' : 'farmer';
+        const farmerIdVal = sellerType === 'admin'
+          ? ''
+          : (farmerCtx.farmer_id ? String(farmerCtx.farmer_id).trim() : '');
+        if (sellerType !== 'admin' && (!farmerIdVal || parseInt(farmerIdVal, 10) <= 0)) {
           alert('Please select a farmer before submitting.');
+          applySellerSourceUi('farmer');
           if (farmerSelectEl) {
             farmerSelectEl.classList.add('txn-farmer-select--invalid');
             farmerSelectEl.focus();
@@ -2511,16 +2992,26 @@
           return;
         }
 
+        const sellerName = sellerType === 'admin'
+          ? ADMIN_SELLER_NAME
+          : (farmerCtx.farmer_name || farmerNameValue());
+        const pendingKey = sellerType === 'admin' ? ADMIN_SELLER_KEY : farmerIdVal;
+
         const fd = new FormData(form);
         fd.set('payment_method', 'Cash');
-        fd.set('farmer_id', farmerIdVal);
+        fd.set('seller_type', sellerType);
+        fd.set('farmer_name', sellerName);
+        if (sellerType === 'admin') {
+          fd.set('farmer_id', '');
+        } else {
+          fd.set('farmer_id', farmerIdVal);
+        }
         fd.set('product_type', product);
         fd.set('quantity_kg', quantity);
         fd.set('order_selections_json', JSON.stringify(orderSummary.order_selections));
         fd.set('payment_amount', amount);
-        if (farmerCtx.farmer_name) {
-          fd.set('farmer_name', farmerCtx.farmer_name);
-        }
+        fd.set('client_phone', phoneVal);
+        fd.set('phone_verify_token', phoneToken);
 
         btn.disabled = true;
         btn.textContent = 'Submitting...';
@@ -2540,9 +3031,11 @@
           var state = buildTrackMeta({
             reference_no: submittedRef,
             status: 'pending',
-            farmer_id: farmerIdVal,
-            farmer_name: (farmerCtx && farmerCtx.farmer_name) || farmerNameValue(),
+            farmer_id: sellerType === 'admin' ? ADMIN_SELLER_KEY : farmerIdVal,
+            farmer_name: sellerName,
+            seller_type: sellerType,
             client_name: buyerName,
+            client_phone: phoneVal,
             pickup_date: sched,
             product_type: product,
             quantity_kg: quantity,
@@ -2552,7 +3045,7 @@
             valid_id_path: validPath,
             valid_id_url: validPath ? validIdServeUrl(validPath) : ''
           });
-          savePendingState(state, farmerIdVal);
+          savePendingState(state, pendingKey);
           clearTransactionFormFields();
           notifyTransactionSubmitted(submittedRef, state);
           startWaitingFlow(submittedRef, state);
@@ -2860,6 +3353,7 @@
       });
 
       initCalendar();
+      initSellerSource();
       initFarmerSelect();
 
       if (farmerSelectEl) {
@@ -2868,7 +3362,7 @@
 
       initTransactionFromLinkOrStorage();
       syncFarmerSelectFromContext();
-      if (farmerSelectEl && farmerSelectEl.value && (!farmerIdInput || !String(farmerIdInput.value || '').trim())) {
+      if (farmerSelectEl && farmerSelectEl.value && currentSellerType() !== 'admin' && (!farmerIdInput || !String(farmerIdInput.value || '').trim())) {
         onFarmerSelectChange();
       }
     });
@@ -2882,8 +3376,8 @@
       <h3 class="txn-tutorial-title" id="txn-tutorial-title">How to transact</h3>
       <p class="txn-tutorial-text" id="txn-tutorial-text"></p>
       <ul class="txn-tutorial-checklist" id="txn-tutorial-checklist" hidden>
-        <li>Search or select a <strong>farmer</strong> from the field at the top of the form</li>
-        <li>Enter <strong>your name</strong> and upload a <strong>valid ID</strong></li>
+        <li>Choose <strong>Farmer</strong> or <strong>Admin (Sir Arnold Malbataan)</strong></li>
+        <li>Enter <strong>your name</strong> and verify your <strong>mobile number</strong></li>
         <li>Choose <strong>pick-up date</strong>, <strong>product</strong>, and <strong>quantity (KG)</strong></li>
         <li>Select <strong>Cash</strong>, enter the amount, then tap <strong>Submit</strong></li>
       </ul>
@@ -2903,7 +3397,7 @@
       farmerId: {{ farmer_id or 0 }}
     };
   </script>
-  <script src="{{ url_for('static', filename='js/transaction_tutorial.js') }}?v=20260906-farmer-dropdown"></script>
+  <script src="{{ url_for('static', filename='js/transaction_tutorial.js') }}?v=20260915-seller-source"></script>
   {% include 'partials/header_notif_panel.html' %}
   <script src="{{ url_for('static', filename='js/client_tx_storage.js') }}?v=20260610-actions"></script>
   {% include 'partials/notification_scripts.html' %}
