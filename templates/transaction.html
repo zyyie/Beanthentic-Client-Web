@@ -131,7 +131,7 @@
             <div class="form-group full-width" data-txn-tour="client-name">
               <label for="client-name" id="client-name-label">Your name (client / buyer)</label>
               <input type="text" id="client-name" name="client_name" placeholder="Enter your full name" required
-                autocomplete="name" />
+                autocomplete="off" />
             </div>
 
             <div class="form-group full-width" data-txn-tour="client-phone">
@@ -647,7 +647,6 @@
         } else {
           closeLalamoveSelectedModal();
         }
-        scheduleFormDraftSave();
       }
 
       function openLalamoveSelectedModal() {
@@ -710,7 +709,6 @@
         } else {
           closeGcashQrModal();
         }
-        scheduleFormDraftSave();
         if (!amountGroup) return;
         if (isCash || isGcash) {
           updatePriceSummary();
@@ -1118,7 +1116,12 @@
           if (o.selected) current = o;
         });
         btn.textContent = current && current.value ? String(current.textContent || '').trim() : (opts[0] ? String(opts[0].textContent || '').trim() : 'Select');
-        btn.disabled = !!selectEl.disabled;
+        if (!selectEl.disabled) {
+          btn.disabled = false;
+          btn.style.cursor = '';
+        } else {
+          btn.disabled = true;
+        }
         wrap.classList.toggle('is-disabled', !!selectEl.disabled);
         menu.innerHTML = '';
         opts.forEach(function (opt) {
@@ -1163,6 +1166,8 @@
           ev.preventDefault();
           ev.stopPropagation();
           if (selectEl.disabled) return;
+          btn.disabled = false;
+          wrap.classList.remove('is-disabled');
           var open = wrap.classList.contains('is-open');
           closeTxnSelectMenus();
           if (!open) wrap.classList.add('is-open');
@@ -1181,165 +1186,10 @@
       });
       form.querySelectorAll('select.custom-select').forEach(enhanceTxnSelect);
 
-      var FORM_DRAFT_KEY = 'beanthentic_client_form_draft';
-      var restoringDraft = false;
-
-      function fieldValue(id) {
-        var el = document.getElementById(id);
-        return el ? String(el.value || '') : '';
-      }
-
-      function collectFormDraft() {
-        var farmerEl = document.getElementById('farmer-select');
-        return {
-          seller_type: typeof currentSellerType === 'function' ? currentSellerType() : fieldValue('seller-type'),
-          farmer_select: farmerEl ? String(farmerEl.value || '') : '',
-          farmer_id: fieldValue('farmer-id'),
-          farmer_name: fieldValue('farmer-name-hidden'),
-          client_name: fieldValue('client-name'),
-          client_phone: fieldValue('client-phone'),
-          product: fieldValue('txn-product'),
-          bean_form: fieldValue('txn-bean-form'),
-          classification: fieldValue('txn-classification'),
-          quantity_pack: fieldValue('txn-quantity-pack'),
-          quantity_kg: fieldValue('txn-quantity-kg'),
-          pickup_date: fieldValue('pickup-date'),
-          delivery_method: fieldValue('delivery-method'),
-          payment_method: fieldValue('payment-method'),
-          saved_at: new Date().toISOString()
-        };
-      }
-
-      function draftHasContent(d) {
-        if (!d || typeof d !== 'object') return false;
-        return !!(
-          d.client_name || d.client_phone || d.product || d.bean_form ||
-          d.classification || d.quantity_pack || d.quantity_kg || d.pickup_date ||
-          d.delivery_method || d.payment_method || d.farmer_select || d.farmer_id ||
-          d.seller_type
-        );
-      }
-
-      function writeDraftStore(raw) {
-        try { localStorage.setItem(FORM_DRAFT_KEY, raw); } catch (_ls) { }
-        try { sessionStorage.setItem(FORM_DRAFT_KEY, raw); } catch (_ss) { }
-      }
-
-      function readDraftStore() {
-        try {
-          return localStorage.getItem(FORM_DRAFT_KEY) || sessionStorage.getItem(FORM_DRAFT_KEY) || '';
-        } catch (_read) {
-          try { return sessionStorage.getItem(FORM_DRAFT_KEY) || ''; } catch (_ss) { return ''; }
-        }
-      }
-
-      function saveFormDraft() {
-        if (restoringDraft || submittedRef) return;
-        var d = collectFormDraft();
-        if (!draftHasContent(d)) return;
-        writeDraftStore(JSON.stringify(d));
-      }
-
-      function scheduleFormDraftSave() {
-        saveFormDraft();
-      }
-
       function clearFormDraft() {
-        try { localStorage.removeItem(FORM_DRAFT_KEY); } catch (_draftClear) { }
-        try { sessionStorage.removeItem(FORM_DRAFT_KEY); } catch (_draftClearSs) { }
+        try { localStorage.removeItem('beanthentic_client_form_draft'); } catch (_draftClear) { }
+        try { sessionStorage.removeItem('beanthentic_client_form_draft'); } catch (_draftClearSs) { }
       }
-
-      function stripNewOrderQuery() {
-        try {
-          var params = new URLSearchParams(window.location.search);
-          if (params.get('new') !== '1') return;
-          params.delete('new');
-          var q = params.toString();
-          var next = window.location.pathname + (q ? '?' + q : '') + (window.location.hash || '');
-          window.history.replaceState({}, '', next);
-        } catch (_strip) { }
-      }
-
-      function restoreFormDraft() {
-        var params = new URLSearchParams(window.location.search);
-        if (params.get('ref') || submittedRef) return;
-        var raw = readDraftStore();
-        if (!raw) return;
-        var d;
-        try {
-          d = JSON.parse(raw);
-        } catch (_draftParse) {
-          return;
-        }
-        if (!draftHasContent(d)) return;
-        restoringDraft = true;
-        try {
-          if (d.seller_type === 'admin') {
-            setSellerType('admin');
-          } else if (d.seller_type === 'farmer') {
-            setSellerType('farmer', { clearAdminName: false });
-            var fid = String(d.farmer_select || d.farmer_id || '').trim();
-            if (fid && parseInt(fid, 10) > 0) {
-              if (typeof applyFarmerContext === 'function') {
-                applyFarmerContext({
-                  farmer_id: fid,
-                  farmer_name: d.farmer_name || '',
-                  seller_type: 'farmer'
-                });
-              } else {
-                var farmerEl = document.getElementById('farmer-select');
-                if (farmerEl) {
-                  farmerEl.value = fid;
-                  onFarmerSelectChange();
-                }
-              }
-            }
-          }
-          var nameEl = document.getElementById('client-name');
-          if (nameEl && d.client_name) nameEl.value = d.client_name;
-          var phoneEl = document.getElementById('client-phone');
-          if (phoneEl && d.client_phone) phoneEl.value = d.client_phone;
-          var prod = document.getElementById('txn-product');
-          if (prod && d.product) prod.value = d.product;
-          var bean = document.getElementById('txn-bean-form');
-          if (bean && d.bean_form) {
-            bean.value = d.bean_form;
-            syncBeanFormFields(true);
-          }
-          var cls = document.getElementById('txn-classification');
-          if (cls && d.classification) cls.value = d.classification;
-          var pack = document.getElementById('txn-quantity-pack');
-          if (pack && d.quantity_pack) pack.value = d.quantity_pack;
-          var kg = document.getElementById('txn-quantity-kg');
-          if (kg && d.quantity_kg) kg.value = d.quantity_kg;
-          if (d.pickup_date) {
-            var ymd = typeof parseDisplayPickupDate === 'function' ? parseDisplayPickupDate(d.pickup_date) : null;
-            if (ymd && typeof applySelectedDateToInput === 'function') {
-              selectedDate = ymd;
-              applySelectedDateToInput(ymd);
-            } else {
-              var dateEl = document.getElementById('pickup-date');
-              if (dateEl) dateEl.value = d.pickup_date;
-            }
-          }
-          if (d.delivery_method) setDeliveryMethod(d.delivery_method, { showPopup: false });
-          if (d.payment_method) setPaymentMethod(d.payment_method, { showQr: false });
-          refreshAllTxnSelects();
-          updatePriceSummary();
-        } finally {
-          restoringDraft = false;
-        }
-      }
-
-      form.addEventListener('input', scheduleFormDraftSave);
-      form.addEventListener('change', scheduleFormDraftSave);
-      form.addEventListener('keyup', scheduleFormDraftSave);
-      document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'hidden') saveFormDraft();
-      });
-      window.addEventListener('pagehide', saveFormDraft);
-      window.addEventListener('beforeunload', saveFormDraft);
-      window.addEventListener('freeze', saveFormDraft);
 
       function packToKg(pack) {
         if (pack === '250g') return 0.25;
@@ -1360,12 +1210,15 @@
         var prevKg = preserve && kgEl ? kgEl.value : '';
 
         if (!beanForm) {
+          if (classEl) classEl.disabled = true;
           fillSelectOptions(classEl, 'Select classification', []);
           fillSelectOptions(packEl, 'Select quantity', []);
-          if (classEl) classEl.disabled = true;
           setQuantityMode('');
+          refreshTxnSelectUI(classEl);
           return;
         }
+
+        if (classEl) classEl.disabled = false;
 
         if (beanForm === 'roasted') {
           fillSelectOptions(classEl, 'Select classification', TX_ROASTED.classifications);
@@ -1378,12 +1231,11 @@
           setQuantityMode('gcb');
         }
 
-        if (classEl) {
-          classEl.disabled = false;
-          if (prevClass) classEl.value = prevClass;
-        }
+        if (classEl && prevClass) classEl.value = prevClass;
         if (packEl && beanForm === 'roasted' && prevPack) packEl.value = prevPack;
         if (kgEl && beanForm === 'gcb' && prevKg) kgEl.value = prevKg;
+        refreshTxnSelectUI(classEl);
+        refreshTxnSelectUI(packEl);
         updatePriceSummary();
       }
 
@@ -2053,7 +1905,6 @@
             farmer_name: ADMIN_SELLER_NAME,
             seller_type: 'admin'
           });
-          scheduleFormDraftSave();
           return;
         }
         var fid = farmerIdInput ? String(farmerIdInput.value || '').trim() : '';
@@ -2069,7 +1920,6 @@
             sessionStorage.removeItem(FARMER_CTX_KEY);
           } catch (_clearSeller) { }
         }
-        scheduleFormDraftSave();
       }
 
       function updateWaitingReviewCopy() {
@@ -2214,6 +2064,7 @@
         hidePendingStatusPanel();
         hideReceiptReadyCard();
         unlockFormControls();
+        document.body.classList.remove('transaction-page--submitted');
       }
 
       function hideWaitingApprovalModal() {
@@ -2317,6 +2168,7 @@
         btn.style.display = '';
         if (statusContainer) statusContainer.classList.remove('status-receipt-ready');
         hideReceiptReadyCard();
+        document.body.classList.remove('transaction-page--submitted');
         refreshAllTxnSelects();
       }
 
@@ -2544,6 +2396,14 @@
         if (body.valid_id_url) s.valid_id_url = String(body.valid_id_url).trim();
         if (body.valid_id_path) s.valid_id_path = String(body.valid_id_path).trim();
         if (body.order_selections) s.order_selections = body.order_selections;
+        if (!s.order_selections || typeof s.order_selections !== 'object') s.order_selections = {};
+        if (!s.order_selections.product && (body.product || body.coffee_variety)) {
+          s.order_selections.product = body.product || body.coffee_variety;
+        }
+        if (!s.order_selections.bean_form && body.bean_form) s.order_selections.bean_form = body.bean_form;
+        if (!s.order_selections.classification && body.classification) s.order_selections.classification = body.classification;
+        if (s.order_selections.quantity_kg == null && body.quantity_kg != null) s.order_selections.quantity_kg = body.quantity_kg;
+        if (!s.order_selections.quantity_pack && body.quantity_pack) s.order_selections.quantity_pack = body.quantity_pack;
         if (body.status) s.db_status = body.status;
         s.receipt = rc;
         return s;
@@ -2688,7 +2548,6 @@
         showStatusPanel('approved', ref, 'Your transaction was approved. Please wait while the farmer sends your receipt.');
         populateTransactionDetailsPanel(s, 'Approved');
         if (statusPanel) statusPanel.hidden = false;
-        showSubmittedOrderReadonly(s);
         btn.style.display = 'none';
         lockFormControls();
       }
@@ -2920,11 +2779,12 @@
           });
       }
 
-      function applyWaitingUI(ref) {
+      function applyWaitingUI(ref, opts) {
         hideReceiptReadyCard();
         showStatusPanel('pending', ref, updateWaitingReviewCopy());
         lockFormControls();
-        showWaitingApprovalModal(ref);
+        if (btn) btn.style.display = 'none';
+        if (!opts || opts.showModal !== false) showWaitingApprovalModal(ref);
       }
 
       function txNotifyExtra(ref, state) {
@@ -2959,6 +2819,7 @@
         s.reference_no = ref;
         s.status = 'approved';
         savePendingState(s, s.farmer_id || fidPoll);
+        applySubmittedOrderView(s);
         showApprovedTransactionPanel(ref, s);
         if (!pollTimer) ensureStatusPolling();
         if (approvedNotifiedForRef !== ref) {
@@ -3002,9 +2863,8 @@
         s.reference_no = ref;
         s.status = 'sent_to_client';
         savePendingState(s, s.farmer_id || fidPoll);
-        applyFarmerContext(s);
-        showSubmittedOrderReadonly(s);
-        clearFormDraft();
+        applySubmittedOrderView(s);
+        lockFormControls();
         showReceiptReadyCard(ref, s, 'Your payment was successful.');
         if (statusPanel) statusPanel.hidden = true;
         if (statusDetails) statusDetails.hidden = true;
@@ -3013,6 +2873,10 @@
           fillReceiptModal(s);
         });
         maybeOpenReceiptFromUrl();
+        if (receiptNotifiedForRef !== ref) {
+          receiptNotifiedForRef = ref;
+          notifyTransactionReceiptSent(ref, s);
+        }
       }
 
       function resetForOrderAgain() {
@@ -3196,63 +3060,62 @@
         if (name || fid) {
           return { farmer_id: fid, farmer_name: name };
         }
-        try {
-          var raw = sessionStorage.getItem(FARMER_CTX_KEY);
-          if (!raw) return null;
-          var parsed = JSON.parse(raw);
-          if (parsed && (parsed.farmer_name || parsed.seller_type === 'admin')) return parsed;
-        } catch (_s) { }
         return null;
       }
 
       function applyFormFromState(s) {
         if (!s) return;
-        restoringDraft = true;
-        try {
-          applyFarmerContext(s);
-          var nameEl = document.getElementById('client-name');
-          var buyer = String(s.client_name || s.buyer_name || '').trim();
-          if (nameEl && buyer) nameEl.value = buyer;
-          var phoneEl = document.getElementById('client-phone');
-          if (phoneEl && s.client_phone) phoneEl.value = String(s.client_phone).trim();
-          restoreOrderSelectionFields(s);
-          if (s.product_type || s.quantity_kg) {
-            applyOrderSummaryToForm({
-              product_type: s.product_type || '',
-              quantity_kg: s.quantity_kg || '',
-              order_selections: s.order_selections || readOrderSelections()
-            });
-          }
-          if (s.pickup_date) {
-            var ymd = typeof parseDisplayPickupDate === 'function' ? parseDisplayPickupDate(s.pickup_date) : null;
-            if (ymd && typeof applySelectedDateToInput === 'function') {
-              selectedDate = ymd;
-              applySelectedDateToInput(ymd);
-            } else {
-              var dateEl = document.getElementById('pickup-date');
-              if (dateEl) dateEl.value = s.pickup_date;
-            }
-          }
-          var delivery = String(s.delivery_method || s.transaction_type || '').trim();
-          if (delivery) setDeliveryMethod(delivery, { showPopup: false });
-          if (s.payment_method) setPaymentMethod(s.payment_method, { showQr: false });
-          if (amountInput && s.payment_amount != null && s.payment_amount !== '') {
-            amountInput.value = s.payment_amount;
-          }
-          if (orderFieldsWrap) orderFieldsWrap.hidden = false;
-          if (formFooter) formFooter.hidden = false;
-          refreshAllTxnSelects();
-          updatePriceSummary();
-        } finally {
-          restoringDraft = false;
+        applyFarmerContext(s);
+        var nameEl = document.getElementById('client-name');
+        if (nameEl && s.client_name) nameEl.value = String(s.client_name).trim();
+        var phoneEl = document.getElementById('client-phone');
+        if (phoneEl && s.client_phone) phoneEl.value = String(s.client_phone).trim();
+        var selections = s.order_selections && typeof s.order_selections === 'object'
+          ? Object.assign({}, s.order_selections)
+          : {};
+        if (!selections.product) {
+          var rawProduct = String(s.product || '').trim() || String(s.product_type || '').split('·')[0].trim();
+          if (rawProduct === 'Authentic Liberica') rawProduct = 'Liberica';
+          if (rawProduct) selections.product = rawProduct;
         }
+        if (!selections.bean_form && s.bean_form) selections.bean_form = s.bean_form;
+        if (!selections.classification && s.classification) selections.classification = s.classification;
+        restoreOrderSelectionFields(Object.assign({}, s, { order_selections: selections }));
+        if (s.product_type || s.quantity_kg) {
+          applyOrderSummaryToForm({
+            product_type: s.product_type || '',
+            quantity_kg: s.quantity_kg || '',
+            order_selections: selections
+          });
+        }
+        if (s.pickup_date && String(s.pickup_date).trim() && String(s.pickup_date).trim() !== '-') {
+          var rawDate = String(s.pickup_date).trim();
+          var ymd = typeof parseDisplayPickupDate === 'function' ? parseDisplayPickupDate(rawDate) : null;
+          if (!ymd && /^\d{4}-\d{2}-\d{2}/.test(rawDate)) ymd = rawDate.slice(0, 10);
+          if (ymd && typeof applySelectedDateToInput === 'function') {
+            selectedDate = ymd;
+            applySelectedDateToInput(ymd);
+          } else {
+            var dateEl = document.getElementById('pickup-date');
+            if (dateEl) dateEl.value = rawDate;
+          }
+        }
+        if (s.delivery_method || s.transaction_type) {
+          setDeliveryMethod(s.delivery_method || s.transaction_type, { showPopup: false });
+        }
+        if (s.payment_method) {
+          setPaymentMethod(s.payment_method, { showQr: false });
+        }
+        if (s.payment_amount != null && amountInput) {
+          amountInput.value = String(s.payment_amount);
+        }
+        refreshAllTxnSelects();
+        updatePriceSummary();
       }
 
-      function showSubmittedOrderReadonly(state) {
+      function applySubmittedOrderView(state) {
         applyFormFromState(state);
-        lockFormControls();
-        if (btn) btn.style.display = 'none';
-        refreshAllTxnSelects();
+        document.body.classList.add('transaction-page--submitted');
       }
 
       function buildStateFromForm(extra) {
@@ -3334,12 +3197,11 @@
         pollTimer = setInterval(pollApprovalStatus, 5000);
       }
 
-      function startWaitingFlow(ref, state) {
+      function startWaitingFlow(ref, state, opts) {
         suppressTxQuickGuide();
         submittedRef = ref;
-        if (state) applyFarmerContext(state);
-        showSubmittedOrderReadonly(state);
-        applyWaitingUI(ref);
+        if (state) applySubmittedOrderView(state);
+        applyWaitingUI(ref, opts);
         ensureStatusPolling();
       }
 
@@ -3359,7 +3221,7 @@
             } else if (saved.status === 'dismissed') {
               applyDismissedUI(submittedRef);
             } else {
-              startWaitingFlow(submittedRef, saved);
+              startWaitingFlow(submittedRef, saved, { showModal: false });
             }
             return;
           }
@@ -3370,24 +3232,12 @@
           } else if (body.is_dismissed) {
             applyDismissedUI(submittedRef);
           } else {
-            startWaitingFlow(submittedRef, merged);
+            startWaitingFlow(submittedRef, merged, { showModal: false });
           }
         });
       }
 
-      function loadPendingByReference(ref) {
-        var want = String(ref || '').trim();
-        if (!want) return null;
-        if (window.BeanthenticTxStorage && typeof window.BeanthenticTxStorage.readAllPendingTx === 'function') {
-          var list = window.BeanthenticTxStorage.readAllPendingTx() || [];
-          for (var i = 0; i < list.length; i++) {
-            if (list[i] && String(list[i].reference_no || '').trim() === want) return list[i];
-          }
-        }
-        var byActive = loadPendingState();
-        if (byActive && String(byActive.reference_no || '').trim() === want) return byActive;
-        return null;
-      }
+      function mergeFarmerFromUrlIntoState(saved) {
         var urlFarmer = farmerFromUrlParams();
         if (!urlFarmer) return saved;
         var next = saved ? Object.assign({}, saved) : buildStateFromForm();
@@ -3397,11 +3247,23 @@
         return next;
       }
 
+      function loadPendingByReference(ref) {
+        var want = String(ref || '').trim();
+        if (!want) return null;
+        if (window.BeanthenticTxStorage && typeof window.BeanthenticTxStorage.readAllPendingTx === 'function') {
+          var all = window.BeanthenticTxStorage.readAllPendingTx() || [];
+          for (var i = 0; i < all.length; i++) {
+            if (all[i] && String(all[i].reference_no || '').trim() === want) return all[i];
+          }
+        }
+        return null;
+      }
+
       function bootstrapTransactionFromRef(urlRef, activeFid) {
         var ctx = getActiveFarmerContext();
         var saved = loadPendingState(activeFid);
         if (!saved || String(saved.reference_no) !== urlRef) {
-          saved = buildStateFromForm({
+          saved = loadPendingByReference(urlRef) || buildStateFromForm({
             reference_no: urlRef,
             status: 'pending'
           });
@@ -3412,7 +3274,8 @@
           saved.farmer_name = ctx.farmer_name || saved.farmer_name;
         }
         submittedRef = urlRef;
-        applyFormFromState(saved);
+        applySubmittedOrderView(saved);
+        lockFormControls();
 
         return fetch(
           '/api/client-transaction/status?reference_no=' +
@@ -3423,9 +3286,9 @@
           .then(function (body) {
             if (!body || body.ok !== true) {
               savePendingState(saved, activeFid);
-              startWaitingFlow(urlRef, saved);
-          return;
-        }
+              startWaitingFlow(urlRef, saved, { showModal: false });
+              return;
+            }
             saved = mergeStatusFromApi(body, saved);
             saved.reference_no = urlRef;
             savePendingState(saved, activeFid);
@@ -3436,12 +3299,12 @@
             } else if (body.is_dismissed) {
               applyDismissedUI(urlRef);
             } else {
-              startWaitingFlow(urlRef, saved);
+              startWaitingFlow(urlRef, saved, { showModal: false });
             }
           })
           .catch(function () {
             savePendingState(saved, activeFid);
-            startWaitingFlow(urlRef, saved);
+            startWaitingFlow(urlRef, saved, { showModal: false });
           });
       }
 
@@ -3455,8 +3318,10 @@
           var paramsNew = new URLSearchParams(window.location.search);
           var urlFid = (paramsNew.get('farmer_id') || '').trim();
           var urlName = (paramsNew.get('farmer_name') || '').trim();
+          clearFormDraft();
           clearFarmerSelection();
           resetForFreshTransaction('');
+          clearTransactionFormFields();
           if (urlFid && parseInt(urlFid, 10) > 0) {
             applyFarmerContext({
               farmer_id: urlFid,
@@ -3464,6 +3329,8 @@
               seller_type: 'farmer'
             });
             focusFarmerSelect();
+          } else {
+            applySellerSourceUi('');
           }
           return;
         }
@@ -3479,10 +3346,8 @@
             restorePendingOnLoad(activeFid);
             return;
           }
-          if (ctx && ctx.farmer_id && parseInt(ctx.farmer_id, 10) > 0) {
-            applyFarmerContext(ctx);
-            return;
-          }
+          clearFormDraft();
+          clearTransactionFormFields();
           applySellerSourceUi('');
           return;
         }
@@ -3811,6 +3676,7 @@
             valid_id_url: validPath ? validIdServeUrl(validPath) : ''
           });
           savePendingState(state, pendingKey);
+          clearFormDraft();
           notifyTransactionSubmitted(submittedRef, state);
           startWaitingFlow(submittedRef, state);
         }
@@ -4131,12 +3997,8 @@
       }
 
       initTransactionFromLinkOrStorage();
-      stripNewOrderQuery();
+      clearFormDraft();
       syncFarmerSelectFromContext();
-      if (farmerSelectEl && farmerSelectEl.value && currentSellerType() !== 'admin' && (!farmerIdInput || !String(farmerIdInput.value || '').trim())) {
-        onFarmerSelectChange();
-      }
-      restoreFormDraft();
       refreshAllTxnSelects();
     });
   </script>

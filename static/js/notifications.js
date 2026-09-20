@@ -128,9 +128,10 @@
 
     const list = [...byId.values()];
     list.sort((a, b) => {
-      const da = a.datetime || a.created_at || "";
-      const db = b.datetime || b.created_at || "";
-      return db.localeCompare(da);
+      const tb = Date.parse(b.datetime || b.created_at || "") || 0;
+      const ta = Date.parse(a.datetime || a.created_at || "") || 0;
+      if (tb !== ta) return tb - ta;
+      return String(b.id || "").localeCompare(String(a.id || ""));
     });
     return list;
   }
@@ -364,6 +365,10 @@
     headRow.appendChild(title);
     headRow.appendChild(status);
 
+    const kindEl = document.createElement("span");
+    kindEl.className = "header-notif-item-kind";
+    kindEl.textContent = CATEGORY_LABELS[notif.kind] || "";
+
     const text = document.createElement("span");
     text.className = "header-notif-item-text";
     text.textContent = notif.text || "";
@@ -379,22 +384,12 @@
     timeEl.title = displayTime;
 
     body.appendChild(headRow);
+    if (kindEl.textContent) body.appendChild(kindEl);
     body.appendChild(text);
     body.appendChild(timeEl);
     card.appendChild(body);
     li.appendChild(card);
     return li;
-  }
-
-  function groupNotifications(notifs) {
-    const groups = new Map();
-    CATEGORY_ORDER.forEach((kind) => groups.set(kind, []));
-    notifs.forEach((notif) => {
-      const kind = normalizeKind(notif.kind);
-      if (!kind || !groups.has(kind)) return;
-      groups.get(kind).push(notif);
-    });
-    return groups;
   }
 
   function renderList() {
@@ -406,28 +401,7 @@
 
     listHost.innerHTML = "";
     const notifs = mergeNotifications();
-    const groups = groupNotifications(notifs);
-
-    CATEGORY_ORDER.forEach((kind) => {
-      const items = groups.get(kind) || [];
-      if (!items.length) return;
-
-      const section = document.createElement("li");
-      section.className = "header-notif-group";
-      section.setAttribute("data-notif-group", kind);
-
-      const label = document.createElement("h4");
-      label.className = "header-notif-group-label";
-      label.textContent = CATEGORY_LABELS[kind] || kind;
-
-      const sublist = document.createElement("ul");
-      sublist.className = "header-notif-group-list";
-      items.forEach((notif) => sublist.appendChild(renderListItem(notif)));
-
-      section.appendChild(label);
-      section.appendChild(sublist);
-      listHost.appendChild(section);
-    });
+    notifs.forEach((notif) => listHost.appendChild(renderListItem(notif)));
 
     const count = notifs.filter((n) => n.unread).length;
     if (badge) {
@@ -492,7 +466,7 @@
       const ref = String(referenceNo || "").trim();
       if (!ref) return false;
       const stored = loadStoredNotifs();
-      if (stored.some((n) => n && String(n.id) === "tx-approved-" + ref)) {
+      if (stored.some((n) => n && String(n.id) === "tx-receipt-" + ref)) {
         return false;
       }
       const farmer = farmerLabel(extra);
@@ -575,15 +549,56 @@
     notifyTransactionEvent(type, referenceNo, extra) {
       const ref = String(referenceNo || "").trim();
       if (!ref) return false;
-      if (type === "submitted" || type === "receipt") {
-        return false;
-      }
+      const farmer = farmerLabel(extra);
+      const txBase = loadNotifRoutes().transaction || "/transaction";
       let added = false;
+
+      if (type === "submitted") {
+        added = pushNotification({
+          id: "tx-submitted-" + ref,
+          kind: "transaction",
+          title: "Order submitted",
+          text:
+            (extra && extra.text) ||
+            "Your order was sent. Open it anytime to review the details you submitted.",
+          datetime: new Date().toISOString(),
+          href:
+            normalizeHref(txBase) +
+            "?ref=" +
+            encodeURIComponent(ref),
+          reference_no: ref,
+        });
+        if (added) {
+          showToast({
+            title: "Order submitted",
+            text: "Your order details were saved. Please wait while it is reviewed.",
+            type: "success",
+            durationMs: 5000,
+          });
+          pulseBell();
+          renderList();
+        }
+        return added;
+      }
+
+      if (type === "receipt") {
+        added = this.pushTransactionReceiptAvailable(ref, extra);
+        if (added) {
+          showToast({
+            title: "Receipt available",
+            text: "The farmer sent your receipt. You can view or download it now.",
+            type: "success",
+            durationMs: 7000,
+          });
+          pulseBell();
+        }
+        return added;
+      }
+
       if (type === "approved") {
         added = this.pushTransactionApproved(ref, extra);
       }
       if (!added) return false;
-      const farmer = farmerLabel(extra);
       showToast({
         title: (extra && extra.title) || "Transaction approved",
         text:

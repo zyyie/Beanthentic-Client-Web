@@ -1076,6 +1076,15 @@ a.header-notif-item-card:focus-visible {
   color: #8a948a;
 }
 
+.header-notif-item-kind {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7f6d;
+}
+
 .header-notif-item-text {
   margin: 0;
   font-size: 13px;
@@ -3618,6 +3627,16 @@ body.transaction-page--admin-contact .form-footer,
 body.transaction-page--admin-contact #txn-status-panel,
 body.transaction-page--admin-contact #txn-receipt-ready-card {
   display: none !important;
+}
+
+body.transaction-page--submitted .pickup-fields input,
+body.transaction-page--submitted .pickup-fields select,
+body.transaction-page--submitted .pickup-fields textarea,
+body.transaction-page--submitted .txn-select-btn,
+body.transaction-page--submitted .txn-seller-source__btn,
+body.transaction-page--submitted .txn-otp-btn,
+body.transaction-page--submitted .clickable-payment-method {
+  pointer-events: none;
 }
 
 .form-group.full-width {
